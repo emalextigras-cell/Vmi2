@@ -113,7 +113,6 @@ pre{margin:0;max-height:220px;overflow:auto;font:12px/1.4 ui-monospace,Menlo,mon
 </main>
 
 <script>
-// Enregistrement du Service Worker gérant le mode PWA/Hors-ligne
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').catch(e=>console.log('SW error:', e));
 }
@@ -166,9 +165,7 @@ async function initData(){
   $('lc').textContent=live.length;
   if(hist.length){
     ds=hist;
-    const maxT = Math.max(...hist.map(r=>r.t));
-    selectedDate = new Date(maxT).toISOString().slice(0,10);
-    $('day-picker').value = selectedDate;
+    daysSetting = 30;
   }
   render();
 }
@@ -354,7 +351,7 @@ $('fx').onchange=async e=>{
   }catch(x){err('Fichier illisible : '+x.message)}};
 
 $('ch').onclick=async()=>{if(confirm('Effacer l’historique importé ?')){hist=[];ds=[];await idbSet('vmi_hist',[]);render();}};
-$('lv').onclick=()=>{ds=live.slice();selectedDate=null;$('day-picker').value='';render();};
+$('lv').onclick=()=>{ds=live.slice();selectedDate=null;daysSetting=0;$('day-picker').value='';render();};
 
 const fd=t=>{const d=new Date(t);return d.getUTCDate()+'/'+(d.getUTCMonth()+1)};
 
