@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>VMI – Application</title>
+<!-- Lien vers le manifeste PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2f6b4f">
+<style>
+:root{--bg:#f3f5f1;--card:#fff;--ink:#1d2a22;--mut:#5d6b62;--acc:#2f6b4f;--line:#d5dcd3;--warn:#a4411f;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141a16;--card:#1d2620;--ink:#e6ede8;--mut:#9baba0;--acc:#7fcf9f;--line:#2e3a32;--warn:#f0a07f;color-scheme:dark}}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 Georgia,'Times New Roman',serif}
+main{max-width:560px;margin:0 auto;padding:16px}
+h1{font-size:1.4rem;margin:.2em 0 .1em}
+p.s{color:var(--mut);margin:0 0 14px;font-size:.92rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:12px 0}
+.big{display:flex;gap:10px;flex-wrap:wrap}
+.m{flex:1 1 120px}
+.m b{display:block;font-size:1.9rem;line-height:1.1}
+.m span{color:var(--mut);font-size:.85rem}
+button, input[type="date"]{font:inherit;padding:10px 14px;border-radius:6px;border:1px solid var(--acc);background:var(--acc);color:var(--bg);margin:4px 4px 4px 0}
+button.o, input[type="date"].o{background:transparent;color:var(--acc)}
+button:disabled{opacity:.45}
+#st{color:var(--mut);font-size:.9rem}
+#err{color:var(--warn)}
+.chart-container{position:relative}
+svg{width:100%;height:auto;display:block;margin:6px 0;cursor:crosshair}
+text{fill:var(--mut);font:10px Georgia,serif}
+.g{stroke:var(--line);stroke-width:.5}
+.tooltip{position:absolute;background:var(--ink);color:var(--bg);padding:4px 8px;font-size:11px;border-radius:4px;pointer-events:none;display:none;white-space:nowrap}
+h2{font-size:1.05rem;margin:.1em 0 .3em}
+pre{margin:0;max-height:220px;overflow:auto;font:12px/1.4 ui-monospace,Menlo,monospace;white-space:pre-wrap;word-break:break-all}
+.row-flex{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+<main>
+<h1>VMI : Application Bluetooth</h1>
+<p class="s">Ferme l’appli VMI+ avant de te connecter : la VMI n’accepte qu’une seule connexion.</p>
+
+<div class="card">
+<button id="conn">Se connecter</button><button id="disc" class="o" disabled>Déconnecter</button>
+<div id="st">Non connecté.</div><div id="err"></div>
+</div>
+
+<div class="card big">
+<div class="m"><b id="tp">–</b><span>Salon, °C</span></div>
+<div class="m"><b id="hp">–</b><span>Salon, humidité %</span></div>
+<div class="m"><b id="ti">–</b><span>Sonde 1 (résistances), °C</span></div>
+<div class="m"><b id="hi">–</b><span>Sonde 1, humidité %</span></div>
+<div class="m"><b id="t2">–</b><span>Sonde 2 (entrée d’air), °C</span></div>
+<div class="m"><b id="h2">–</b><span>Sonde 2, humidité %</span></div>
+</div>
+
+<div class="card">
+<div>Autonomie du filtre : <b id="fi">–</b> jours <span id="fb"></span></div>
+<div>Jours de fonctionnement : <b id="jf">–</b></div>
+<div>Volume à ventiler : <b id="vo">–</b> m³ · T° max soufflage : <b id="tm">–</b> °C</div>
+</div>
+
+<div class="card">
+<div>Vitesse : <b id="sp">–</b> · Boost : <b id="bo">–</b> · Vacances : <b id="ho">–</b></div>
+</div>
+
+<div class="card">
+<div>Vitesse
+<button class="o" data-r="24" data-v="0">1</button><button class="o" data-r="24" data-v="1">2</button><button class="o" data-r="24" data-v="2">3</button></div>
+<div>Boost
+<button class="o" data-r="25" data-v="1">Activer</button><button class="o" data-r="25" data-v="0">Arrêter</button></div>
+<div>Vacances
+<button class="o" data-r="26" data-v="1">Activer</button><button class="o" data-r="26" data-v="0">Arrêter</button></div>
+</div>
+
+<div class="card">
+<h2>Historique & Analyses</h2>
+<div>Importer un export VMI+ (.xlsx) : <input type="file" id="fx" accept=".xlsx,.xls"></div>
+
+<div class="row-flex" style="margin-top:10px;">
+  <b>Vue Journalière :</b>
+  <button class="o" id="btn-prev">◀</button>
+  <input type="date" id="day-picker">
+  <button class="o" id="btn-next">▶</button>
+</div>
+
+<div class="row-flex">
+  <b>Vue Globale :</b>
+  <button class="o" data-d="7">7 jours</button>
+  <button class="o" data-d="30">30 jours</button>
+  <button class="o" data-d="0">Tout</button>
+  <button class="o" id="lv">En direct</button>
+  <button class="o" id="ch">Effacer l'import</button>
+</div>
+
+<div><button id="dlh">Télécharger les lignes manquantes</button><span id="dlp" class="s"></span></div>
+<div id="hs" class="s"></div>
+<div id="c1" class="chart-container"></div>
+<div id="c2" class="chart-container"></div>
+<div id="c3" class="chart-container"></div>
+</div>
+
+<div class="card">
+<h2>Enregistrement en direct</h2>
+<div>Un relevé toutes les 5 minutes tant que la page est connectée : <b id="lc">0</b> relevés.</div>
+<button id="csv" class="o">Exporter (CSV)</button><button id="clr" class="o">Effacer</button>
+</div>
+
+<div class="card">
+<button id="cp" class="o">Copier le journal brut</button>
+<pre id="log"></pre>
+</div>
+</main>
+
+<script>
+/* Enregistrement du Service Worker pour le fonctionnement hors-ligne */
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(e=>console.log('SW error:', e));
+}
+
+const SVC_C='0003cbbb-0000-1000-8000-00805f9b0131',CH_C='0003cbb1-0000-1000-8000-00805f9b0131';
+const SVC_T='0003cab5-0000-1000-8000-00805f9b0131',CH_T='0003caa2-0000-1000-8000-00805f9b0131';
+const $=id=>document.getElementById(id);
+let dev,chC,chT,timer,sn,cur={},logLines=[],live=[],hist=[],ds=[];
+let selectedDate = null;
+let daysSetting = 30;
+let dl={on:false,rows:[],buf:'',tot:0,cut:null,got:false};
+let manualDisconnect=false, commandQueue=Promise.resolve();
+
+const dbName='VMI_DB', storeName='vmi_store';
+function openDB(){
+  return new Promise((resolve,reject)=>{
+    const req=indexedDB.open(dbName,1);
+    req.onupgradeneeded=e=>{const db=e.target.result;if(!db.objectStoreNames.contains(storeName))db.createObjectStore(storeName);};
+    req.onsuccess=e=>resolve(e.target.result);
+    req.onerror=e=>reject(e.target.error);
+  });
+}
+async function idbGet(key){
+  try{
+    const db=await openDB();
+    return new Promise((resolve,reject)=>{
+      const tx=db.transaction(storeName,'readonly');
+      const req=tx.objectStore(storeName).get(key);
+      req.onsuccess=e=>resolve(e.target.result);
+      req.onerror=e=>reject(e.target.error);
+    });
+  }catch(e){return null;}
+}
+async function idbSet(key,val){
+  try{
+    const db=await openDB();
+    return new Promise((resolve,reject)=>{
+      const tx=db.transaction(storeName,'readwrite');
+      const req=tx.objectStore(storeName).put(val,key);
+      req.onsuccess=()=>resolve();
+      req.onerror=e=>reject(e.target.error);
+    });
+  }catch(e){}
+}
+
+async function initData(){
+  live=(await idbGet('vmi_live'))||[];
+  const rawHist=(await idbGet('vmi_hist'))||[];
+  hist=rawHist.map(a=>({t:a[0],st:a[1],sh:a[2],t1:a[3],h1:a[4],te:a[5],he:a[6],rpm:a[7],fil:a[8]}));
+  $('lc').textContent=live.length;
+  if(hist.length){
+    ds=hist;
+    const maxT = Math.max(...hist.map(r=>r.t));
+    selectedDate = new Date(maxT).toISOString().slice(0,10);
+    $('day-picker').value = selectedDate;
+  }
+  render();
+}
+initData();
+
+$('day-picker').onchange = e => {
+  selectedDate = e.target.value;
+  render();
+};
+
+$('btn-prev').onclick = () => {
+  let base = selectedDate ? new Date(selectedDate) : new Date();
+  base.setDate(base.getDate() - 1);
+  selectedDate = base.toISOString().slice(0,10);
+  $('day-picker').value = selectedDate;
+  render();
+};
+
+$('btn-next').onclick = () => {
+  let base = selectedDate ? new Date(selectedDate) : new Date();
+  base.setDate(base.getDate() + 1);
+  selectedDate = base.toISOString().slice(0,10);
+  $('day-picker').value = selectedDate;
+  render();
+};
+
+document.querySelectorAll('button[data-d]').forEach(b=>b.onclick=()=>{
+  daysSetting = +b.dataset.d;
+  selectedDate = null;
+  $('day-picker').value = '';
+  render();
+});
+
+function crc(d){let c=0;for(const b of d){c^=b;for(let i=0;i<8;i++)c=(c&0x80)?(((c<<1)^1)&0xFF):((c<<1)&0xFF);}return c^0x13}
+function frame(reg,val){const d=[0xA5,0xB6,0x10,0x06,0x05,reg,0,0,0,val];return new Uint8Array([...d,crc(d)])}
+const hex=a=>[...a].map(x=>x.toString(16).padStart(2,'0')).join('');
+function log(s){logLines.push(s);if(logLines.length>300)logLines.shift();const p=$('log');p.textContent=logLines.slice(-40).join('\n');p.scrollTop=p.scrollHeight}
+function err(e){$('err').textContent=e?String(e.message||e):''}
+
+function sendQueue(reg,val){
+  commandQueue=commandQueue.then(async()=>{
+    if(!chC)return;
+    try{
+      await chC.writeValue(frame(reg,val));
+      log('> '+hex(frame(reg,val)));
+      await new Promise(r=>setTimeout(r,250));
+    }catch(e){err(e);}
+  });
+  return commandQueue;
+}
+
+function onNotif(ev){
+  const a=new Uint8Array(ev.target.value.buffer);log('< '+hex(a));
+  if(a[0]!==0xA5||a[1]!==0xB6)return;
+  const t=a[2];
+  if(t===1&&a.length>53){cur.filtre=a[28];cur.jours=a[26];cur.vol=a[22]|(a[23]<<8);cur.tmax=a[38];
+    $('fi').textContent=a[28];$('jf').textContent=a[26];$('vo').textContent=cur.vol;$('tm').textContent=a[38];
+    const n=Math.min(5,Math.floor(a[28]/365*5));$('fb').textContent='▮'.repeat(n)+'▯'.repeat(5-n);
+    cur.vit=a[34]+1;cur.boost=a[44];$('sp').textContent=cur.vit;$('bo').textContent=a[44]?'actif':'arrêté';cur.hol=a[43];$('ho').textContent=a[43]?'actif':'arrêté'}
+  else if(t===2&&a.length>13){cur.sal_t=a[11];cur.sal_h=a[13];$('tp').textContent=a[11];$('hp').textContent=a[13]}
+  else if(t===3&&a.length>13){cur.s1_t=a[6];cur.s1_h=a[8];cur.s2_t=a[11];cur.s2_h=a[13];
+    $('ti').textContent=a[6];$('hi').textContent=a[8];$('t2').textContent=a[11];$('h2').textContent=a[13]}
+  else if(t===4&&a.length>7){dl.tot=a[6]|(a[7]<<8)}
+  else if(t===0x30&&dl.on){
+    dl.got=true;
+    let e=14;while(e<a.length&&a[e]!==0)e++;
+    dl.buf+=new TextDecoder('latin1').decode(a.slice(14,e));
+    const p=dl.buf.split('\n');dl.buf=p.pop();p.forEach(dlLine);
+    if(dl.on)$('dlp').textContent=' '+dl.rows.length+' nouvelles lignes ('+(a[9]|(a[10]<<8))+' / '+(dl.tot||'?')+' lues)';
+    if(dl.on&&a[13]===1){dlLine(dl.buf);endDl(false)}}
+  else return;
+}
+
+function dlLine(l){
+  if(!dl.on||!/^\d\d\/\d\d\/\d{4} \d\d:\d\d:\d\d;/.test(l))return;
+  const f=l.split(';'),t=pdate(f[0]);if(t===null)return;
+  if(dl.cut!==null&&t<=dl.cut){endDl(true);return}
+  dl.rows.push(f)}
+
+function endDl(cut){
+  if(!dl.on)return;dl.on=false;
+  const n=dl.rows.length;ingest(dl.rows,0);
+  $('dlp').textContent=' terminé : '+n+' nouvelles lignes'+(cut?' (historique à jour)':dl.cut!==null?' (attention : trou possible avant la dernière ligne mémorisée)':'');
+  $('dlh').disabled=false;
+  if(cut&&dev&&dev.gatt&&dev.gatt.connected)dev.gatt.disconnect()}
+
+$('dlh').onclick=async()=>{
+  if(!chC){err('Connecte-toi d’abord à la VMI.');return}
+  err('');dl={on:true,rows:[],buf:'',tot:0,got:false,cut:hist.length?hist[hist.length-1].t:null};$('dlh').disabled=true;$('dlp').textContent=' démarrage…';
+  await sendQueue(0x2c,0);await sendQueue(0x20,0);await sendQueue(0x22,0);
+  setTimeout(()=>{if(dl.on&&!dl.got){dl.on=false;$('dlh').disabled=false;$('dlp').textContent=' pas de réponse de la VMI';}},20000)};
+
+async function poll(){if(dl.on)return;for(const r of [3,6,7]){await sendQueue(r,0);}}
+
+async function connectBLE(){
+  manualDisconnect=false;
+  err('');
+  try{
+    dev=await navigator.bluetooth.requestDevice({acceptAllDevices:true,optionalServices:[SVC_C,SVC_T]});
+    dev.addEventListener('gattserverdisconnected',onDisconnect);
+    $('st').textContent='Connexion à '+(dev.name||'appareil')+'…';
+    const s=await dev.gatt.connect();
+    chC=await (await s.getPrimaryService(SVC_C)).getCharacteristic(CH_C);
+    chT=await (await s.getPrimaryService(SVC_T)).getCharacteristic(CH_T);
+    await chT.startNotifications();chT.addEventListener('characteristicvaluechanged',onNotif);
+    try{await chC.startNotifications();chC.addEventListener('characteristicvaluechanged',onNotif)}catch(e){}
+    $('st').textContent='Connecté à '+(dev.name||'appareil')+'.';$('conn').disabled=true;$('disc').disabled=false;
+    poll();timer=setInterval(poll,10000);setTimeout(snap,15000);sn=setInterval(snap,300000);
+  }catch(e){err(e);$('st').textContent='Connexion impossible.';}
+}
+
+function onDisconnect(){
+  clearInterval(timer);clearInterval(sn);
+  $('st').textContent='Déconnecté.';$('conn').disabled=false;$('disc').disabled=true;
+  if(!manualDisconnect && dev){
+    $('st').textContent='Connexion perdue, reconnexion...';
+    setTimeout(attemptReconnect,3000);
+  }
+}
+
+async function attemptReconnect(){
+  if(manualDisconnect || !dev)return;
+  try{
+    const s=await dev.gatt.connect();
+    chC=await (await s.getPrimaryService(SVC_C)).getCharacteristic(CH_C);
+    chT=await (await s.getPrimaryService(SVC_T)).getCharacteristic(CH_T);
+    await chT.startNotifications();chT.addEventListener('characteristicvaluechanged',onNotif);
+    try{await chC.startNotifications();chC.addEventListener('characteristicvaluechanged',onNotif)}catch(e){}
+    $('st').textContent='Reconnecté à '+(dev.name||'appareil')+'.';$('conn').disabled=true;$('disc').disabled=false;
+    poll();timer=setInterval(poll,10000);sn=setInterval(snap,300000);
+  }catch(e){setTimeout(attemptReconnect,5000);}
+}
+
+$('conn').onclick=connectBLE;
+$('disc').onclick=()=>{
+  manualDisconnect=true;
+  clearInterval(timer);clearInterval(sn);
+  if(dev&&dev.gatt.connected)dev.gatt.disconnect();
+};
+
+document.querySelectorAll('button[data-r]').forEach(b=>b.onclick=async()=>{if(chC){await sendQueue(+b.dataset.r,+b.dataset.v);setTimeout(poll,500)}});
+
+function snap(){
+  if(cur.sal_t===undefined)return;
+  live.push({t:Date.now(),st:cur.sal_t,sh:cur.sal_h,t1:cur.s1_t,h1:cur.s1_h,te:cur.s2_t,he:cur.s2_h,fil:cur.filtre,vit:cur.vit,boost:cur.boost,hol:cur.hol});
+  if(live.length>5000)live.splice(0,live.length-5000);
+  idbSet('vmi_live',live);
+  $('lc').textContent=live.length;
+}
+
+$('csv').onclick=()=>{
+  const k=['t','st','sh','t1','h1','te','he','fil','vit','boost','hol'];
+  const csv=[k.join(',')].concat(live.map(r=>k.map(x=>x==='t'?new Date(r.t).toISOString():(r[x]??'')).join(','))).join('\n');
+  const u=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));const a=document.createElement('a');a.href=u;a.download='vmi-enregistrement.csv';a.click();
+};
+
+$('clr').onclick=async()=>{
+  if(confirm('Effacer l’enregistrement en direct ?')){
+    live=[];await idbSet('vmi_live',[]);$('lc').textContent=0;
+  }
+};
+
+const num=v=>{if(typeof v==='number')return v;if(typeof v!=='string')return null;const x=parseFloat(v.replace(',','.'));return isNaN(x)?null:x};
+function pdate(v){
+  if(typeof v==='number'&&v>30000){const c=XLSX.SSF.parse_date_code(v);return Date.UTC(c.y,c.d-1,c.m,c.H,c.M,Math.round(c.S))}
+  if(typeof v==='string'){const m=v.match(/^(\d\d)\/(\d\d)\/(\d{4})[ T](\d\d):(\d\d):(\d\d)/);if(m)return Date.UTC(+m[3],+m[2]-1,+m[1],+m[4],+m[5],+m[6])}
+  return null}
+
+function ingest(rows,s0){
+  const m=new Map(hist.map(r=>[r.t,r]));
+  for(let i=s0===undefined?4:s0;i<rows.length;i++){const r=rows[i],t=pdate(r[0]);if(t===null)continue;
+    m.set(t,{t,st:num(r[117]),sh:num(r[118]),t1:num(r[40]),h1:num(r[41]),te:num(r[43]),he:num(r[44]),rpm:num(r[25]),fil:num(r[20])})}
+  hist=[...m.values()].sort((a,b)=>a.t-b.t);
+  idbSet('vmi_hist',hist.map(r=>[r.t,r.st,r.sh,r.t1,r.h1,r.te,r.he,r.rpm,r.fil]));
+  ds=hist;render();
+}
+
+$('fx').onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;err('');
+  try{
+    const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
+    ingest(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:true,defval:''}));
+  }catch(x){err('Fichier illisible : '+x.message)}};
+
+$('ch').onclick=async()=>{if(confirm('Effacer l’historique importé ?')){hist=[];ds=[];await idbSet('vmi_hist',[]);render();}};
+$('lv').onclick=()=>{ds=live.slice();selectedDate=null;$('day-picker').value='';render();};
+
+const fd=t=>{const d=new Date(t);return d.getUTCDate()+'/'+(d.getUTCMonth()+1)};
+
+function chart(id,title,series){
+  const el=$(id),all=series.flatMap(s=>s.p);
+  el.innerHTML='';
+  if(!all.length)return;
+  const W=360,H=170,L=36,R=8,T=22,B=20;
+
+  let activeSeries = series;
+  let x0, x1, isDaily = false;
+
+  if(selectedDate){
+    isDaily = true;
+    const dayStart = Date.parse(selectedDate + 'T00:00:00Z');
+    const dayEnd = dayStart + 86400000;
+    activeSeries = series.map(s=>({
+      n: s.n, c: s.c,
+      p: s.p.filter(pt => pt[0] >= dayStart && pt[0] < dayEnd)
+    }));
+    x0 = dayStart;
+    x1 = dayEnd;
+  } else {
+    const last = all.map(p=>p[0]).reduce((a,b)=>Math.max(a,b));
+    const filteredSeries = daysSetting ? series.map(s=>({
+      n: s.n, c: s.c,
+      p: s.p.filter(pt => pt[0] >= last - daysSetting * 864e5)
+    })) : series;
+    
+    activeSeries = filteredSeries;
+    const activeAll = activeSeries.flatMap(s=>s.p);
+    if(!activeAll.length) return;
+    const xs = activeAll.map(p=>p[0]);
+    x0 = Math.min(...xs);
+    x1 = Math.max(...xs);
+  }
+
+  const activeAll = activeSeries.flatMap(s=>s.p);
+  if(!activeAll.length){
+    el.innerHTML='<div><b>'+title+'</b></div><div class="s" style="padding:15px;text-align:center;">Aucune donnée sur cette période</div>';
+    return;
+  }
+
+  const ys = activeAll.map(p=>p[1]);
+  let y0=Math.min(...ys),y1=Math.max(...ys);
+  if(y0===y1){y0-=1;y1+=1}const pd=(y1-y0)*.08;y0-=pd;y1+=pd;
+
+  const X=t=>L+(t-x0)/((x1-x0)||1)*(W-L-R), Y=v=>T+(1-(v-y0)/(y1-y0))*(H-T-B);
+
+  let g='';
+  for(let i=0;i<=2;i++){const v=y0+(y1-y0)*i/2,y=Y(v);g+='<line class="g" x1="'+L+'" x2="'+(W-R)+'" y1="'+y+'" y2="'+y+'"/><text x="2" y="'+(y+3)+'">'+(Math.abs(v)>=100?v.toFixed(0):v.toFixed(1))+'</text>'}
+
+  if(isDaily){
+    for(let h=0; h<=24; h+=3){
+      const hTime = x0 + h * 3600000;
+      const xPos = X(hTime);
+      g+='<line class="g" x1="'+xPos+'" x2="'+xPos+'" y1="'+T+'" y2="'+(H-B)+'"/>';
+    }
+  }
+
+  let leg='',lx=L;
+  activeSeries.forEach(s=>{
+    if(!s.p.length)return;
+    const st = isDaily ? 1 : Math.ceil(s.p.length/400);
+    const d=s.p.filter((_,i)=>i%st===0).map((p,i)=>(i?'L':'M')+X(p[0]).toFixed(1)+' '+Y(p[1]).toFixed(1)).join('');
+    g+='<path d="'+d+'" fill="none" stroke="'+s.c+'" stroke-width="1.4"/>';
+    leg+='<text x="'+lx+'" y="12" style="fill:'+s.c+'">'+s.n+'</text>';lx+=s.n.length*5.4+14;
+  });
+
+  if(isDaily){
+    g+='<text x="'+L+'" y="'+(H-4)+'">00h</text>';
+    g+='<text x="'+X(x0+12*3600000)+'" y="'+(H-4)+'" text-anchor="middle">12h</text>';
+    g+='<text x="'+(W-R)+'" y="'+(H-4)+'" text-anchor="end">24h</text>';
+  } else {
+    g+='<text x="'+L+'" y="'+(H-4)+'">'+fd(x0)+'</text><text x="'+(W-R)+'" y="'+(H-4)+'" text-anchor="end">'+fd(x1)+'</text>';
+  }
+
+  el.innerHTML='<div><b>'+title+(isDaily?' ('+selectedDate+')':'')+'</b></div><svg viewBox="0 0 '+W+' '+H+'">'+leg+g+'</svg><div class="tooltip"></div>';
+
+  const svg=el.querySelector('svg'), tip=el.querySelector('.tooltip');
+  svg.onmousemove=e=>{
+    const rect=svg.getBoundingClientRect();
+    const xPos=(e.clientX-rect.left)*(W/rect.width);
+    const tVal=x0+(xPos-L)/(W-L-R)*(x1-x0);
+    let validPts=activeSeries.flatMap(s=>s.p);
+    if(!validPts.length)return;
+    let closest=validPts.reduce((prev,curr)=>Math.abs(curr[0]-tVal)<Math.abs(prev[0]-tVal)?curr:prev);
+
+    let timeStr = isDaily ? new Date(closest[0]).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : new Date(closest[0]).toLocaleString();
+    let txt = timeStr+' : ';
+    activeSeries.forEach(s=>{
+      let pt=s.p.find(p=>p[0]===closest[0]);
+      if(pt)txt+=s.n+'='+pt[1]+' ';
+    });
+    tip.style.display='block';
+    tip.style.left=(e.clientX-rect.left+10)+'px';
+    tip.style.top=(e.clientY-rect.top-25)+'px';
+    tip.textContent=txt;
+  };
+  svg.onmouseleave=()=>tip.style.display='none';
+}
+
+function render(){
+  if(!ds.length){$('hs').textContent='Aucune donnée.';['c1','c2','c3'].forEach(i=>$(i).innerHTML='');return}
+  $('hs').textContent=ds.length+' relevés en mémoire'+(selectedDate?' (Vue journalière : '+selectedDate+')':' (Vue globale : '+(daysSetting?daysSetting+' jours':'Tout')+')');
+  chart('c1','Humidité (%)',[S('sh','Salon','#2f6b4f'),S('h1','Sonde 1','#c0652b'),S('he','Entrée d’air','#3b6fb5')]);
+  chart('c2','Température (°C)',[S('st','Salon','#2f6b4f'),S('t1','Sonde 1','#c0652b'),S('te','Entrée d’air','#3b6fb5')]);
+  chart('c3','Ventilateur (tr/min)',[S('rpm','Régime','#2f6b4f')])
+}
+
+const S=(k,n,c)=>({n,c,p:ds.filter(r=>r[k]!=null).map(r=>[r.t,r[k]])});
+
+$('cp').onclick=()=>navigator.clipboard.writeText(logLines.join('\n')).then(()=>err('Journal copié.'),e=>err(e));
+if(!navigator.bluetooth)err('Web Bluetooth indisponible : ouvre cette page directement dans Chrome sur Android.');
+</script>
+</body>
+</html>
