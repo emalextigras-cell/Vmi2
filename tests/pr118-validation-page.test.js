@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 test('la page de validation PR118 est accessible depuis l’application', async () => {
-  const html = await readFile(new URL('./tests/validation-pr118.html', import.meta.url), 'utf8');
+  const html = await readFile(new URL('./validation-pr118.html', import.meta.url), 'utf8');
   const index = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   assert.match(index, /href="tests/validation-pr118\.html">Test PR #118/);
   assert.match(html, /validation-pr118\.js/);
@@ -14,7 +14,8 @@ test('la page de validation PR118 est accessible depuis l’application', async 
 
 test('la page et son script sont préchargés par le service worker', async () => {
   const sw = await readFile(new URL('../sw.js', import.meta.url), 'utf8');
-  assert.ok(sw.includes("'./validation-pr118.html'"));
+  assert.ok(sw.includes("'./tests/validation-pr118.html'"));
   assert.ok(sw.includes("'./tests/validation-pr118.js'"));
+  assert.ok(sw.includes("'./tests/test-environment.css'"));
   assert.match(sw, /vmi-test-v14-cache-39/);
 });
