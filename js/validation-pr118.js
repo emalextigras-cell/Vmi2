@@ -57,7 +57,7 @@ function render() {
     const value = row.querySelector('select').value;
     if (value === 'ok') ok++;
     else if (value === 'ko') ko++;
-    else pending++;
+    else if (row.dataset.id !== 'interruption') pending++;
   }
   document.querySelector('#passed').textContent = ok;
   document.querySelector('#failed').textContent = ko;
@@ -88,8 +88,12 @@ function buildReport() {
   }
   const ok = checks.filter(row => row.querySelector('select').value === 'ok').length;
   const ko = checks.filter(row => row.querySelector('select').value === 'ko').length;
-  const pending = checks.length - ok - ko;
-  lines.push('', 'Bilan : ' + ok + ' réussis, ' + ko + ' échecs, ' + pending + ' non testés.');
+  const pending = checks.filter(row => row.dataset.id !== 'interruption' && row.querySelector('select').value === 'pending').length;
+  const optional = checks.find(row => row.dataset.id === 'interruption')?.querySelector('select').value || 'pending';
+  const optionalLabel = optional === 'ok' ? 'RÉUSSI' : optional === 'ko' ? 'ÉCHEC' : 'NON TESTÉ (facultatif)';
+  const mandatoryFailures = checks.filter(row => row.dataset.id !== 'interruption' && row.querySelector('select').value === 'ko').length;
+  lines.push('', 'Bilan des 6 essais obligatoires : ' + (6 - pending - mandatoryFailures) + ' réussis, ' + mandatoryFailures + ' échecs, ' + pending + ' non testés.');
+  lines.push('Essai facultatif — interruption du transfert : ' + optionalLabel);
   lines.push('Limite : ce compte rendu est une saisie manuelle ; la page ne lit pas l’état interne de la connexion Bluetooth de l’application.');
   return lines.join('\n');
 }

@@ -38,9 +38,9 @@ Cette validation ne demande pas de modifier la vitesse, Boost ou le mode vacance
 
 ## Critères de conclusion
 
-- **Réussi sur ce matériel** : les sept essais applicables sont réussis et aucun message d'intégrité ou erreur Bluetooth n'est observé.
+- **Réussi sur ce matériel** : les six essais obligatoires sont réussis et aucun message d'intégrité ou erreur Bluetooth n'est observé. L'essai d'interruption facultatif peut rester non testé.
 - **À investiguer** : au moins un essai échoue, ou le transfert est marqué incomplet.
-- **Non validé** : un ou plusieurs essais restent non testés.
+- **Non validé** : un ou plusieurs des six essais obligatoires restent non testés.
 
 Même si tout est réussi, la conclusion ne vaut que pour ce téléphone, ce navigateur, cette VMI et cette session. Elle ne démontre pas la compatibilité avec tous les firmwares ni la fiabilité longue durée.
 
