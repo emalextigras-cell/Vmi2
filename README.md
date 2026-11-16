@@ -297,3 +297,15 @@ Le moteur Bluetooth est progressivement isolé en modules testables :
 - Le service worker précharge les modules Bluetooth et son cache est incrémenté à chaque évolution de ces ressources.
 
 Les tests unitaires couvrent les offsets de décodage, les trames historiques, les écritures ordonnées, les déconnexions et la reprise après échec. Ces tests logiciels ne remplacent pas un essai sur la VMI réelle. Les commandes de vitesse, Boost, vacances, les registres interrogés et la mise à l'heure ne sont pas modifiés ni déclarés validés par cette évolution.
+
+
+## Fichiers réservés à l'environnement de test Vmi2
+
+Les éléments suivants sont propres au dépôt de test et ne doivent pas être transférés dans `Vmi-modulaire` :
+
+- `tests/validation-pr118.html` et `tests/validation-pr118.js` : page et logique de validation manuelle Bluetooth ;
+- `tests/test-environment.css` : style de la bannière identifiant l'environnement de test ;
+- `tests/*.test.js` : tests automatisés Node.js ;
+- la bannière et le lien « Test PR #118 » dans `index.html`, qui signalent explicitement que cette copie est un laboratoire.
+
+Les fichiers de validation restent accessibles depuis le menu de Vmi2, mais sont rangés sous `tests/`. Le code métier de l'application n'est pas modifié par ce rangement.

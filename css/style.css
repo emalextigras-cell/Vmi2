@@ -121,7 +121,3 @@ section[id],details[id]{scroll-margin-top:62px}
 @media(max-width:420px){.assistant-heading .pill{font-size:.68rem}}
 
 
-/* Identification explicite de l’environnement de test */
-.test-banner{display:block;margin:0 0 12px;padding:10px 12px;border:2px solid #a54b25;border-radius:9px;background:#fff0e8;color:#762d12;text-align:center;font-size:.9rem;font-weight:800;letter-spacing:.045em}
-:root[data-theme="dark"] .test-banner{background:#3a241b;color:#ffd0b8;border-color:#f0a17f}
-@media (prefers-color-scheme:dark){:root:not([data-theme]) .test-banner{background:#3a241b;color:#ffd0b8;border-color:#f0a17f}}
