@@ -101,6 +101,12 @@ Le CSV fourni contient 800 lignes :
 
 Le parseur garde volontairement `Mode` et `Vitesse` séparés. Il ne faut pas transformer les codes bruts `Vitesse` en niveaux manuels 1/2/3 : les valeurs observées ne donnent pas une correspondance univoque. Les périodes des modes 1 et 2 se chevauchent peu ; la comparaison actuelle ne constitue donc pas un essai contrôlé et ne permet pas de désigner une meilleure vitesse. Le troisième niveau manuel n'est pas documenté dans cet export.
 
+### Limites des sauvegardes et doublons CSV
+
+Le parseur de la version 13 fournie conserve les températures, humidités, régime et filtre, mais ne conserve pas les champs `Mode`, `Vitesse` et `Debit` dans ses enregistrements historiques. Les deux sauvegardes JSON fournies ne contiennent pas `vmiModeRaw` ; la plus récente contient `vmiSpeedRaw` et `debit` sur 795 relevés, mais pas le niveau manuel annoté. Elles ne suffisent donc pas, seules, pour comparer proprement les trois niveaux manuels. Le CSV original reste la source utile pour le champ `Mode`.
+
+Le CSV contient cinq groupes d'horodatages répétés (six lignes supplémentaires). Les valeurs hygrométriques de ces doublons sont identiques, mais certains régimes moteur diffèrent. Lors d'une fusion par horodatage, une ligne peut remplacer l'autre : cela ne change pas les comparaisons d'humidité de ces groupes, mais peut affecter une statistique de régime moteur.
+
 ## 4. Ce que la capture Bluetooth confirme
 
 La capture BTSnoop contient 4 333 enregistrements HCI. Elle confirme deux canaux GATT :
