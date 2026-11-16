@@ -1,7 +1,7 @@
-const CACHE_NAME = 'vmi-test-v14-cache-37';
+const CACHE_NAME = 'vmi-test-v14-cache-38';
 const CACHE_PREFIX = 'vmi-test-';
 const APP_SHELL = [
-  './','./index.html','./manifest.json','./css/style.css','./js/app.js',
+  './','./index.html','./validation-pr118.html','./js/validation-pr118.js','./manifest.json','./css/style.css','./js/app.js',
   './js/modules/core.js','./js/modules/store.js','./js/modules/analysis.js',
   './js/modules/charts.js','./js/modules/ble.js','./js/modules/sync.js',
   './js/modules/dataio.js','./js/modules/clock-correction.js',
