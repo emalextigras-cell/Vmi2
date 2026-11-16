@@ -1,0 +1,25 @@
+name: Tests JavaScript
+
+on:
+  push:
+    branches:
+      - work/modularisation-phase-1
+      - audit/bluetooth-hardening
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  node-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Vérifier la syntaxe de l’application
+        run: node --check js/app.js
+      - name: Exécuter les tests
+        run: npm test
