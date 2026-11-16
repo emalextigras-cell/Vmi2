@@ -1,0 +1,299 @@
+# VMI Purevent — version 14 modulaire
+
+Copie de travail indépendante du dépôt source `emalextigras-cell/Vmi`. Le dépôt d'origine reste intact.
+
+## Organisation des fichiers
+
+- `index.html` : structure et composants de l'interface.
+- `css/style.css` : styles, affichage mobile et thèmes.
+- `js/app.js` : orchestration de l'application, stockage, historique, import/export et événements.
+- `js/modules/bluetooth-protocol.js` : UUID, CRC et construction des trames Bluetooth VMI.
+- `js/modules/bluetooth-decoder.js` : décodage pur des notifications VMI, avec conservation des offsets historiques.
+- `js/modules/bluetooth-write-queue.js` : file d'écriture BLE séquentielle, gestion des erreurs et délai historique.
+- `js/modules/bluetooth-session.js` : exécution de séquences BLE uniquement dans la session de connexion qui les a démarrées.
+- `js/modules/psychrometry.js` : humidité absolue, point de rosée et indicateurs hygrométriques.
+- `js/modules/analysis.js` : tendances temporelles, comparaison descriptive des niveaux manuels et inventaire des champs énergétiques bruts.
+- `js/modules/diagnostic-confidence.js` : explication de la robustesse des données du diagnostic (couverture, relevés retenus et répartition quotidienne), distincte de l'état physique de la VMI.
+- `js/modules/assistant-summary.js` : assistant local qui rassemble les résultats hygrométriques, thermiques, saisonniers, débit, vitesses et énergie déjà calculés, puis formule des conseils pédagogiques et hiérarchisés sans piloter la VMI.
+- Comparaison horaire du diagnostic : médiane des médianes journalières sur les mêmes dates, chaque journée ayant le même poids indépendamment du nombre de relevés.
+- Une date ne participe à cette comparaison que si chaque créneau comporte au moins 3 relevés ce jour-là.
+- Si aucune comparaison horaire n'est possible, le diagnostic indique la cause : nombre de créneaux exploitables, jours communs ou minimum de relevés par jour.
+- `buildHygrometricDiagnosis()` dans `analysis.js` : diagnostic hygrométrique explicable, avec un indicateur heuristique de couverture des données, des constats argumentés et des limites explicites.
+- `js/modules/legacy-migration.js` : conversion des anciennes lignes historiques, sans modifier le schéma IndexedDB.
+- `js/modules/date-utils.js` : dates, normalisation et constantes partagées.
+- `js/modules/chart-renderer.js` : graphiques SVG, gestion des courbes et infobulles tactiles.
+- `manifest.json` : configuration de l'application installable.
+- `sw.js` : service worker et cache des ressources.
+
+## Matériel installé — référence issue du devis
+
+Le devis d'installation fourni identifie le caisson comme **VMI Purevent Vision'R** (marque VMI, modèle indiqué « purevent »). Les caractéristiques explicitement inscrites au devis sont :
+
+- Débit maximal annoncé : **350 m³/h**.
+- Puissance maximale du moteur annoncée : **169 W**.
+- Puissance maximale de chauffage électrique : **1 800 W**.
+- Alimentation : **230 V – 50 Hz monophasé**.
+- Installation décrite : prise d'air en toiture et insufflation par deux bouches.
+
+Ces valeurs décrivent les caractéristiques annoncées au devis ; elles ne sont pas des mesures de fonctionnement de l'installation.
+
+### Précaution sur la courbe de puissance logicielle
+
+Le module energy-estimate.js utilise une courbe de puissance PUREVENT issue de la notice référencée dans l'interface (points de 50 à 350 m³/h, jusqu'à 99 W au point 350 m³/h / 195 Pa). Cette courbe est une **estimation de puissance du ventilateur par interpolation**, pas une mesure électrique. Le devis annonce par ailleurs 169 W de puissance moteur maximale. Le dépôt ne démontre pas que ces deux chiffres décrivent exactement le même périmètre ou les mêmes conditions d'essai : ils sont donc conservés comme références distinctes et ne doivent pas être assimilés.
+
+Le modèle Vision'R est documenté à partir du devis, mais les éléments disponibles ne permettent pas d'affirmer que chaque point de la courbe de la notice correspond aux conditions réelles de cette installation.
+
+## Déploiement GitHub Pages
+
+Dans **Settings → Pages**, sélectionner la branche `main` et le dossier `/(root)`. Ouvrir ensuite l'adresse HTTPS dans Chrome sur Android pour utiliser Web Bluetooth.
+
+Fermer VMI+ avant de se connecter : la VMI n'accepte qu'une seule connexion simultanée.
+
+## Assistant intelligent VMI
+
+Le panneau « Assistant intelligent VMI » synthétise les modules d'analyse existants dans un langage accessible : qualité et couverture des données, humidité absolue, tendances, comparaisons horaires et par vitesse, débit et renouvellement théorique, opportunités saisonnières, estimation du ventilateur et index de compteurs externes. Les détails et critères restent consultables dans l'application.
+
+Il s'agit d'un moteur local à règles explicables, sans API distante ni transfert de données. Il ne s'agit pas d'un modèle génératif : il ne crée pas de résultats absents des calculs. Il ne commande jamais la VMI et ne désigne pas automatiquement une vitesse optimale. Les mesures réelles, estimations et données brutes non documentées restent distinguées.
+
+## Sécurité et limites
+
+- Les changements de vitesse, boost et mode vacances restent manuels.
+- Les commandes sont envoyées séquentiellement et leur état est vérifié par retour de la VMI.
+- Aucun pilotage automatique par IA n'est activé.
+- Les données sont conservées localement dans IndexedDB.
+- Les indicateurs hygrométriques sont indicatifs. La valeur « Debit » exportée par VMI+ correspond au débit d'air en m³/h.
+- Les comparaisons de niveaux manuels utilisent exclusivement le champ d'annotation `Mode` (`vmiModeRaw`) (1/2/3). Le champ historique `vit` et le code `Vitesse` VMI+ restent des données brutes et ne sont jamais assimilés à un niveau manuel. Les exports CSV VMI+ ne fournissent pas, à eux seuls, cette annotation.
+- Le régime moteur est présenté en tr/min lorsqu'il est disponible. Le champ `Debit` exporté par VMI+ est le débit d'air en m³/h (unité confirmée par l'utilisateur). PWM et Cons DP restent des valeurs brutes dont la signification et l'unité ne sont pas confirmées.
+- L'application ne calcule aucune consommation électrique mesurée ni optimum énergétique réel. L'estimation du ventilateur reste indicative et repose sur le débit exporté en m³/h.
+
+## Tests locaux
+
+- Installer une version récente de Node.js.
+- Lancer `npm test` pour exécuter les tests de conversion des exports VMI+.
+- Les tests vérifient la lecture des colonnes `Vitesse` et `Debit` du CSV, conservent les valeurs brutes et isolent les calculs de comparaison des trois vitesses manuelles.
+
+## Vérifications à effectuer sur la VMI réelle
+
+1. Connexion et déconnexion Bluetooth.
+2. Mesures en direct et état de la VMI.
+3. Téléchargement de l'historique depuis la VMI.
+4. Import d'un export CSV ou XLSX VMI+.
+5. Graphiques et comparaison des vitesses.
+6. Export CSV, sauvegarde JSON et restauration.
+
+Les analyses des niveaux manuels sont descriptives et n'utilisent que la valeur du champ `Mode` (`vmiModeRaw`) de l'export VMI+, sans déduction à partir du champ `Vitesse`. Les champs `vit` et `vmiSpeedRaw` ne sont jamais utilisés pour identifier les niveaux 1/2/3. Les comparaisons horaires regroupent les relevés par tranches locales de six heures ; elles exigent au moins cinq relevés par niveau, deux jours distincts et au moins deux jours calendaires communs entre au moins deux niveaux dans la même tranche. Si le champ `Mode` est absent, l'analyse reste indisponible plutôt que de déduire les niveaux à partir de `Vitesse`. Même lorsque les critères d'effectif sont atteints, la comparaison ne contrôle pas la météo, l'occupation ni les apports d'humidité et ne désigne pas une vitesse optimale.
+7. Commandes manuelles, en vérifiant leur effet réel sur la VMI.
+
+La version modulaire doit être validée sur l'appareil avant de remplacer l'application utilisée au quotidien.
+
+
+## Organisation JavaScript (v13)
+
+Le point d'entrée reste `js/app.js`. Les responsabilités sont réparties dans les modules :
+
+- `core.js` : utilitaires communs et version de l'application.
+- `analysis.js` : statistiques et médianes.
+- `store.js` : persistance IndexedDB.
+- `charts.js` : point d'entrée du rendu graphique.
+- `ble.js` : protocole et trames Bluetooth (UUID, CRC, commandes).
+- `sync.js` : temporisation du téléchargement de l'historique.
+- `dataio.js` : lecture des dates et conversion des lignes CSV/tableur.
+- `app.js` : orchestration de l'interface et coordination des modules.
+
+Les modules historiques `date-utils.js`, `psychrometry.js`, `bluetooth-protocol.js` et `chart-renderer.js` sont conservés pour limiter les changements et préserver les calculs et le protocole de la v13.
+
+## Diagnostic hygrométrique explicable
+
+Le moteur croise les mesures simultanées du salon et de l'air entrant : humidité absolue, point de rosée calculé, périodes où l'air entrant est plus sec ou plus humide, tendances journalières et profils horaires. Il restitue des constats accompagnés de leurs mesures justificatives, de pistes d'action et d'un indicateur heuristique de couverture lié au volume, à la durée et à la répartition des données.
+
+Le diagnostic dédoublonne les horodatages, écarte les mesures hors limites et ne prolonge pas les intervalles de plus de deux heures. Il affiche aussi l'intervalle médian entre relevés acceptés, le nombre de trous exclus et le plus grand trou, sans supposer une fréquence d'échantillonnage théorique. Il ne déduit pas le débit réel, la consommation électrique, une panne ou une vitesse optimale. Le point de rosée de l'air n'est pas une température de paroi et ne suffit pas à conclure à un risque de condensation.
+
+Ce moteur est une première couche de diagnostic déterministe et explicable ; ce n'est pas encore un modèle d'apprentissage automatique ni un pilotage automatique.
+
+
+## Précautions de déploiement et données locales
+
+- Le cache du service worker utilise le préfixe `vmi-modulaire-` et son activation ne supprime que les caches portant ce préfixe. Elle ne doit donc pas effacer le cache de l'application historique `/Vmi/` hébergée sur le même domaine.
+- La préversion conserve volontairement la base IndexedDB `VMI_PUREVENT_DB_TEST`. Elle ne lit pas et ne modifie pas la base de production `VMI_PUREVENT_DB`. La migration des données de la v13 vers une future version de production reste à concevoir et valider explicitement ; aucune migration automatique de la base de production n'est effectuée.
+- Le CSV VMI+ est désormais lu par un parseur natif : l'import CSV fonctionne sans télécharger SheetJS. La bibliothèque SheetJS reste réservée aux fichiers XLS/XLSX.
+- Les durées hygrométriques sont réparties au franchissement interpolé des seuils, en supposant une évolution linéaire entre deux mesures acceptées. Ce calcul reste une estimation et les intervalles supérieurs à deux heures sont exclus.
+- Les comparaisons par tranche horaire exigent au moins deux jours calendaires communs entre au moins deux niveaux manuels. Cela ne corrige pas les différences de météo, d'occupation ou d'intensité des apports d'humidité.
+- Les bornes d'une journée locale utilisent le calendrier local plutôt qu'une durée fixe de 24 heures, afin de respecter les journées de 23 ou 25 heures lors des changements d'heure.
+
+## Phase 10 — préparation de l'analyse énergétique
+
+L'import CSV conserve désormais séparément les champs énergétiques ou de fonctionnement supplémentaires de VMI+ : `Cons Res`, `Cons HydroR`, `Cons TMax` (seuil de température extérieure en °C, sens confirmé par l’utilisateur), `Kmoteur`, `Jmoteur`, `Kreseau`, `Jreseau`, `Pression Moteur`, `Offset Press`, `% fonct`, `% fonct.1` et `Dcint`. À l’exception de Cons TMax, dont le sens est confirmé comme seuil de température extérieure en °C, les autres champs sont affichés dans l'inventaire avec leurs valeurs min/max et leur effectif, sans leur attribuer de signification ni d'unité non documentée. L'inventaire distingue aussi les zéros des valeurs absentes ou non numériques, pour éviter de confondre une valeur nulle avec une mesure manquante. Les deux colonnes exportées sous le même en-tête `% fonct` sont distinguées par leur occurrence dans l'en-tête, afin de ne pas confondre leurs valeurs.
+
+Le régime moteur reste exprimé en tr/min selon les confirmations disponibles. Le champ `Debit` de l'export VMI+ correspond au débit d'air exprimé en m³/h, conformément à la confirmation de l'utilisateur. L'en-tête CSV ne répète pas l'unité, mais cela ne remet pas en cause cette confirmation. Les valeurs PWM, Cons DP et les autres champs dont le sens n’est pas confirmé restent bruts. Aucun calcul de watts, kWh, coût, consommation ou rendement n'est effectué tant qu'une mesure électrique et sa définition ne sont pas vérifiées. Des tests dédiés vérifient la conservation des champs et l'absence d'interprétation énergétique abusive.
+
+
+### Examen de la capture Bluetooth et de l'export VMI+ (novembre 2026)
+
+L'examen statique du fichier btsnoop fourni et de l'export CSV associé apporte les observations suivantes, sans modifier le protocole ni envoyer de commande à la VMI :
+
+- La capture btsnoop est structurellement lisible : 4 333 paquets HCI complets. Le flux contient 1 892 notifications ATT et 43 requêtes d'écriture ATT.
+- La caractéristique de notification principale observée utilise le handle ATT `0x000E` (1 890 notifications). Le handle `0x0013` porte les écritures applicatives observées (39 requêtes) ; les handles `0x000F` et `0x0015` reçoivent les écritures d'activation des notifications. Ces handles sont propres à cette capture et ne remplacent pas les UUID GATT utilisés par l'application.
+- 1 880 notifications contiennent une trame applicative de type `0x30`, correspondant dans le code V13 au transfert de lignes d'historique. Le flux reconstitué contient 370 relevés horodatés. La capture est donc principalement un transfert d'historique ; elle ne constitue pas une série longue de mesures en direct.
+- Les trames de données directes de types `0x01`, `0x02` et `0x03` ne sont présentes qu'une fois chacune dans cette capture. Cela ne suffit pas à valider statistiquement toutes les positions d'octets ni toutes les transitions d'état.
+- L'historique transféré comporte des dates récentes et des dates anciennes (jusqu'en 2018), tandis que le compteur de jours de fonctionnement évolue. Le mécanisme de correction d'horloge déjà présent dans V13 doit donc être conservé ; aucune correction nouvelle n'est déduite de cette seule capture.
+- Dans le CSV associé (800 lignes), `Debit` prend 7 valeurs distinctes et `Cons Dp` leur correspond une à une dans cet échantillon (corrélation de rang de Spearman = 1). Cela établit une relation observée, pas la signification physique de `Cons Dp` ni son unité.
+- Détail vérifié sur les 800 lignes : les couples observés sont exactement `Debit`/`Cons Dp` = 50/17, 74/39, 84/51, 121/112, 124/118, 151/180 et 193/303, sans autre couple dans cet export. `Cons Dp` ne fournit donc pas d'information numérique indépendante de `Debit` dans cet échantillon. Il reste interdit de l'interpréter comme une pression différentielle ou de lui attribuer une unité sans preuve supplémentaire.
+- Le CSV fourni (800 lignes de données) est un export distinct de la capture btsnoop : les dates et périodes ne sont pas identiques. Les rapprochements entre les deux fichiers portent donc sur la structure et le format des données, pas sur une synchronisation point par point.
+- `PWM (1/1000)` et `Tachy (rpm)` évoluent ensemble (Spearman = 0,88) ; `Pression Moteur` est également corrélée au régime (0,85). Ces corrélations peuvent décrire un état de fonctionnement commun, mais ne prouvent ni l'unité de pression, ni une mesure électrique, ni une relation causale.
+- `Kmoteur`, `Jmoteur`, `Kreseau`, `Jreseau`, `Cons HydroR`, `Cons TMax`, `Offset Press`, `% fonct.1` et `Dcint` sont constants sur les 800 lignes. `Cons Res` vaut 4 sur 740 lignes et 12 sur 60. Ces observations ne permettent pas de savoir si les champs `Cons ...` désignent des consignes, des consommations ou autre chose.
+- Conclusion : la capture confirme l'organisation générale du transport BLE et le format du flux d'historique, mais ne fournit pas de preuve suffisante pour convertir `Cons Dp`, `Pression Moteur`, `PWM` ou les compteurs en unités physiques. Aucun W, kWh, Pa ou rendement ne doit être calculé à partir de ces seuls champs.
+
+Ces résultats sont documentaires et logiciels uniquement : aucun essai matériel, changement de vitesse, test de commande ou validation Bluetooth sur Android n'a été effectué.
+
+### Analyse complémentaire des champs moteur et résistance (CSV VMI+ fourni)
+
+Les statistiques ci-dessous ont été recalculées sur les 800 lignes de l'export fourni. Elles décrivent cet export précis et ne constituent pas une spécification constructeur.
+
+- `Pression Moteur` varie de 0 à 31,3 et présente 89 valeurs distinctes. Elle évolue fortement avec `Tachy (rpm)` (corrélation de Pearson = 0,964 ; Spearman = 0,849) et avec `PWM (1/1000)` (Pearson = 0,943 ; Spearman = 0,736). Cela suggère que ces champs décrivent des aspects liés du fonctionnement moteur. Cela ne confirme ni que `Pression Moteur` est une pression physique, ni son unité, ni la position du capteur.
+- `PWM (1/1000)` varie de 159 à 522 (139 valeurs distinctes) et `Tachy (rpm)` de 618 à 2 144 tr/min (250 valeurs distinctes). Leur corrélation est élevée (Pearson = 0,978 ; Spearman = 0,882). Le libellé PWM et l'échelle écrite dans l'en-tête sont conservés comme tels ; aucune conversion en pourcentage, tension ou puissance n'est faite.
+- Par palier de débit, les médianes de `Pression Moteur`, PWM et régime augmentent globalement, mais les plages se chevauchent largement. Ces variables ne permettent donc pas, seules, de reconstruire un débit fiable ni d'identifier une consigne exacte.
+- `Cons Res` est placé sous la rubrique `Resistance` dans l'en-tête VMI+ et prend les valeurs 4 (740 lignes) et 12 (60 lignes). La valeur 12 apparaît surtout avec le code brut `Vitesse` 3 (58 lignes) et 5 (2 lignes). Le nom et la rubrique rendent plausible une consigne liée à la résistance, mais cette interprétation n'est pas confirmée. Ce champ ne doit pas être traité comme une consommation électrique.
+- `Kmoteur`, `Jmoteur`, `Kreseau` et `Jreseau` sont respectivement constants à 4225, 47, 1268 et 99 sur les 800 lignes. Comme ils ne varient pas dans cet export, il est impossible d'établir s'il s'agit de compteurs, de paramètres, d'identifiants ou de valeurs figées. Aucun calcul d'énergie ou de durée ne doit en être tiré.
+- `Offset Press` vaut constamment 10,2. Il pourrait s'agir d'un paramètre de correction associé à une mesure de pression, mais le fichier seul ne permet pas de le confirmer ni de savoir s'il faut l'ajouter ou le soustraire.
+- La première colonne `% fonct` vaut 0 dans 743 lignes et varie de 0 à 16 sur l'ensemble. La seconde colonne `% fonct` vaut toujours 0. La sémantique et l'échelle restent à confirmer ; les deux colonnes doivent rester séparées.
+
+### Ce que le code V13 reçoit et conserve
+
+Dans le fichier V13 fourni, les trames directes de type 1, 2 et 3 sont décodées à des positions d'octets explicites. Le traitement de la trame de type 1 conserve notamment l'état filtre, les jours, le volume, la température maximale, le code de vitesse brut, le boost et le mode vacances. Les trames de type 2 et 3 portent les mesures de température et d'humidité des capteurs. Le code V13 fourni ne décode pas depuis ces trames directes les champs `Pression Moteur`, PWM ou `Cons Res`.
+
+Le téléchargement d'historique, lui, transporte des lignes textuelles séparées par des points-virgules. Le parseur historique du fichier V13 fourni ne conservait qu'un sous-ensemble des colonnes pour les graphiques et l'historique. Le module `js/modules/dataio.js` du dépôt modulaire conserve désormais séparément les champs bruts identifiés, dont pression moteur, PWM, Cons Res, compteurs, offset et pourcentages. Cela évite de perdre ces valeurs lors de l'import ; cela ne leur attribue pas pour autant une signification physique.
+
+**Décision pour la suite :** conserver `Pression Moteur`, PWM, `Cons Res`, les compteurs et les pourcentages comme variables brutes de diagnostic. Les utiliser éventuellement pour repérer des changements de comportement ou des anomalies relatives à une référence propre à la VMI, après validation de la qualité et de la stabilité des données. Ne pas les convertir en Pa, W, kWh, coût ou rendement et ne pas déclencher de commande sur leur base.
+
+
+
+### Référence descriptive du fonctionnement par mode VMI+
+
+L'interface construit désormais, à partir de l'historique affiché, un profil par valeur du champ `Mode`: effectifs, jours couverts, médianes et plages observées du débit d'air `Debit` en m³/h, du régime moteur et des champs bruts PWM, Pression moteur et Cons DP. Le code `Vitesse` reste strictement séparé et n'est jamais utilisé comme substitut du mode. Cette référence décrit uniquement les données importées ; elle ne qualifie pas un état de normal ou anormal et ne détecte pas encore de panne. Une comparaison entre plusieurs périodes nécessitera plusieurs exports distincts et comparables. Deux tests vérifient la séparation Mode/Vitesse et l'absence de conversion des champs bruts.
+
+
+## Séparation des données directes et des analyses
+
+- L'enregistrement direct Bluetooth est facultatif : il dépend de la proximité du téléphone avec la VMI et de la connexion. Son absence, son interruption ou ses trous ne signifient pas que la VMI est arrêtée ou en panne.
+- Les relevés directs sont conservés dans leur espace local distinct et servent uniquement à afficher les graphiques et le comportement observé pendant les périodes où l'utilisateur choisit de se connecter.
+- Toutes les analyses, références de fonctionnement, comparaisons temporelles et aides au diagnostic utilisent exclusivement l'historique importé depuis VMI+ ou téléchargé depuis la VMI.
+- Les données directes ne sont jamais fusionnées automatiquement avec l'historique et ne peuvent pas modifier une référence historique.
+- L'interface indique explicitement la source des graphiques et rappelle que les analyses reposent sur l'historique, même lorsque l'affichage des graphiques est basculé sur l'enregistrement direct.
+- Si aucun historique exploitable n'est disponible, l'application doit signaler le manque de données historiques plutôt que de produire un diagnostic à partir du seul enregistrement direct.
+
+## Comparaison de l'évolution du fonctionnement
+- Une nouvelle lecture compare deux périodes calendaires successives de 7 jours, en conservant le même champ `Mode` (`vmiModeRaw`) et la même tranche horaire locale de 6 heures.
+- Chaque période doit contenir au moins 12 relevés répartis sur au moins 3 jours distincts pour le même Mode et la même tranche horaire.
+- Les médianes du débit exporté (m³/h) et du régime moteur (tr/min confirmé) sont comparées. PWM et Pression moteur sont présentés uniquement comme valeurs brutes, avec unité non confirmée.
+- Les écarts absolus et relatifs sont descriptifs. Aucun seuil ne déclenche un diagnostic automatique de filtre encrassé ou de panne.
+- Les comparaisons ne neutralisent pas les changements de météo, d'occupation, de réglage, d'entretien ou d'installation. Elles servent à repérer une évolution à examiner, pas à en établir la cause.
+- Les données sans champ `Mode` exploitable, ou sans couverture suffisante sur les deux périodes, ne sont pas comparées. Les champs `Vitesse`, `vit` et `vmiSpeedRaw` ne servent jamais à identifier un niveau manuel.
+
+
+### Consigne de température extérieure — Cons TMax
+
+Le champ `Cons TMax` de l’export VMI+ est interprété comme le seuil de température extérieure configuré dans VMI+ (en °C), selon la confirmation de l’utilisateur : lorsque la température extérieure dépasse ce seuil, la VMI réduit sa ventilation. Le parseur conserve séparément cette consigne (`consTmaxRaw`) et la température extérieure mesurée (`tExt`, colonne `Tempext`). L’analyse présente les relevés au-dessus et au seuil ou en dessous, avec des médianes de débit et de régime séparées par mode manuel déclaré. Elle reste descriptive : elle ne prouve pas à elle seule que la régulation est la cause d’une baisse de débit et ne déclenche aucune commande.
+
+
+## Phase 11 — suivi électrique mesuré par compteur externe
+
+L'application permet d'enregistrer des index cumulés en kWh lus sur un compteur externe, séparément pour :
+- la ventilation, si elle dispose d'un compteur dédié ;
+- le préchauffage, si celui-ci dispose d'un compteur dédié ;
+- le total VMI, si un seul compteur global est disponible.
+
+L'énergie consommée entre deux index successifs d'un même compteur est calculée par différence. La puissance moyenne sur l'intervalle est calculée à partir de cette énergie et de la durée écoulée. Ce n'est pas une puissance instantanée. Les compteurs restent séparés : un compteur global ne permet pas d'isoler le préchauffage et ne doit pas être additionné aux sous-compteurs.
+
+Une baisse d'index est signalée comme une remise à zéro ou un changement de compteur ; aucun delta n'est calculé sur cet intervalle. Les index sont conservés dans IndexedDB et inclus dans les sauvegardes JSON. Les anciennes sauvegardes v13 sans index électriques restent restaurables.
+
+Aucun kWh n'est déduit de `Cons Res`, `Cons HydroR`, du PWM, du débit ou des courbes constructeur. Aucune commande Bluetooth ni régulation automatique n'est modifiée.
+
+## Phase 12 — bilans mensuels des compteurs électriques
+
+Les intervalles mesurés sont regroupés par mois civil uniquement lorsque les deux index encadrant l'intervalle appartiennent au même mois. Un intervalle traversant une limite de mois reste inclus dans le total global, mais il est exclu des totaux mensuels et signalé séparément. Aucune répartition au prorata ni estimation de consommation journalière ou mensuelle n'est effectuée.
+
+Les totaux mensuels correspondent donc aux intervalles réellement mesurés dans le mois ; ils ne garantissent pas une couverture complète du mois. Les compteurs ventilation, préchauffage et total restent séparés.
+
+
+## Phase 13 — distinguer variation ponctuelle et tendance hygrométrique durable
+
+Le diagnostic ne qualifie plus une simple différence entre le premier et le dernier jour comme une tendance. Il compare la médiane d'humidité absolue intérieure des trois premiers jours suffisamment échantillonnés à celle des trois derniers jours suffisamment échantillonnés, sur deux fenêtres non chevauchantes. Chaque journée a le même poids et doit contenir au moins trois relevés valides.
+
+Une hausse ou une baisse durable n'est signalée que si l'écart atteint le seuil configuré (0,8 g/m³ par défaut) et si au moins deux des trois jours de la fenêtre récente vont dans le même sens par rapport à la médiane initiale. Avec moins de six jours exploitables, le diagnostic indique que la tendance reste à confirmer. Une variation isolée est explicitement distinguée d'une tendance persistante.
+
+Cette analyse décrit l'évolution de l'humidité absolue intérieure ; elle n'identifie pas la cause, ne démontre pas l'efficacité de la VMI et ne déclenche aucune commande. Elle ne modifie ni les seuils de pilotage, ni les données, ni le protocole Bluetooth.
+
+
+## Phase 14 — continuité calendaire des tendances hygrométriques
+
+Six jours échantillonnés ne suffisent pas à eux seuls à qualifier une tendance durable s'ils sont trop éloignés dans le calendrier. Chaque fenêtre de trois jours échantillonnés doit tenir dans une période de quatre jours calendaires maximum, et les deux fenêtres doivent couvrir ensemble quatorze jours calendaires maximum. Si ces conditions ne sont pas réunies, le diagnostic explique que les relevés sont trop espacés et ne signale pas de hausse ou baisse durable.
+
+Ces bornes encadrent l'interprétation temporelle ; elles ne constituent ni un seuil de fonctionnement de la VMI ni une preuve de causalité.
+
+
+## Phase 15 — rendre les fenêtres de tendance vérifiables
+
+Lorsqu'une hausse ou une baisse durable est signalée, les preuves détaillées affichent désormais les dates de début et de fin de chacune des deux fenêtres comparées, leur étendue calendaire, l'étendue totale, ainsi que les deux médianes d'humidité absolue. L'utilisateur peut ainsi vérifier quelles journées soutiennent le constat, sans devoir déduire les périodes à partir des seules dates extrêmes.
+
+Cette évolution améliore la traçabilité du diagnostic ; elle ne change aucun calcul, seuil ou comportement de la VMI.
+
+
+## Phase 16 — détail des médianes journalières comparées
+
+Les preuves d'une tendance durable détaillent maintenant, pour chacune des deux fenêtres, la médiane d'humidité absolue de chaque journée retenue et le nombre de relevés qui la composent. L'utilisateur peut vérifier les trois valeurs journalières derrière chaque médiane de fenêtre et repérer immédiatement une journée atypique ou moins documentée.
+
+Les valeurs restent des médianes journalières descriptives. Aucun relevé n'est ajouté, pondéré artificiellement ou interprété comme une cause.
+
+
+## Phase 17 — expliquer les critères temporels du diagnostic
+
+Le panneau « Méthode et seuils utilisés » précise les critères nécessaires à une tendance durable : six jours exploitables minimum, deux fenêtres de trois jours, quatre jours calendaires maximum par fenêtre et quatorze jours maximum pour l'ensemble comparé. Ces critères sont affichés à côté du seuil hygrométrique afin que l'utilisateur comprenne pourquoi une évolution peut rester non concluante.
+
+
+## Phase 18 — contexte de l'air entrant pour les tendances intérieures
+
+Les preuves d'une tendance d'humidité absolue intérieure affichent aussi, sur les mêmes deux fenêtres, les médianes journalières agrégées de l'humidité absolue de l'air entrant et de l'écart salon − air entrant. Cela permet de replacer l'évolution intérieure dans le contexte hygrométrique extérieur mesuré par la sonde d'entrée.
+
+Ces indicateurs restent descriptifs : ils ne démontrent pas que l'air entrant cause l'évolution intérieure, ni que la VMI a produit un effet donné. Aucun ajustement automatique n'est effectué.
+
+
+## Phase 19 — contexte température et humidité relative des tendances
+
+Les preuves des tendances d'humidité absolue présentent également les médianes d'humidité relative et de température intérieure sur les deux fenêtres comparées. Cela permet de distinguer les grandeurs observées : une variation d'humidité relative peut accompagner une variation de température sans que l'humidité absolue évolue dans la même proportion.
+
+Ces valeurs sont affichées comme contexte descriptif ; aucune transformation en diagnostic de condensation, de paroi froide ou de cause n'est effectuée.
+
+
+## Phase 20 — écarts entre les deux contextes hygrométriques
+
+Les preuves détaillées quantifient aussi l'évolution entre fenêtres de l'humidité absolue de l'air entrant et de l'écart salon − air entrant. Ces différences permettent de voir si le contexte de l'air entrant et l'écart intérieur/entrant évoluent dans le même sens ou non.
+
+Il s'agit d'une comparaison descriptive de médianes ; elle ne démontre aucune relation causale ni l'efficacité de la ventilation.
+
+
+## Phase 21 — résumé contextuel visible des tendances
+
+Lorsqu'une hausse ou une baisse durable est signalée, le texte principal rappelle aussi les médianes de l'humidité absolue entrante et de l'écart salon − air entrant sur les fenêtres comparées. La réserve d'absence de lien causal est affichée dans le texte lui-même, sans obliger à ouvrir les preuves détaillées.
+
+Le résumé ne transforme pas ces concomitances en explication de la cause.
+
+## Maintenance sans changement fonctionnel
+
+Les règles de maintenance prudente et les contrôles statiques du dépôt sont décrits dans [docs/maintenance-sans-changement-fonctionnel.md](docs/maintenance-sans-changement-fonctionnel.md). Les contrôles sont exécutés avec `npm test`.
+
+
+## Durcissement Bluetooth — branche audit
+
+Le moteur Bluetooth est progressivement isolé en modules testables :
+
+- `bluetooth-protocol.js` reste la source des UUID, du CRC et des trames sortantes. Aucun octet ni registre n'a été modifié.
+- `bluetooth-decoder.js` extrait le décodage des notifications dans une fonction pure. Les offsets, longueurs minimales et valeurs brutes reprennent exactement le traitement existant ; les champs inconnus ne sont pas réinterprétés.
+- `bluetooth-write-queue.js` centralise les écritures et les sérialise. Il conserve la priorité à `writeValueWithResponse`, le repli historique et le délai de 350 ms. La session et la connexion sont revérifiées après l'accusé d'écriture et après le délai ; une confirmation tardive ou une coupure pendant l'attente ne valide pas la commande ni la suite de la séquence. Un échec est signalé et n'empêche pas la file de traiter une opération ultérieure.
+- `bluetooth-session.js` empêche une séquence de synchronisation de continuer après une déconnexion ou un changement de session ; les données partielles reçues sont conservées sans être marquées comme synchronisation terminée.
+- `bluetooth-history-stream.js` contrôle l'ordre des fragments d'historique à partir de l'index de ligne et de l'index de fragment observés dans la capture BLE. Les fragments identiques répétés sont ignorés ; un trou, un désordre, un index invalide ou une notification tronquée condamne la ligne concernée et invalide la certification de synchronisation, ce qui empêche la mise à jour de `lastSync`. Les lignes suivantes peuvent être conservées, mais restent marquées partielles tant que le transfert entier n'est pas certifié. Le parseur conserve l'interprétation historique de l'octet 13 comme indicateur de fin ; la capture fournie ne contient toutefois aucune valeur 1 et ne valide donc pas cette sémantique.
+- Les scrutations, notifications, temporisations de snapshot et reconnexions sont rattachées à leur session : les événements tardifs d'une ancienne connexion sont ignorés et une scrutation ne peut pas reprendre sur une nouvelle session.
+- Le sélecteur Bluetooth manuel ne peut pas être ouvert plusieurs fois simultanément. Un choix manuel effectué pendant une auto-connexion en attente prend la priorité ; le résultat tardif de l'auto-connexion est ignoré.
+- `app.js` conserve la gestion de connexion, les commandes, la synchronisation et l'interface ; il délègue désormais le décodage et les écritures à ces modules.
+- Le service worker précharge les modules Bluetooth et son cache est incrémenté à chaque évolution de ces ressources.
+
+Les tests unitaires couvrent les offsets de décodage, les trames historiques, les écritures ordonnées, les déconnexions et la reprise après échec. Ces tests logiciels ne remplacent pas un essai sur la VMI réelle. Les commandes de vitesse, Boost, vacances, les registres interrogés et la mise à l'heure ne sont pas modifiés ni déclarés validés par cette évolution.

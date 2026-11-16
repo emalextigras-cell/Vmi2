@@ -1,0 +1,208 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  isPlausibleHumidity,
+  isPlausibleTemperature,
+  summarizeDataQuality,
+  detectTransientSensorSpikes,
+  isPlaceholderSensorRecord
+} from '../js/modules/data-quality.js';
+
+test('les humidités hors de 0 à 100 % sont signalées', () => {
+  assert.equal(isPlausibleHumidity(58), true);
+  assert.equal(isPlausibleHumidity(589.4), false);
+  assert.equal(isPlausibleHumidity(-1), false);
+  assert.equal(isPlausibleHumidity(null), true);
+});
+
+test('les températures hors des bornes de capteur sont signalées', () => {
+  assert.equal(isPlausibleTemperature(20), true);
+  assert.equal(isPlausibleTemperature(269.4), false);
+  assert.equal(isPlausibleTemperature(-45), false);
+  assert.equal(isPlausibleTemperature(null), true);
+});
+
+test('le bilan compte les relevés anormaux sans modifier les données', () => {
+  const rows = [
+    { sh: 55, st: 20, he: 60, te: 12 },
+    { sh: 589.4, st: 269.4, he: 50, te: 10 },
+    { sh: 48, st: 19, he: 52, te: 11 }
+  ];
+  const before = JSON.stringify(rows);
+  const result = summarizeDataQuality(rows);
+  assert.equal(result.total, 3);
+  assert.equal(result.affectedRecords, 1);
+  assert.equal(result.hasAnomalies, true);
+  assert.deepEqual(result.fields.map(field => field.key), ['sh', 'st']);
+  assert.equal(JSON.stringify(rows), before);
+});
+
+test('aucune anomalie pour un historique sans valeur aberrante', () => {
+  const result = summarizeDataQuality([{ sh: 55, st: 20, he: 60, te: 12 }]);
+  assert.equal(result.hasAnomalies, false);
+  assert.equal(result.affectedRecords, 0);
+  assert.deepEqual(result.fields, []);
+});
+
+test('analyseSpeedLevels ignore les humidités et températures aberrantes', async () => {
+  const { analyzeSpeedLevels } = await import('../js/modules/analysis.js');
+  const rows = [
+    { vmiModeRaw: 1, vit: 99, sh: 50, st: 20, te: 10, he: 60 },
+    { vmiModeRaw: 1, vit: 99, sh: 589.4, st: 20, te: 10, he: 60 },
+    { vmiModeRaw: 1, vit: 99, sh: 50, st: 269.4, te: 10, he: 60 }
+  ];
+  const result = analyzeSpeedLevels(rows, 1, 55);
+  assert.equal(result.sampleCount, 1);
+  assert.equal(result.groups[0].n, 1);
+});
+
+test('les valeurs extrêmes compatibles avec un défaut de capteur sont rejetées', () => {
+  // Les exports fournis restent entre 1,4 et 28,4 °C.
+  // La plage élargie garde une marge pour l'air extérieur froid et chaud.
+  assert.equal(isPlausibleTemperature(28.4), true);
+  assert.equal(isPlausibleTemperature(0), true);
+  assert.equal(isPlausibleTemperature(-15), true);
+  assert.equal(isPlausibleTemperature(79), false);
+  assert.equal(isPlausibleTemperature(-35), false);
+});
+
+test('un pic de température à 79 °C est compté comme anomalie', () => {
+  const result = summarizeDataQuality([
+    { st: 19.7, sh: 62 },
+    { st: 79, sh: 62 },
+    { st: 17.6, sh: 63 }
+  ]);
+  assert.equal(result.affectedRecords, 1);
+  assert.deepEqual(result.fields.map(field => field.key), ['st']);
+});
+
+
+test('le contrôle qualité distingue les mesures absentes des valeurs aberrantes', () => {
+  const result = summarizeDataQuality([
+    { sh: 55, st: 20, he: 60, te: 12 },
+    { sh: 48, st: 19, he: null, te: 11 },
+    { sh: 589.4, st: 18, he: 52, te: 10 },
+    { sh: 51, st: 21 }
+  ]);
+  assert.equal(result.total, 4);
+  assert.equal(result.completeHygrometricRecords, 2);
+  assert.equal(result.incompleteHygrometricRecords, 2);
+  assert.equal(result.hygrometricCoveragePercent, 50);
+  assert.equal(result.fieldCoverage.find(field => field.key === 'he').missingCount, 2);
+  assert.equal(result.fieldCoverage.find(field => field.key === 'sh').invalidCount, 1);
+  assert.equal(result.affectedRecords, 1);
+  assert.equal(result.hasAnomalies, true);
+});
+
+test('un historique vide ne produit ni couverture ni anomalie', () => {
+  const result = summarizeDataQuality([]);
+  assert.equal(result.total, 0);
+  assert.equal(result.completeHygrometricRecords, 0);
+  assert.equal(result.hygrometricCoveragePercent, 0);
+  assert.equal(result.hasAnomalies, false);
+});
+
+
+test('un pic isolé de température suivi d’un retour au niveau initial est signalé à vérifier', () => {
+  const start = 1_800_000_000_000;
+  const result = detectTransientSensorSpikes([
+    { t: start, st: 20 },
+    { t: start + 5 * 60_000, st: 36 },
+    { t: start + 10 * 60_000, st: 21 }
+  ]);
+  assert.equal(result.count, 1);
+  assert.equal(result.candidates[0].key, 'st');
+  assert.equal(result.candidates[0].value, 36);
+  assert.equal(result.candidates[0].unit, '°C');
+});
+
+test('un pic isolé d’humidité est signalé sans être qualifié de panne', () => {
+  const start = 1_800_000_000_000;
+  const result = detectTransientSensorSpikes([
+    { t: start, sh: 50 },
+    { t: start + 5 * 60_000, sh: 85 },
+    { t: start + 10 * 60_000, sh: 52 }
+  ]);
+  assert.equal(result.count, 1);
+  assert.equal(result.candidates[0].key, 'sh');
+  assert.equal(result.candidates[0].unit, '%');
+});
+
+test('les changements durables, les trous horaires et les mesures invalides ne sont pas signalés comme pics isolés', () => {
+  const start = 1_800_000_000_000;
+  const result = detectTransientSensorSpikes([
+    { t: start, st: 20, sh: 50 },
+    { t: start + 5 * 60_000, st: 36, sh: 85 },
+    { t: start + 10 * 60_000, st: 36, sh: 85 },
+    { t: start + 60 * 60_000, st: 20, sh: 50 },
+    { t: start + 65 * 60_000, st: 80, sh: 150 },
+    { t: start + 70 * 60_000, st: 20, sh: 50 }
+  ]);
+  assert.equal(result.count, 0);
+});
+
+test('un historique non horodaté ne produit aucun pic temporel', () => {
+  const result = detectTransientSensorSpikes([{ st: 20 }, { st: 40 }, { st: 20 }]);
+  assert.equal(result.count, 0);
+});
+
+
+test('la fenêtre temporelle des pics accepte une valeur personnalisée finie', () => {
+  const start = 1_800_000_000_000;
+  const rows = [
+    { t: start, st: 20 },
+    { t: start + 5 * 60_000, st: 36 },
+    { t: start + 10 * 60_000, st: 21 }
+  ];
+  assert.equal(detectTransientSensorSpikes(rows, { maxGapMinutes: 5 }).count, 1);
+  assert.equal(detectTransientSensorSpikes(rows, { maxGapMinutes: 4.9 }).count, 0);
+});
+
+test('la fenêtre temporelle des pics refuse les paramètres négatifs ou non finis', () => {
+  const rows = [];
+  for (const maxGapMinutes of [-1, NaN, Infinity, -Infinity, Number.MAX_VALUE]) {
+    assert.throws(
+      () => detectTransientSensorSpikes(rows, { maxGapMinutes }),
+      RangeError
+    );
+  }
+});
+
+test('une fenêtre temporelle nulle est acceptée sans détecter de pic', () => {
+  const start = 1_800_000_000_000;
+  const rows = [
+    { t: start, st: 20 },
+    { t: start + 1, st: 36 },
+    { t: start + 2, st: 21 }
+  ];
+  const result = detectTransientSensorSpikes(rows, { maxGapMinutes: 0 });
+  assert.equal(result.count, 0);
+  assert.equal(result.maxGapMinutes, 0);
+});
+
+test('une option nulle conserve la fenêtre temporelle par défaut', () => {
+  const result = detectTransientSensorSpikes([], null);
+  assert.equal(result.maxGapMinutes, 30);
+});
+
+
+test('une trame simultanée 20 °C / 50 % sur les trois sondes est identifiée', () => {
+  const placeholder = { st: 20, sh: 50, t1: 20, h1: 50, te: 20, he: 50 };
+  const real = { st: 20, sh: 50, t1: 13, h1: 96, te: 13, he: 97 };
+  assert.equal(isPlaceholderSensorRecord(placeholder), true);
+  assert.equal(isPlaceholderSensorRecord(real), false);
+  assert.equal(isPlaceholderSensorRecord({ ...placeholder, sh: 51 }), false);
+});
+
+test('les trames de remplacement sont exclues de la couverture complète sans effacer les données', () => {
+  const placeholder = { st: 20, sh: 50, t1: 20, h1: 50, te: 20, he: 50 };
+  const real = { st: 19, sh: 60, t1: 14, h1: 80, te: 14, he: 81 };
+  const rows = [real, placeholder];
+  const before = JSON.stringify(rows);
+  const result = summarizeDataQuality(rows);
+  assert.equal(result.total, 2);
+  assert.equal(result.placeholderRecords, 1);
+  assert.equal(result.affectedRecords, 1);
+  assert.equal(result.completeHygrometricRecords, 1);
+  assert.equal(JSON.stringify(rows), before);
+});

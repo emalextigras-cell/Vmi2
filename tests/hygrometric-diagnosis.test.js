@@ -1,0 +1,489 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { buildHygrometricDiagnosis, analyzeHygrometricPeriods } from '../js/modules/analysis.js';
+import { absoluteHumidity } from '../js/modules/psychrometry.js';
+
+function makeRows({days=3,perDay=10,indoorRH=65,incomingRH=40,indoorTemp=20,incomingTemp=10}={}) {
+  const rows=[];
+  for(let d=0;d<days;d++){
+    for(let i=0;i<perDay;i++){
+      rows.push({
+        t:new Date(2026,10,10+d,7, i*30,0).getTime(),
+        st:indoorTemp,sh:indoorRH,te:incomingTemp,he:incomingRH
+      });
+    }
+  }
+  return rows;
+}
+function makeHourlyRows(groups) {
+ const rows=[];
+ for(const group of groups){
+  const {day,hour}=group;
+  for(let i=0;i<6;i++){
+   rows.push({
+    t:new Date(2026,10,10+day,hour, i*30,0).getTime(),
+    st:20,sh:group.indoorRH??65,te:10,he:group.incomingRH??40
+   });
+  }
+ }
+ return rows;
+}
+
+function makeUnevenHourlyRows(groups) {
+ const rows=[];
+ for(const group of groups){
+  for(let i=0;i<group.count;i++){
+   rows.push({
+    t:new Date(2026,10,10+group.day,group.hour, i*(60/group.count),0).getTime(),
+    st:20,sh:65,te:10,he:group.incomingRH
+   });
+  }
+ }
+ return rows;
+}
+
+
+test('diagnostic exposes its thresholds and the measured basis of each finding',()=>{
+ const result=buildHygrometricDiagnosis(makeRows());
+ assert.deepEqual(result.methodology,{
+  version:'hygrometric-diagnostic-v7',
+  dryDeltaThreshold:1,
+  trendDeltaThreshold:0.8,
+  trendMinimumDailySamples:3,
+  trendMinimumDays:6,
+  trendWindowDays:3,
+  trendMinimumDirectionalDays:2,
+  trendMaximumWindowSpanDays:4,
+  trendMaximumComparisonSpanDays:14,
+  minimumSamples:12,
+  minimumDistinctDays:2,
+  minimumObservedHours:3,
+  dominantDurationShare:0.6,
+  maximumGapHours:2,
+  hourlyBucketHours:6,
+  hourlyMinimumSamples:5,
+  hourlyMinimumDistinctDays:2,
+  hourlyMinimumSharedDays:2,
+  hourlyMinimumDailySamples:3,
+  minimumDailySamplesForConfidence:3,
+  moderateCoveragePercent:20,
+  highCoveragePercent:50,
+  moderateAcceptedShare:0.7,
+  highAcceptedShare:0.9
+ });
+ const finding=result.observations.find(x=>x.code==='air-drying-potential');
+ assert.ok(finding);
+ assert.equal(finding.basis.unit,'g/m³');
+ assert.equal(finding.basis.threshold,1);
+ assert.ok(finding.basis.medianIndoorMinusIncomingHA>1);
+ assert.ok(finding.basis.durationShare>=finding.basis.requiredDurationShare);
+});
+
+test('hourly window is not selected when candidate windows have no common days',()=>{
+ const rows=makeHourlyRows([
+  {day:0,hour:7},{day:1,hour:7},
+  {day:2,hour:13},{day:3,hour:13}
+ ]);
+ const result=buildHygrometricDiagnosis(rows);
+ assert.equal(result.status,'analysis-available');
+ assert.equal(result.bestWindow,null);
+ assert.ok(!result.observations.some(x=>x.code==='favorable-time-window'));
+});
+
+test('hourly window comparison requires and reports shared calendar days',()=>{
+ const rows=makeHourlyRows([
+  {day:0,hour:7},{day:0,hour:13},
+  {day:1,hour:7},{day:1,hour:13}
+ ]);
+ const result=buildHygrometricDiagnosis(rows);
+ const finding=result.observations.find(x=>x.code==='favorable-time-window');
+ assert.ok(finding);
+ assert.equal(finding.basis.dayCount,2);
+ assert.equal(finding.basis.sharedDayCount,2);
+ assert.ok(['06–11 h','12–17 h'].includes(finding.basis.comparisonWindow));
+ assert.notEqual(finding.basis.timeWindow,finding.basis.comparisonWindow);
+ assert.equal(finding.basis.sampleCount,12);
+ assert.equal(finding.basis.comparisonSampleCount,12);
+ assert.match(finding.detail,/2 jours calendaires/);
+});
+
+
+test('hourly comparison rejects a false overlap spread across three different pairs',()=>{
+ const rows=makeHourlyRows([
+  {day:0,hour:7},{day:1,hour:7},
+  {day:0,hour:13},{day:2,hour:13},
+  {day:1,hour:19},{day:2,hour:19}
+ ]);
+ const result=buildHygrometricDiagnosis(rows);
+ assert.equal(result.bestWindow,null);
+ assert.ok(!result.observations.some(x=>x.code==='favorable-time-window'));
+});
+
+test('hourly comparison recalculates both medians on exactly the same shared days',()=>{
+ const rows=makeHourlyRows([
+  {day:0,hour:7,incomingRH:25},{day:1,hour:7,incomingRH:25},
+  {day:2,hour:7,incomingRH:5},
+  {day:0,hour:13,incomingRH:50},{day:1,hour:13,incomingRH:50},
+  {day:3,hour:13,incomingRH:95}
+ ]);
+ const result=buildHygrometricDiagnosis(rows);
+ const finding=result.observations.find(x=>x.code==='favorable-time-window');
+ assert.ok(finding);
+ assert.equal(finding.basis.timeWindow,'06–11 h');
+ assert.equal(finding.basis.comparisonWindow,'12–17 h');
+ assert.equal(finding.basis.sharedDayCount,2);
+ assert.equal(finding.basis.sampleCount,12);
+ assert.equal(finding.basis.comparisonSampleCount,12);
+ const expected=absoluteHumidity(20,65)-absoluteHumidity(10,25);
+ assert.ok(Math.abs(finding.basis.medianDelta-expected)<0.001);
+ assert.match(finding.detail,/mêmes 2 jours calendaires/);
+});
+
+test('hourly comparison gives every shared day equal weight when sample counts differ',()=>{
+ const rows=makeUnevenHourlyRows([
+  {day:0,hour:7,count:6,incomingRH:20},
+  {day:1,hour:7,count:60,incomingRH:80},
+  {day:0,hour:13,count:6,incomingRH:80},
+  {day:1,hour:13,count:60,incomingRH:20}
+ ]);
+ const result=buildHygrometricDiagnosis(rows);
+ const finding=result.observations.find(x=>x.code==='favorable-time-window');
+ assert.ok(finding);
+ // Les médianes journalières sont les mêmes pour les deux créneaux :
+ // l'ordre stable départage l'égalité. Une médiane globale brute aurait favorisé l'après-midi.
+ assert.equal(finding.basis.timeWindow,'06–11 h');
+ assert.equal(finding.basis.comparisonWindow,'12–17 h');
+ assert.equal(finding.basis.sampleCount,66);
+ assert.equal(finding.basis.comparisonSampleCount,66);
+ assert.equal(finding.basis.aggregationMethod,'Médiane des médianes journalières, avec un poids égal par date');
+ const dayA=absoluteHumidity(20,65)-absoluteHumidity(10,20);
+ const dayB=absoluteHumidity(20,65)-absoluteHumidity(10,80);
+ const expected=(dayA+dayB)/2;
+ assert.ok(Math.abs(finding.basis.medianDelta-expected)<0.001);
+ assert.ok(Math.abs(finding.basis.comparisonMedianDelta-expected)<0.001);
+ assert.match(finding.detail,/chaque jour ayant le même poids/);
+});
+
+test('diagnostic reports the actual custom thresholds used',()=>{
+ const result=buildHygrometricDiagnosis(makeRows(),{
+  dryDelta:1.5,trendDelta:1.1,minSamples:15,maxGapHours:1.5
+ });
+ assert.equal(result.methodology.dryDeltaThreshold,1.5);
+ assert.equal(result.methodology.trendDeltaThreshold,1.1);
+ assert.equal(result.methodology.minimumSamples,15);
+ assert.equal(result.methodology.maximumGapHours,1.5);
+ const finding=result.observations.find(x=>x.code==='air-drying-potential');
+ assert.equal(finding.basis.threshold,1.5);
+});
+
+test('diagnostic identifies a sustained favourable drying potential with moderate confidence',()=>{
+ const result=buildHygrometricDiagnosis(makeRows());
+ assert.equal(result.status,'analysis-available');
+ assert.equal(result.coverageLevel,'modérée');
+ assert.equal(result.sampleCount,30);
+ assert.equal(result.dayCount,3);
+ assert.equal(result.confidenceBasis.daysWithAtLeastThreeSamples,3);
+ assert.equal(result.confidenceBasis.acceptedSampleShare,1);
+ assert.ok(Math.abs(result.confidenceBasis.observedCoveragePercent-(13.5/52.5*100))<0.1);
+ assert.ok(result.dryShare>0.9);
+ assert.ok(result.observations.some(x=>x.code==='air-drying-potential'));
+ assert.ok(result.medianIndoorDewPoint>0);
+ assert.ok(result.limits.some(x=>x.includes('température de paroi')));
+});
+
+test('diagnostic warns when incoming air is consistently wetter in absolute humidity',()=>{
+ const result=buildHygrometricDiagnosis(makeRows({
+  indoorRH:40,incomingRH:90,indoorTemp:20,incomingTemp:25
+ }));
+ assert.equal(result.status,'analysis-available');
+ assert.ok(result.humidShare>0.9);
+ assert.ok(result.observations.some(x=>x.code==='air-moisture-potential'));
+});
+
+test('diagnostic marks short histories as insufficient and does not invent conclusions',()=>{
+ const result=buildHygrometricDiagnosis(makeRows({days:1,perDay:4}));
+ assert.equal(result.status,'insufficient-data');
+ assert.equal(result.coverageLevel,'faible');
+ assert.ok(result.observations.some(x=>x.code==='coverage-limited'));
+});
+
+test('diagnostic deduplicates timestamps and ignores invalid sensor rows',()=>{
+ const rows=makeRows({days:3,perDay:10});
+ rows.push({...rows[0],sh:99});
+ rows.push({...rows[1],t:rows[1].t+1,he:140});
+ const result=buildHygrometricDiagnosis(rows);
+ assert.equal(result.sampleCount,30);
+});
+
+test('diagnostic does not infer condensation risk or a best fan speed',()=>{
+ const result=buildHygrometricDiagnosis(makeRows());
+ assert.equal(result.bestSpeed,undefined);
+ assert.ok(result.limits.some(x=>x.includes('aucun risque de condensation')));
+ assert.ok(!result.observations.some(x=>/condensation|vitesse optimale/i.test(x.title)));
+});
+
+test('diagnostic quantifies sampling intervals and excludes long data gaps',()=>{
+ const result=buildHygrometricDiagnosis(makeRows({days:3,perDay:10}));
+ assert.equal(result.medianSampleIntervalMinutes,30);
+ assert.equal(result.excludedGapCount,2);
+ assert.ok(result.largestExcludedGapHours>2);
+ assert.ok(result.coverageSpanHours>24);
+ assert.equal(result.maxGapHours,2);
+});
+
+test('diagnostic reports the share of the first-to-last period covered by usable intervals',()=>{
+ const result=buildHygrometricDiagnosis(makeRows({days:3,perDay:10}));
+ assert.equal(result.observedHours,13.5);
+ assert.equal(result.coverageSpanHours,52.5);
+ assert.ok(Math.abs(result.observedCoveragePercent-(13.5/52.5*100))<0.1);
+});
+
+test('diagnostic leaves temporal coverage undefined when there is no elapsed span',()=>{
+ const row=makeRows({days:1,perDay:1});
+ const result=buildHygrometricDiagnosis(row);
+ assert.equal(result.coverageSpanHours,0);
+ assert.equal(result.observedCoveragePercent,null);
+});
+
+test('les durées sont découpées au franchissement des seuils hygrométriques',()=>{
+ const base=absoluteHumidity(20,50);
+ const rows=[3,-3].map((delta,index)=>({
+  t:index*3600000,st:20,sh:50+delta*50/base,te:20,he:50
+ }));
+ const result=analyzeHygrometricPeriods(rows,{threshold:1,maxGapHours:2});
+ assert.equal(result.observedDurationMs,3600000);
+ assert.ok(Math.abs(result.dryDurationMs-1200000)<1);
+ assert.ok(Math.abs(result.neutralDurationMs-1200000)<1);
+ assert.ok(Math.abs(result.humidDurationMs-1200000)<1);
+ assert.ok(Math.abs(result.dryDurationMs+result.neutralDurationMs+result.humidDurationMs-result.observedDurationMs)<1);
+});
+
+
+test('diagnostic quantifies missing, implausible and duplicate input rows',()=>{
+ const rows=[
+  {t:0,st:20,sh:55,te:12,he:60},
+  {t:1,st:20,sh:55,te:12},
+  {t:2,st:20,sh:150,te:12,he:60},
+  {t:0,st:21,sh:56,te:13,he:61},
+  {st:20,sh:55,te:12,he:60}
+ ];
+ const before=JSON.stringify(rows);
+ const result=buildHygrometricDiagnosis(rows);
+ assert.deepEqual(result.inputQuality,{
+  inputSampleCount:5,
+  acceptedSampleCount:1,
+  missingTimestampCount:1,
+  incompleteSensorRecordCount:1,
+  implausibleSensorRecordCount:1,
+  duplicateTimestampCount:1,
+  excludedSampleCount:4
+ });
+ assert.equal(result.sampleCount,1);
+ assert.equal(JSON.stringify(rows),before);
+});
+
+test('diagnostic reports empty input quality without inventing excluded rows',()=>{
+ const result=buildHygrometricDiagnosis([]);
+ assert.deepEqual(result.inputQuality,{
+  inputSampleCount:0,
+  acceptedSampleCount:0,
+  missingTimestampCount:0,
+  incompleteSensorRecordCount:0,
+  implausibleSensorRecordCount:0,
+  duplicateTimestampCount:0,
+  excludedSampleCount:0
+ });
+});
+
+
+test('diagnostic states the configured maximum gap instead of a fixed duration',()=>{
+ const result=buildHygrometricDiagnosis(makeRows(),{maxGapHours:1.5});
+ assert.equal(result.methodology.maximumGapHours,1.5);
+ assert.ok(result.limits.some(text=>text.includes('1.5 heure(s)')));
+ assert.ok(!result.limits.some(text=>text.includes('2 heures')));
+});
+
+
+test('niveau de couverture faible si trop de lignes sont rejetées',()=>{
+ const valid=makeRows({days:3,perDay:10});
+ const rejected=Array.from({length:20},(_,i)=>({t:Date.now()+i,st:20,sh:150,te:10,he:40}));
+ const result=buildHygrometricDiagnosis([...valid,...rejected]);
+ assert.equal(result.status,'analysis-available');
+ assert.equal(result.coverageLevel,'faible');
+ assert.ok(result.confidenceBasis.acceptedSampleShare<0.7);
+});
+
+test('couverture élevée exige une couverture temporelle dense',()=>{
+ const start=new Date(2026,10,10,0,0,0).getTime();
+ const rows=Array.from({length:241},(_,i)=>({
+  t:start+i*30*60*1000,st:20,sh:60,te:10,he:40
+ }));
+ const result=buildHygrometricDiagnosis(rows);
+ assert.equal(result.status,'analysis-available');
+ assert.equal(result.coverageLevel,'élevée');
+ assert.ok(result.confidenceBasis.observedCoveragePercent>=99);
+});
+
+test('une couverture temporelle partielle limite le niveau même avec beaucoup de relevés',()=>{
+ const rows=makeRows({days:5,perDay:15});
+ const result=buildHygrometricDiagnosis(rows);
+ assert.equal(result.status,'analysis-available');
+ assert.equal(result.coverageLevel,'modérée');
+ assert.ok(result.confidenceBasis.observedCoveragePercent<50);
+});
+
+
+test('hourly comparison excludes shared days with fewer than three samples in either window',()=>{
+ const rows=makeUnevenHourlyRows([
+  {day:0,hour:7,count:6,incomingRH:20},
+  {day:1,hour:7,count:2,incomingRH:80},
+  {day:0,hour:13,count:6,incomingRH:80},
+  {day:1,hour:13,count:2,incomingRH:20}
+ ]);
+ // Ces relevés assurent un historique exploitable sans rendre les deux
+ // créneaux comparés suffisamment échantillonnés sur la deuxième date.
+ for(let day=0;day<2;day++){
+  for(const hour of [18,19,20]){
+   rows.push({t:new Date(2026,10,10+day,hour,0,0).getTime(),st:20,sh:65,te:10,he:40});
+  }
+ }
+ const result=buildHygrometricDiagnosis(rows);
+ assert.equal(result.status,'analysis-available');
+ assert.equal(result.bestWindow,null);
+ assert.ok(!result.observations.some(x=>x.code==='favorable-time-window'));
+ const limitation=result.observations.find(x=>x.code==='hourly-comparison-limited');
+ assert.ok(limitation);
+ assert.ok(result.hourlyComparisonDiagnostics.pairsWithTwoCommonDays>=1);
+ assert.equal(result.hourlyComparisonDiagnostics.pairsMeetingDailyMinimum,0);
+ assert.match(limitation.detail,/minimum de trois relevés/);
+});
+
+
+test('diagnostic explains when hourly comparison lacks two eligible windows',()=>{
+ const rows=makeHourlyRows([{day:0,hour:7},{day:1,hour:7}]);
+ const result=buildHygrometricDiagnosis(rows);
+ const finding=result.observations.find(item=>item.code==='hourly-comparison-limited');
+ assert.ok(finding);
+ assert.equal(result.hourlyComparisonDiagnostics.candidateWindowCount,1);
+ assert.equal(result.hourlyComparisonDiagnostics.candidatePairCount,0);
+ assert.match(finding.detail,/Moins de deux tranches horaires/);
+});
+
+test('diagnostic explains when eligible hourly windows have no common days',()=>{
+ const rows=makeHourlyRows([
+  {day:0,hour:7},{day:1,hour:7},
+  {day:2,hour:13},{day:3,hour:13}
+ ]);
+ const result=buildHygrometricDiagnosis(rows);
+ const finding=result.observations.find(item=>item.code==='hourly-comparison-limited');
+ assert.ok(finding);
+ assert.equal(result.hourlyComparisonDiagnostics.candidatePairCount,1);
+ assert.equal(result.hourlyComparisonDiagnostics.pairsWithTwoCommonDays,0);
+ assert.match(finding.detail,/ne partagent pas au moins deux/);
+});
+
+
+function makeTrendRows(dailyValues) {
+ const rows=[];
+ dailyValues.forEach((value,day)=>{
+  for(let i=0;i<4;i++){
+   rows.push({
+    t:new Date(2026,10,1+day,8,i*30,0).getTime(),
+    st:20,sh:60,te:10,he:40,
+    // Adjust indoor temperature/RH together to obtain a controlled HA signal.
+    ...(value==null?{}:{st:20,sh:value})
+   });
+  }
+ });
+ return rows;
+}
+
+test('trend requires six adequately sampled days and compares non-overlapping three-day windows',()=>{
+ const short=buildHygrometricDiagnosis(makeTrendRows([55,55,55,60,60]));
+ assert.ok(short.observations.some(item=>item.code==='trend-insufficient-data'));
+ const long=buildHygrometricDiagnosis(makeTrendRows([45,45,45,65,65,65]));
+ const finding=long.observations.find(item=>item.code==='indoor-moisture-rising');
+ assert.ok(finding);
+ assert.equal(finding.basis.daysPerWindow,3);
+ assert.equal(finding.basis.risingDays,3);
+ assert.equal(finding.basis.eligibleDays,6);
+});
+
+test('one isolated high-humidity day is not reported as a durable trend',()=>{
+ const result=buildHygrometricDiagnosis(makeTrendRows([50,50,50,50,50,85]));
+ assert.ok(result.observations.some(item=>item.code==='trend-not-sustained'));
+ assert.ok(!result.observations.some(item=>item.code==='indoor-moisture-rising'));
+});
+
+test('a durable falling trend requires persistence across at least two recent days',()=>{
+ const result=buildHygrometricDiagnosis(makeTrendRows([75,75,75,55,55,55]));
+ const finding=result.observations.find(item=>item.code==='indoor-moisture-falling');
+ assert.ok(finding);
+ assert.equal(finding.basis.fallingDays,3);
+});
+
+
+test('trend is not confirmed when eligible days are too far apart in the calendar',()=>{
+ const rows=[];
+ [1,2,3,20,21,22].forEach((day,index)=>{
+  for(let i=0;i<4;i++) rows.push({
+   t:new Date(2026,10,day,8,i*30,0).getTime(),
+   st:20,sh:index<3?45:75,te:10,he:40
+  });
+ });
+ const result=buildHygrometricDiagnosis(rows);
+ const finding=result.observations.find(item=>item.code==='trend-calendar-span-limited');
+ assert.ok(finding);
+ assert.equal(finding.basis.totalSpanDays,21);
+ assert.ok(!result.observations.some(item=>item.code==='indoor-moisture-rising'));
+});
+
+test('trend remains eligible when both windows and their comparison fit calendar limits',()=>{
+ const rows=[];
+ [1,2,3,5,6,7].forEach((day,index)=>{
+  for(let i=0;i<4;i++) rows.push({
+   t:new Date(2026,10,day,8,i*30,0).getTime(),
+   st:20,sh:index<3?45:75,te:10,he:40
+  });
+ });
+ const result=buildHygrometricDiagnosis(rows);
+ assert.ok(result.observations.some(item=>item.code==='indoor-moisture-rising'));
+ assert.ok(!result.observations.some(item=>item.code==='trend-calendar-span-limited'));
+});
+
+
+test('durable trend evidence identifies both calendar windows and their medians',()=>{
+ const rows=[];
+ [1,2,3,5,6,7].forEach((day,index)=>{
+  for(let i=0;i<4;i++) rows.push({
+   t:new Date(2026,10,day,8,i*30,0).getTime(),
+   st:20,sh:index<3?45:75,te:10,he:40
+  });
+ });
+ const result=buildHygrometricDiagnosis(rows);
+ const finding=result.observations.find(item=>item.code==='indoor-moisture-rising');
+ assert.ok(finding);
+ assert.equal(finding.basis.baselineWindowStartDate,'2026-11-01');
+ assert.equal(finding.basis.baselineWindowEndDate,'2026-11-03');
+ assert.equal(finding.basis.recentWindowStartDate,'2026-11-05');
+ assert.equal(finding.basis.recentWindowEndDate,'2026-11-07');
+ assert.equal(finding.basis.totalComparisonSpanDays,6);
+ assert.ok(Number.isFinite(finding.basis.baselineMedianAbsoluteHumidity));
+ assert.ok(Number.isFinite(finding.basis.recentMedianAbsoluteHumidity));
+ assert.ok(Number.isFinite(finding.basis.baselineIncomingMedianAbsoluteHumidity));
+ assert.ok(Number.isFinite(finding.basis.recentIncomingMedianAbsoluteHumidity));
+ assert.ok(Number.isFinite(finding.basis.baselineMedianRelativeHumidity));
+ assert.ok(Number.isFinite(finding.basis.recentMedianRelativeHumidity));
+ assert.ok(Number.isFinite(finding.basis.baselineMedianTemperature));
+ assert.ok(Number.isFinite(finding.basis.recentMedianTemperature));
+ assert.ok(Number.isFinite(finding.basis.baselineIndoorMinusIncomingMedian));
+ assert.ok(Number.isFinite(finding.basis.recentIndoorMinusIncomingMedian));
+ assert.ok(Number.isFinite(finding.basis.incomingAbsoluteHumidityChange));
+ assert.ok(Number.isFinite(finding.basis.indoorMinusIncomingChange));
+ assert.match(finding.detail,/Contexte mesuré sur les mêmes fenêtres/);
+ assert.match(finding.detail,/ne démontrent aucun lien causal/);
+ assert.match(finding.basis.baselineDailyValues,/2026-11-01/);
+ assert.match(finding.basis.baselineDailyValues,/4 relevés/);
+ assert.match(finding.basis.recentDailyValues,/2026-11-07/);
+ assert.match(finding.basis.recentDailyValues,/g\/m³/);
+});
