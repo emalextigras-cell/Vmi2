@@ -48,6 +48,8 @@ test('diagnostic exposes its thresholds and the measured basis of each finding',
  assert.deepEqual(result.methodology,{
   version:'hygrometric-diagnostic-v7',
   dryDeltaThreshold:1,
+  dryDeltaThresholdKind:'heuristic',
+  dominantDurationShareKind:'heuristic',
   trendDeltaThreshold:0.8,
   trendMinimumDailySamples:3,
   trendMinimumDays:6,
