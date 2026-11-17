@@ -1,4 +1,5 @@
 /** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
+/** @typedef {import('../types/vmi-types.js').EnergyReading} EnergyReading */
 /** @typedef {import('../types/vmi-types.js').UnknownRecord} UnknownRecord */
 
 /**
@@ -65,7 +66,7 @@ const recommendation = (priority, title, text, reason) => ({
 /**
  * buildVmiAssistantSummary — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
  * @param {VmiRecord[]} data Paramètre data.
- * @param {unknown} options Paramètre options.
+ * @param {{targetRH?: number, minSamples?: number, energyReadings?: EnergyReading[], meterHistory?: VmiRecord[]}} [options] Paramètres de la synthèse.
  * @returns {UnknownRecord} Résultat structuré du module.
  */
 export function buildVmiAssistantSummary(data, options = {}) {
