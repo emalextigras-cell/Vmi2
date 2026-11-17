@@ -2,11 +2,12 @@
 import { MIN_VALID } from './date-utils.js';
 
 /**
- * La date brute rk fait foi : les anciens relevés datés avant 2025 ne doivent
- * jamais entrer dans l'historique exploité, même après une correction calculée.
+ * La date brute rk fait foi pour les nouveaux relevés : les anciens relevés
+ * déjà validés par une correction d'horloge restent conservés.
  */
 export function isRawDateEligible(record, minValid = MIN_VALID) {
   if (!record || !Number.isFinite(record.t)) return false;
+  if (record.fixed === true) return record.t >= minValid;
   if (typeof record.rk === 'string' && record.rk.trim()) {
     const match = record.rk.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s/);
     if (match) return Number(match[3]) >= 2025;
