@@ -12,6 +12,24 @@ test('parseCell lit une date CSV VMI+ au format français', () => {
   assert.equal(date.getDate(), 10);
 });
 
+test('parseCell conserve jour et mois des dates numériques Excel', () => {
+  const spreadsheet = { SSF: { parse_date_code: () => ({ y: 2024, m: 5, d: 10, H: 16, M: 45, S: 35 }) } };
+  const parsed = parseCell(45422, spreadsheet);
+  assert.ok(parsed);
+  assert.equal(parsed.rk, '10/05/2024 16:45:35');
+  const date = new Date(parsed.t);
+  assert.equal(date.getFullYear(), 2024);
+  assert.equal(date.getMonth(), 4);
+  assert.equal(date.getDate(), 10);
+});
+
+test('parseCell accepte le 29 février Excel uniquement lors d’une année bissextile', () => {
+  const leap = { SSF: { parse_date_code: () => ({ y: 2024, m: 2, d: 29, H: 0, M: 0, S: 0 }) } };
+  const nonLeap = { SSF: { parse_date_code: () => ({ y: 2023, m: 2, d: 29, H: 0, M: 0, S: 0 }) } };
+  assert.equal(parseCell(45351, leap)?.rk, '29/02/2024 00:00:00');
+  assert.equal(parseCell(44986, nonLeap), null);
+});
+
 test('recFrom conserve vitesse brute et débit exporté sans inventer leurs unités ou correspondances', () => {
   const row = Array(124).fill('');
   row[0] = '10/11/2026 16:45:35';
