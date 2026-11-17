@@ -789,6 +789,7 @@ function renderHygrometricPeriods(data){
  const total=result.observedDurationMs;
  const pct=value=>Math.round(value/total*100);
  let message='Sur '+formatDuration(total)+' d’intervalles exploitables (interpolation entre relevés, sans extrapoler les trous de plus de '+result.maxGapHours+' h) : ';
+ message+='Dans le diagnostic global, le seuil de 1 g/m³ et la règle de dominance de 60 % sont des critères heuristiques, pas des seuils physiques validés pour ces capteurs. ';
  message+='Potentiel favorable (air entrant plus sec) : '+formatDuration(result.dryDurationMs)+' ('+pct(result.dryDurationMs)+' %). ';
  message+='Potentiel défavorable (air entrant plus humide) : '+formatDuration(result.humidDurationMs)+' ('+pct(result.humidDurationMs)+' %). ';
  message+='Écart faible : '+formatDuration(result.neutralDurationMs)+' ('+pct(result.neutralDurationMs)+' %). ';
