@@ -335,6 +335,11 @@ test('conserve une date brute ancienne uniquement après correction validée', (
   assert.deepEqual(filterRawDateHistory([corrected, uncorrected, recent]), [corrected, recent]);
 });
 
+test('le filtre d’historique écarte une date future', () => {
+  const now = new Date(2026, 10, 17, 12).getTime();
+  assert.deepEqual(filterRawDateHistory([{ t: now - 1 }, { t: now + 1 }], MIN_VALID, now).map(row => row.t), [now - 1]);
+});
+
 test('la fusion des imports conserve les anciennes dates déjà corrigées et rejette les dates non corrigées', () => {
   const corrected = { t: new Date(2026, 9, 10).getTime(), rk: '09/04/2018 12:00:00', fixed: true, sh: 50 };
   const uncorrected = { t: new Date(2018, 3, 9).getTime(), rk: '09/04/2018 12:00:00', sh: 49 };

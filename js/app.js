@@ -497,8 +497,8 @@ $('clk').onclick=setClock;
 
 /* Correction des dates historiques isolée dans clock-correction.js. */
 function ingest(recs,label,maxTimestamp=Date.now()){
- const {fixed,kept}=fixClock(recs,hist,MIN_VALID,maxTimestamp);
- hist=mergeImportedHistory(hist,kept);
+  const {fixed,kept}=fixClock(recs,hist,MIN_VALID,maxTimestamp);
+ hist=mergeImportedHistory(hist,kept,maxTimestamp);
  pruneHist();void persist('hist',hist,'Sauvegarde de l’historique').catch(()=>{});source='hist';
  // Conserver le jour choisi : une synchronisation en arrière-plan ne doit pas réinitialiser les graphiques.
  const lost=recs.length-kept.length;

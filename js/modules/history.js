@@ -20,8 +20,10 @@ export function isRawDateEligible(record, minValid = MIN_VALID) {
   return true;
 }
 
-export function filterRawDateHistory(records, minValid = MIN_VALID) {
-  return (Array.isArray(records) ? records : []).filter(record => isRawDateEligible(record, minValid));
+export function filterRawDateHistory(records, minValid = MIN_VALID, maxTimestamp = Date.now()) {
+  return (Array.isArray(records) ? records : []).filter(record =>
+    isRawDateEligible(record, minValid) && record.t <= maxTimestamp
+  );
 }
 export function pruneHistory(records, maxRecords) {
   const valid = (Array.isArray(records) ? records : []).filter(record =>
@@ -56,12 +58,12 @@ export function mergeRecordFields(existing, incoming) {
 }
 
 /** Fusionne les imports par horodatage sans perdre les champs déjà renseignés. */
-export function mergeImportedHistory(currentRecords, importedRecords) {
+export function mergeImportedHistory(currentRecords, importedRecords, maxTimestamp = Date.now()) {
   const byTimestamp = new Map((Array.isArray(currentRecords) ? currentRecords : [])
-    .filter(record => isRawDateEligible(record))
+    .filter(record => isRawDateEligible(record) && record.t <= maxTimestamp)
     .map(record => [record.t, record]));
   (Array.isArray(importedRecords) ? importedRecords : [])
-    .filter(record => isRawDateEligible(record))
+    .filter(record => isRawDateEligible(record) && record.t <= maxTimestamp)
     .forEach(record => byTimestamp.set(record.t, mergeRecordFields(byTimestamp.get(record.t), record)));
   return [...byTimestamp.values()].sort((a, b) => a.t - b.t);
 }
