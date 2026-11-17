@@ -10,7 +10,7 @@
  */
 /**
  * createHistoryStreamState — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
- * @returns {UnknownRecord} Résultat structuré du module.
+ * @returns {VmiRecord[]} Relevés annotés avec leur état de synchronisation.
  */
 export function createHistoryStreamState() {
   return {
@@ -96,10 +96,9 @@ export function acceptHistoryFragment(state, fragment) {
 }
 
 /** Les relevés issus d'un transfert incomplet ne peuvent pas servir de borne d'arrêt. */
-/**
- * isHistorySyncBaseline — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
- * @param {unknown} record Paramètre record.
- * @returns {UnknownRecord} Résultat structuré du module.
+/** Indique si un relevé constitue une base complète de synchronisation.
+ * @param {Partial<VmiRecord>|null|undefined} record Relevé à vérifier.
+ * @returns {boolean} true si le relevé n'est pas marqué partiel.
  */
 export function isHistorySyncBaseline(record) {
   return !!record && record.syncPartial !== true;
@@ -109,7 +108,7 @@ export function isHistorySyncBaseline(record) {
 /**
  * markHistoryRows — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
  * @param {VmiRecord[]} records Paramètre records.
- * @param {unknown} complete Paramètre complete.
+ * @param {boolean} complete Indique si le flux reçu est complet.
  * @returns {UnknownRecord} Résultat structuré du module.
  */
 export function markHistoryRows(records, complete) {
