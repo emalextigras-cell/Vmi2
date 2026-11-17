@@ -1,17 +1,47 @@
+/**
+ * @typedef {Object} VmiRecord
+ * @property {number} [t] Horodatage Unix en millisecondes.
+ * @property {number} [st] Température intérieure en °C.
+ * @property {number} [sh] Humidité relative intérieure en %.
+ * @property {number} [te] Température de l'air entrant en °C.
+ * @property {number} [he] Humidité relative de l'air entrant en %.
+ * @property {number} [rpm] Régime moteur en tr/min.
+ * @property {number} [debit] Débit en m³/h.
+ * @property {number} [vmiModeRaw] Code brut du mode VMI.
+ */
+/** @typedef {Record<string, unknown>} UnknownRecord */
+/** @typedef {{minSamples?: number, minDays?: number}} AnalysisOptions */
+
 /** Rendu SVG des graphiques et infobulles tactiles. */
 import { absoluteHumidity } from './psychrometry.js';
 import { pad, dayStart, shiftDay } from './date-utils.js';
 import { isPlausibleHumidity, isPlausibleTemperature, isPlaceholderSensorRecord } from './data-quality.js';
 const COLORS=['#286348','#c16b32','#356da5','#8056a8'];
 const viewStates=new Map();
+/**
+ * resetChartViews — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @returns {UnknownRecord} Résultat structuré du module.
+ */
 export function resetChartViews(){viewStates.clear();}
 const fmtTick=(t,withHour)=>{const d=new Date(t);return withHour?`${pad(d.getDate())}/${pad(d.getMonth()+1)} ${pad(d.getHours())}h`:`${pad(d.getDate())}/${pad(d.getMonth()+1)}/${String(d.getFullYear()).slice(2)}`};
 const fmtPoint=(t,daily)=>{const d=new Date(t);return daily?`${pad(d.getHours())}:${pad(d.getMinutes())}`:`${pad(d.getDate())}/${pad(d.getMonth()+1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`};
 /* Conserve les relevés tels quels : aucune valeur manquante n'est interpolée.
    Un point absent ou rejeté crée une interruption visible dans la courbe. */
+/**
+ * fillMissing — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {unknown} points Paramètre points.
+ * @returns {UnknownRecord} Résultat structuré du module.
+ */
 export function fillMissing(points){
  return points.map(p=>({t:p.t,v:Number.isFinite(p.v)?p.v:null,blocked:!!p.blocked||!Number.isFinite(p.v)}));
 }
+/**
+ * hasBlockedBetween — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {unknown} points Paramètre points.
+ * @param {unknown} startTime Paramètre startTime.
+ * @param {unknown} endTime Paramètre endTime.
+ * @returns {UnknownRecord} Résultat structuré du module.
+ */
 export function hasBlockedBetween(points, startTime, endTime){
  return points.some(point=>point.blocked&&point.t>startTime&&point.t<endTime);
 }
@@ -82,6 +112,13 @@ function seriesFor(data,key,name,color,derive=null,invalid=null){
  const points=data.map(r=>({t:r.t,v:isPlaceholderSensorRecord(r)?null:(derive?derive(r):r[key]),blocked:isPlaceholderSensorRecord(r)||(invalid?invalid(r):false)}));
  return {name,color,points:fillMissing(points)};
 }
+/**
+ * renderCharts — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} data Paramètre data.
+ * @param {unknown} selectedDate Paramètre selectedDate.
+ * @param {unknown} $ Paramètre $.
+ * @returns {UnknownRecord} Résultat structuré du module.
+ */
 export function renderCharts(data,selectedDate,$){
  drawChart('chartRH','Humidité relative',[
   seriesFor(data,'sh','Salon',COLORS[0],r=>isPlausibleHumidity(r.sh)?r.sh:null,r=>Number.isFinite(r.sh)&&!isPlausibleHumidity(r.sh)),seriesFor(data,'h1','Sonde résistances',COLORS[1],r=>isPlausibleHumidity(r.h1)?r.h1:null,r=>Number.isFinite(r.h1)&&!isPlausibleHumidity(r.h1)),seriesFor(data,'he','Air entrant',COLORS[2],r=>isPlausibleHumidity(r.he)?r.he:null,r=>Number.isFinite(r.he)&&!isPlausibleHumidity(r.he))],selectedDate,$);
