@@ -1,4 +1,6 @@
 /** @typedef {import('../types/vmi-types.js').NullableNumber} NullableNumber */
+/** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
+/** @typedef {import('../types/vmi-types.js').PsychrometricResult} PsychrometricResult */
 
 /** Calculs hygrométriques, approximation de Magnus. */
 /**
