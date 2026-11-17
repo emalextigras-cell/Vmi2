@@ -1253,10 +1253,19 @@ export function summarizeOperatingReference(data, { minSamples = 10 } = {}) {
     throw new RangeError('minSamples doit être un entier strictement positif.');
   }
 
-  const rows = Array.isArray(data) ? data : [];
+  const uniqueTimedRows = new Map();
+  const untimedRows = [];
+  for (const row of Array.isArray(data) ? data : []) {
+    if (!Number.isFinite(row?.vmiModeRaw)) continue;
+    if (Number.isFinite(row.t) && Number.isFinite(new Date(row.t).getTime())) {
+      uniqueTimedRows.set(`${row.vmiModeRaw}:${row.t}`, row);
+    } else {
+      untimedRows.push(row);
+    }
+  }
+  const rows = [...untimedRows, ...uniqueTimedRows.values()];
   const modes = new Map();
   for (const row of rows) {
-    if (!Number.isFinite(row?.vmiModeRaw)) continue;
     if (!modes.has(row.vmiModeRaw)) modes.set(row.vmiModeRaw, []);
     modes.get(row.vmiModeRaw).push(row);
   }
