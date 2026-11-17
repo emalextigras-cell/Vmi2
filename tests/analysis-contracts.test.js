@@ -381,9 +381,6 @@ test('summarizeTemperatureLimit ignore les horodatages hors plage JavaScript', (
     minimumGroupSamples: 1,
     minimumGroupDays: 1
   });
-  const mode = result.thresholds[0].modes.find(group => group.mode === 1);
-
   assert.equal(result.eligibleSampleCount, 0);
   assert.equal(result.thresholds.length, 0);
-  assert.equal(mode, undefined);
 });
