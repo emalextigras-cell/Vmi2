@@ -509,12 +509,25 @@ export function summarizeTemperatureLimit(data, {
  * @returns {import('../types/vmi-types.js').HygrometricPeriodsResult} Périodes hygrométriques détectées.
  */
 export function analyzeHygrometricPeriods(data, { threshold = 1, maxGapHours = 2 } = {}) {
-  const rows=(Array.isArray(data)?data:[])
-    .filter(r=>Number.isFinite(r?.t)&&Number.isFinite(r.st)&&isPlausibleTemperature(r.st)&&
-      Number.isFinite(r.sh)&&isPlausibleHumidity(r.sh)&&Number.isFinite(r.te)&&
-      isPlausibleTemperature(r.te)&&Number.isFinite(r.he)&&isPlausibleHumidity(r.he))
-    .map(r=>({t:r.t,delta:absoluteHumidity(r.st,r.sh)-absoluteHumidity(r.te,r.he)}))
-    .filter(r=>Number.isFinite(r.delta)).sort((a,b)=>a.t-b.t);
+  if(!Number.isFinite(threshold)||threshold<=0){
+    throw new RangeError('threshold doit être un nombre fini strictement positif.');
+  }
+  if(!Number.isFinite(maxGapHours)||maxGapHours<=0){
+    throw new RangeError('maxGapHours doit être un nombre fini strictement positif.');
+  }
+  // Même horodatage = une seule observation. Une ligne invalide ne peut pas
+  // effacer une ligne valide ; parmi les doublons valides, la dernière prévaut.
+  const unique=new Map();
+  for(const r of Array.isArray(data)?data:[]){
+    if(!Number.isFinite(r?.t)||!Number.isFinite(new Date(r.t).getTime())||
+      !Number.isFinite(r.st)||!isPlausibleTemperature(r.st)||
+      !Number.isFinite(r.sh)||!isPlausibleHumidity(r.sh)||
+      !Number.isFinite(r.te)||!isPlausibleTemperature(r.te)||
+      !Number.isFinite(r.he)||!isPlausibleHumidity(r.he))continue;
+    const delta=absoluteHumidity(r.st,r.sh)-absoluteHumidity(r.te,r.he);
+    if(Number.isFinite(delta))unique.set(r.t,{t:r.t,delta});
+  }
+  const rows=[...unique.values()].sort((a,b)=>a.t-b.t);
   const result={sampleCount:rows.length,intervalCount:0,gapCount:0,medianDelta:median(rows.map(r=>r.delta)),
     threshold,maxGapHours,observedDurationMs:0,dryDurationMs:0,humidDurationMs:0,
     neutralDurationMs:0,longestDryMs:0,longestHumidMs:0};
