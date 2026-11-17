@@ -920,7 +920,7 @@ function prepareHygrometricRows(inputRows) {
     const dayKeys=[...new Set(samples.map(r=>dayKey(r.t)))];
     return {...bucket,dayCount:dayKeys.length,dayKeys};
   });
-  const {bestWindow,hourlyComparisonDiagnostics}=compareHourlyWindows(rows,hourlyDetails,dayKey);
+  const {bestWindow,diagnostics:hourlyComparisonDiagnostics}=compareHourlyWindows(rows,hourlyDetails,dayKey);
 
   // Le niveau décrit la robustesse de l'échantillonnage, pas l'état physique de la VMI.
   // Il tient compte de la couverture temporelle et de la part de lignes réellement retenues.
