@@ -25,7 +25,7 @@ export const wallUtcToLocal = timestamp => {
 /** Convertit une ligne historique positionnelle de l'ancienne base VMI_DB. */
 /**
  * Convertit une ligne positionnelle issue de l'ancienne base VMI_DB.
- * @param {unknown[]} row Ligne historique brute.
+ * @param {number[]} row Ligne historique brute, dans l'ordre des colonnes de l'ancienne base.
  * @returns {VmiRecord|null} Relevé normalisé, ou null si la ligne est invalide.
  */
 export const fromOldRow = row => {
