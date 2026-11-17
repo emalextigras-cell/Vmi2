@@ -1,5 +1,6 @@
 /** @typedef {import('../types/vmi-types.js').UnknownRecord} UnknownRecord */
 /** @typedef {import('../types/vmi-types.js').EnergyReading} EnergyReading */
+/** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
 /** @typedef {import('../types/vmi-types.js').EnergySummary} EnergySummary */
 /** @typedef {import('../types/vmi-types.js').MonthlyEnergySummary} MonthlyEnergySummary */
 
@@ -16,7 +17,7 @@ export const ENERGY_METER_LABELS = Object.freeze({
 
 /** Vérifie le format et les contraintes d'un index de compteur électrique.
  * @param {unknown} reading Valeur à valider.
- * @returns {boolean} true si l'index est exploitable.
+ * @returns {reading is EnergyReading} true si l'index est exploitable.
  */
 export function isValidEnergyReading(reading) {
   if (!reading || typeof reading !== 'object') return false;
@@ -176,9 +177,9 @@ const assertValidEnergyClimateOptions = (maxGapHours, minCoveredHours, minCovera
  */
 /**
  * summarizeEnergyClimateContext — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
- * @param {unknown} readings Paramètre readings.
- * @param {unknown} history Paramètre history.
- * @param {unknown} options Paramètre options.
+ * @param {EnergyReading[]} readings Index des compteurs électriques externes.
+ * @param {VmiRecord[]} history Historique thermique et hygrométrique.
+ * @param {{maxGapHours?: number, minCoveredHours?: number, minCoveragePercent?: number}} [options] Seuils de couverture climatique.
  * @returns {UnknownRecord} Résultat structuré du module.
  */
 export function summarizeEnergyClimateContext(readings, history, options = {}) {
