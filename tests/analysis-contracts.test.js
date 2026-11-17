@@ -460,3 +460,17 @@ test('summarizeRawVmiSpeed exclut les débits négatifs comme summarizeRawVmiMod
   assert.equal(result[0].minDebit, 120);
   assert.equal(result[0].maxDebit, 140);
 });
+
+
+test('summarizeOperatingReference exclut les débits négatifs des statistiques de débit', () => {
+  const result = summarizeOperatingReference([
+    { t: at(1), vmiModeRaw: 1, debit: 100 },
+    { t: at(2), vmiModeRaw: 1, debit: -20 }
+  ], { minSamples: 1 });
+  const debit = result.groups[0].fields.find(field => field.key === 'debit');
+
+  assert.equal(debit.count, 1);
+  assert.equal(debit.median, 100);
+  assert.equal(debit.min, 100);
+  assert.equal(debit.max, 100);
+});
