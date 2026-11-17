@@ -50,7 +50,7 @@ export function analyzeSpeedLevels(data, minSamples = 10, targetRH = 50) {
     }));
     const rpms=samples.map(r=>r.rpm).filter(v=>Number.isFinite(v)&&v>0&&v<10000);
     return {
-      v,n:samples.length,
+      v,n:samples.length,sharedDays:0,
       daysCovered:coveredDays.size,
       coveredDayKeys:[...coveredDays],
       rh:median(samples.map(r=>r.sh)),
@@ -265,12 +265,12 @@ export function compareOperatingPeriods(data, {
     endMs: period.end.getTime()
   }));
 
-  const metrics = [
+  const metrics = /** @type {Array<{key:'debit'|'rpm'|'vmiPwmRaw'|'motorPressureRaw',label:string,unit:string,verified?:boolean}>} */ ([
     { key: 'debit', label: 'Débit', unit: 'm³/h', verified: true },
     { key: 'rpm', label: 'Régime moteur', unit: 'tr/min' },
     { key: 'vmiPwmRaw', label: 'PWM', unit: 'valeur brute' },
     { key: 'motorPressureRaw', label: 'Pression moteur', unit: 'valeur brute, unité inconnue' }
-  ];
+  ]);
   const comparisons = [];
   for (const mode of [1, 2, 3]) {
     for (let bucket = 0; bucket < 4; bucket++) {
@@ -283,8 +283,8 @@ export function compareOperatingPeriods(data, {
         );
         const days = new Set(samples.map(row => key(new Date(row.t))));
         const values = Object.fromEntries(metrics.map(metric => {
-          const valid = samples.map(row => row[metric.key]).filter(value =>
-            Number.isFinite(value) &&
+          const valid = samples.map(row => row[metric.key]).filter((value) =>
+            typeof value === 'number' && Number.isFinite(value) &&
             (metric.key !== 'rpm' || (value > 0 && value < 10000)) &&
             (metric.key !== 'debit' || value >= 0)
           );
@@ -366,7 +366,7 @@ export function summarizeEnergyReadiness(data) {
     {key:'operatingPct2Raw',label:'% fonct.1',unit:'échelle à confirmer',verified:false},
     {key:'dcintRaw',label:'Dcint',unit:'signification et unité à confirmer',verified:false}
   ].map(field=>{
-    const values=rows.map(r=>r?.[field.key]).filter(Number.isFinite);
+    const values=rows.map(r=>r?.[field.key]).filter((value) => typeof value === 'number' && Number.isFinite(value));
     return {...field,count:values.length,
       zeroCount:values.filter(value=>value===0).length,
       nonZeroCount:values.filter(value=>value!==0).length,
@@ -644,7 +644,7 @@ export function analyzeHourlyPatterns(data, minSamples = 3) {
  * detectRapidChanges — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
  * @param {VmiRecord[]} data Historique des relevés horodatés.
  * @param {{maxGapHours?: number, rhJump?: number, absoluteHumidityJump?: number}} options Seuils de détection des variations rapides.
- * @returns {UnknownRecord} Événements de variation rapide.
+ * @returns {Array<{start:number,end:number,gapMs:number,deltaRH:number,deltaAbsoluteHumidity:number,reasons:string[]}>} Événements de variation rapide.
  */
 export function detectRapidChanges(data, { maxGapHours = 2, rhJump = 15, absoluteHumidityJump = 3 } = {}) {
   const rows=(Array.isArray(data)?data:[])
@@ -1081,7 +1081,7 @@ export function summarizeOperatingReference(data, { minSamples = 10 } = {}) {
   ];
   const groups = [...modes.entries()].sort((a, b) => a[0] - b[0]).map(([mode, samples]) => {
     const fields = metrics.map(metric => {
-      const values = samples.map(row => row?.[metric.key]).filter(Number.isFinite);
+      const values = samples.map(row => row?.[metric.key]).filter((value) => typeof value === 'number' && Number.isFinite(value));
       const center = median(values);
       return {
         ...metric, count: values.length, median: center,
@@ -1119,7 +1119,7 @@ export function summarizeOperatingReference(data, { minSamples = 10 } = {}) {
 /**
  * summarizeRawVmiMode — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
  * @param {VmiRecord[]} data Paramètre data.
- * @returns {UnknownRecord} Résultat de summarizeRawVmiMode.
+ * @returns {Array<{mode:number,sampleCount:number,medianDebit:number|null,minDebit:number|null,maxDebit:number|null,medianRenewalRate:number|null,referenceDebit:number|null,referenceRenewalRate:number|null}>} Résumé des codes Mode bruts.
  */
 export function summarizeRawVmiMode(data) {
   const groups = new Map();
@@ -1149,7 +1149,7 @@ export function summarizeRawVmiMode(data) {
 /**
  * summarizeRawVmiSpeed — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
  * @param {VmiRecord[]} data Paramètre data.
- * @returns {UnknownRecord} Résultat de summarizeRawVmiSpeed.
+ * @returns {Array<{code:number,sampleCount:number,medianDebit:number|null,minDebit:number|null,maxDebit:number|null}>} Résumé des codes Vitesse bruts.
  */
 export function summarizeRawVmiSpeed(data) {
   const groups = new Map();
