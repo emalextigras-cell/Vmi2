@@ -1,7 +1,35 @@
+/**
+ * @typedef {Object} VmiRecord
+ * @property {number} [t] Horodatage Unix en millisecondes.
+ * @property {number} [st] Température intérieure en °C.
+ * @property {number} [sh] Humidité relative intérieure en %.
+ * @property {number} [te] Température de l'air entrant en °C.
+ * @property {number} [he] Humidité relative de l'air entrant en %.
+ * @property {number} [tExt] Température extérieure en °C.
+ * @property {number} [h1] Humidité de la sonde résistances en %.
+ * @property {number} [t1] Température de la sonde résistances en °C.
+ * @property {number} [rpm] Régime moteur en tr/min.
+ * @property {number} [debit] Débit en m³/h.
+ * @property {number} [vmiModeRaw] Code brut du mode VMI.
+ * @property {number} [d] Compteur de jours de fonctionnement.
+ * @property {number} [consTmaxRaw] Consigne brute de température maximale.
+ * @property {boolean} [fixed] Indique qu'un horodatage a été recalé.
+ * @property {string|number} [id] Identifiant facultatif.
+ */
+
+/** @typedef {number|null} NullableNumber */
+/** @typedef {Record<string, unknown>} UnknownRecord */
+/** @typedef {{minSamples?: number, minDays?: number, maxGapMinutes?: number}} AnalysisOptions */
+
 /** Analyses statistiques communes (sans effet sur les commandes VMI). */
 import { absoluteHumidity, dewPoint } from './psychrometry.js';
 import { isPlausibleHumidity, isPlausibleTemperature } from './data-quality.js';
 
+/**
+ * median — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {unknown} values Paramètre values.
+ * @returns {UnknownRecord} Résultat de median.
+ */
 export function median(values) {
   const sorted = values.filter(Number.isFinite).sort((a,b)=>a-b);
   if (!sorted.length) return null;
@@ -12,6 +40,13 @@ export function median(values) {
 /**
  * Compare uniquement les niveaux manuels 1/2/3 déjà identifiés dans les relevés.
  * Les valeurs brutes importées de VMI+ ne sont pas assimilées à ces niveaux.
+ */
+/**
+ * analyzeSpeedLevels — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} data Paramètre data.
+ * @param {number} minSamples Paramètre minSamples.
+ * @param {number} targetRH Paramètre targetRH.
+ * @returns {UnknownRecord} Résultat de analyzeSpeedLevels.
  */
 export function analyzeSpeedLevels(data, minSamples = 10, targetRH = 50) {
   const rows = (Array.isArray(data) ? data : []).filter(r =>
@@ -68,6 +103,13 @@ export function analyzeSpeedLevels(data, minSamples = 10, targetRH = 50) {
  * Décrit les mesures par niveau manuel et tranche horaire locale de 6 h.
  * Une médiane n'est affichée que si l'effectif et le nombre de jours suffisent.
  * Les tranches ne sont pas considérées comme des essais contrôlés.
+ */
+/**
+ * analyzeSpeedTimeContext — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} data Paramètre data.
+ * @param {unknown} { minSamples Paramètre { minSamples.
+ * @param {number} minDays Paramètre minDays.
+ * @returns {UnknownRecord} Résultat de analyzeSpeedTimeContext.
  */
 export function analyzeSpeedTimeContext(data, { minSamples = 5, minDays = 2 } = {}) {
   const rows=(Array.isArray(data)?data:[]).filter(r=>
@@ -208,6 +250,16 @@ export function analyzeSpeedTimeContext(data, { minSamples = 5, minDays = 2 } = 
  * Compare deux périodes calendaires successives à mode et tranche horaire identiques.
  * Les valeurs brutes restent brutes ; aucune variation n'est qualifiée de panne ou d'encrassement.
  */
+/**
+ * compareOperatingPeriods — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} data Paramètre data.
+ * @param {unknown} {
+  periodDays Paramètre {
+  periodDays.
+ * @param {number} minSamples Paramètre minSamples.
+ * @param {number} minDays Paramètre minDays.
+ * @returns {UnknownRecord} Résultat de compareOperatingPeriods.
+ */
 export function compareOperatingPeriods(data, {
   periodDays = 7, minSamples = 12, minDays = 3
 } = {}) {
@@ -313,6 +365,11 @@ export function compareOperatingPeriods(data, {
 }
 
 /** Inventaire des champs VMI+ disponibles ; aucune unité ni consommation n'est déduite. */
+/**
+ * summarizeEnergyReadiness — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} data Paramètre data.
+ * @returns {UnknownRecord} Résultat de summarizeEnergyReadiness.
+ */
 export function summarizeEnergyReadiness(data) {
   const rows=Array.isArray(data)?data:[];
   const fields=[
@@ -353,6 +410,15 @@ export function summarizeEnergyReadiness(data) {
 /**
  * Analyse les relevés autour de la consigne de température extérieure Cons TMax.
  * Les comparaisons restent descriptives et sont séparées par mode manuel déclaré.
+ */
+/**
+ * summarizeTemperatureLimit — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} data Paramètre data.
+ * @param {unknown} {
+  minimumGroupSamples Paramètre {
+  minimumGroupSamples.
+ * @param {unknown} minimumGroupDays Paramètre minimumGroupDays.
+ * @returns {UnknownRecord} Résultat de summarizeTemperatureLimit.
  */
 export function summarizeTemperatureLimit(data, {
   minimumGroupSamples = 5, minimumGroupDays = 2
@@ -464,6 +530,13 @@ export function summarizeTemperatureLimit(data, {
  * Les durées sont estimées entre deux mesures successives par interpolation
  * du delta. Les intervalles supérieurs à maxGapHours ne sont jamais extrapolés.
  */
+/**
+ * analyzeHygrometricPeriods — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} data Paramètre data.
+ * @param {unknown} { threshold Paramètre { threshold.
+ * @param {unknown} maxGapHours Paramètre maxGapHours.
+ * @returns {UnknownRecord} Résultat de analyzeHygrometricPeriods.
+ */
 export function analyzeHygrometricPeriods(data, { threshold = 1, maxGapHours = 2 } = {}) {
   const rows=(Array.isArray(data)?data:[])
     .filter(r=>Number.isFinite(r?.t)&&Number.isFinite(r.st)&&isPlausibleTemperature(r.st)&&
@@ -524,6 +597,11 @@ function validHygroRow(r) {
 }
 
 /** Médianes journalières locales : aucune interpolation entre les jours. */
+/**
+ * summarizeDailyTrends — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} data Paramètre data.
+ * @returns {UnknownRecord} Résultat de summarizeDailyTrends.
+ */
 export function summarizeDailyTrends(data) {
   const days = new Map();
   for (const r of Array.isArray(data) ? data : []) {
@@ -554,6 +632,12 @@ export function summarizeDailyTrends(data) {
 }
 
 /** Profils horaires locaux. Une tranche n'est interprétée qu'à partir de 3 relevés. */
+/**
+ * analyzeHourlyPatterns — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} data Paramètre data.
+ * @param {number} minSamples Paramètre minSamples.
+ * @returns {UnknownRecord} Résultat de analyzeHourlyPatterns.
+ */
 export function analyzeHourlyPatterns(data, minSamples = 3) {
   const buckets = Array.from({length:4}, (_,i) => ({
     label: ['00–05 h','06–11 h','12–17 h','18–23 h'][i],
@@ -585,6 +669,14 @@ export function analyzeHourlyPatterns(data, minSamples = 3) {
  * Repère des variations rapides à examiner, sans les qualifier de panne.
  * Seules les mesures successives espacées de 2 h maximum sont comparées.
  */
+/**
+ * detectRapidChanges — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} data Paramètre data.
+ * @param {unknown} { maxGapHours Paramètre { maxGapHours.
+ * @param {unknown} rhJump Paramètre rhJump.
+ * @param {unknown} absoluteHumidityJump Paramètre absoluteHumidityJump.
+ * @returns {UnknownRecord} Résultat de detectRapidChanges.
+ */
 export function detectRapidChanges(data, { maxGapHours = 2, rhJump = 15, absoluteHumidityJump = 3 } = {}) {
   const rows=(Array.isArray(data)?data:[])
     .filter(validHygroRow)
@@ -615,6 +707,17 @@ export function detectRapidChanges(data, { maxGapHours = 2, rhJump = 15, absolut
  * Diagnostic hygrométrique explicable.
  * Les constats reposent sur les mesures disponibles, sans inférer le débit réel,
  * la consommation électrique, une panne ou un lien de causalité.
+ */
+/**
+ * buildHygrometricDiagnosis — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} data Paramètre data.
+ * @param {unknown} {
+  dryDelta Paramètre {
+  dryDelta.
+ * @param {unknown} trendDelta Paramètre trendDelta.
+ * @param {number} minSamples Paramètre minSamples.
+ * @param {unknown} maxGapHours Paramètre maxGapHours.
+ * @returns {UnknownRecord} Résultat de buildHygrometricDiagnosis.
  */
 export function buildHygrometricDiagnosis(data, {
   dryDelta = 1,
@@ -991,6 +1094,12 @@ export function buildHygrometricDiagnosis(data, {
  * Référence descriptive du fonctionnement par mode VMI+.
  * Mode et code Vitesse brut restent distincts ; les unités non confirmées restent brutes.
  */
+/**
+ * summarizeOperatingReference — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} data Paramètre data.
+ * @param {unknown} { minSamples Paramètre { minSamples.
+ * @returns {UnknownRecord} Résultat de summarizeOperatingReference.
+ */
 export function summarizeOperatingReference(data, { minSamples = 10 } = {}) {
   const rows = Array.isArray(data) ? data : [];
   const modes = new Map();
@@ -1043,6 +1152,11 @@ export function summarizeOperatingReference(data, { minSamples = 10 } = {}) {
   };
 }
 
+/**
+ * summarizeRawVmiMode — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} data Paramètre data.
+ * @returns {UnknownRecord} Résultat de summarizeRawVmiMode.
+ */
 export function summarizeRawVmiMode(data) {
   const groups = new Map();
   for (const row of Array.isArray(data) ? data : []) {
@@ -1068,6 +1182,11 @@ export function summarizeRawVmiMode(data) {
   }));
 }
 
+/**
+ * summarizeRawVmiSpeed — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} data Paramètre data.
+ * @returns {UnknownRecord} Résultat de summarizeRawVmiSpeed.
+ */
 export function summarizeRawVmiSpeed(data) {
   const groups = new Map();
   for (const row of Array.isArray(data) ? data : []) {
