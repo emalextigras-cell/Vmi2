@@ -50,6 +50,19 @@ test('setMany écrit toutes les clés dans une transaction unique', async () => 
   }
 });
 
+test('set propage un échec d’écriture au lieu de le masquer', async () => {
+  const mock = installIndexedDB({ fail: true });
+  const errors = [];
+  try {
+    const store = createStore({ databaseName: 'test', storeName: 'data', onError: message => errors.push(message) });
+    await assert.rejects(store.set('hist', []), /quota exceeded/);
+    assert.equal(errors.length, 1);
+    assert.match(errors[0], /IndexedDB écriture/);
+  } finally {
+    mock.restore();
+  }
+});
+
 test('setMany propage un échec de transaction au lieu de le masquer', async () => {
   const mock = installIndexedDB({ fail: true });
   const errors = [];

@@ -82,6 +82,12 @@ const bleWriteQueue=createBleWriteQueue({
 });
 
 function showError(e){$('err').textContent=e?String(e.message||e):''}
+function persist(key,value,label='Sauvegarde IndexedDB'){
+ return dbSet(key,value).catch(error=>{
+  const message=label+' impossible : '+(error?.message||error);
+  showError(message);log(message);throw error;
+ });
+}
 function renderLog(){const p=$('log');p.textContent=logLines.slice(-70).join('\n');p.scrollTop=p.scrollHeight}
 function log(s){logLines.push(`${new Date().toLocaleTimeString('fr-FR')} ${s}`);if(logLines.length>300)logLines.shift();if($('logDetails').open)renderLog()}
 $('logDetails').addEventListener('toggle',()=>{if($('logDetails').open)renderLog()});
@@ -262,7 +268,7 @@ function takeSnapshot(){
  if(!Number.isFinite(row.st)&&!Number.isFinite(row.sh))return;
  live.push(row);
  if(live.length>10000)live.splice(0,live.length-10000);
- dbSet('live',live);$('liveCount').textContent=live.length;
+ void persist('live',live,'Sauvegarde des relevés en direct').catch(()=>{});$('liveCount').textContent=live.length;
  if(source==='live')render();
 }
 
@@ -493,7 +499,7 @@ $('clk').onclick=setClock;
 function ingest(recs,label,maxTimestamp=Date.now()){
  const {fixed,kept}=fixClock(recs,hist,MIN_VALID,maxTimestamp);
  hist=mergeImportedHistory(hist,kept);
- pruneHist();dbSet('hist',hist);source='hist';
+ pruneHist();void persist('hist',hist,'Sauvegarde de l’historique').catch(()=>{});source='hist';
  // Conserver le jour choisi : une synchronisation en arrière-plan ne doit pas réinitialiser les graphiques.
  const lost=recs.length-kept.length;
  $('importInfo').textContent=`${label} : ${recs.length} relevés lus${fixed?`, dont ${fixed} dont la date a été corrigée (horloge de la VMI fausse)`:''}${lost?`, ${lost} écartés (date invalide ou postérieure à la synchronisation)`:''}.`;
@@ -519,7 +525,7 @@ function finishDownload(reachedCut,timeout=false,interrupted=false){
  const count=download.rows.length;
  const complete=!timeout&&!interrupted&&!download.integrityGap&&(reachedCut||download.finalSeen===true);
  if(count)ingest(markHistoryRows(download.rows,complete),'Téléchargement',Date.now());
- if(complete){meta.lastSync=Date.now();dbSet('meta',meta);renderFreshness()}
+ if(complete){meta.lastSync=Date.now();void persist('meta',meta,'Sauvegarde des métadonnées').catch(()=>{});renderFreshness()}
  $('dlh').disabled=false;setCommandsDisabled(false);
  $('dlp').textContent=`Terminé : ${count} nouvelles lignes${download.integrityGap?' · lacune détectée : synchronisation non certifiée, relance nécessaire':interrupted?(download.got?' · transfert interrompu, données partielles conservées ; relance la synchronisation':' · transfert interrompu avant réception') :reachedCut?' · historique à jour':timeout?(download.got?' · arrêt après une pause de 20 s':' · aucune réponse de la VMI'):(download.sigs.size?' · attention : trou possible avant la dernière ligne mémorisée':' · historique complet')}`;
  if(reachedCut&&dev&&dev.gatt&&dev.gatt.connected){
@@ -598,7 +604,7 @@ $('fx').onchange=async e=>{
  }catch(err){showError('Import impossible : '+err.message)}
  e.target.value='';
 };
-$('clearImport').onclick=async()=>{if(confirm('Effacer tout l’historique importé ?')){hist=[];await dbSet('hist',[]);$('importInfo').textContent='';render()}};
+$('clearImport').onclick=async()=>{if(!confirm('Effacer tout l’historique importé ?'))return;try{await persist('hist',[],'Effacement de l’historique');hist=[];$('importInfo').textContent='';render()}catch{} };
 $('histBtn').onclick=()=>{source='hist';render()};
 $('liveBtn').onclick=()=>{source='live';render()};
 $('dayPicker').onchange=e=>{selectedDate=e.target.value||null;resetChartViews();render()};
@@ -606,7 +612,7 @@ $('clearDay').onclick=()=>{selectedDate=null;$('dayPicker').value='';resetChartV
 $('prev').onclick=()=>{selectedDate=shiftDay(selectedDate,-1);$('dayPicker').value=selectedDate;resetChartViews();render()};
 $('next').onclick=()=>{selectedDate=shiftDay(selectedDate,1);$('dayPicker').value=selectedDate;resetChartViews();render()};
 document.querySelectorAll('[data-days]').forEach(b=>b.onclick=()=>{daysSetting=Number(b.dataset.days);selectedDate=null;$('dayPicker').value='';resetChartViews();render()});
-$('clearLive').onclick=async()=>{if(confirm('Effacer les relevés en direct ?')){live=[];await dbSet('live',[]);$('liveCount').textContent='0';render()}};
+$('clearLive').onclick=async()=>{if(!confirm('Effacer les relevés en direct ?'))return;try{await persist('live',[],'Effacement des relevés en direct');live=[];$('liveCount').textContent='0';render()}catch{} };
 $('csv').onclick=()=>{
  const keys=['t','st','sh','t1','h1','te','he','rpm','fil','vit','boost','hol'];
  const rows=[keys.join(';'),...live.map(r=>keys.map(k=>k==='t'?new Date(r.t).toISOString():(r[k]!=null?r[k]:'')).join(';'))];
