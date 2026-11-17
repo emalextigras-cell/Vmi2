@@ -29,6 +29,10 @@ export function median(values) {
  * @returns {import('../types/vmi-types.js').SpeedLevelResult} Comparaison descriptive des niveaux manuels.
  */
 export function analyzeSpeedLevels(data, minSamples = 10, targetRH = 50) {
+  if (!Number.isInteger(minSamples) || minSamples <= 0) {
+    throw new RangeError('minSamples doit être un entier strictement positif.');
+  }
+
   const rows = (Array.isArray(data) ? data : []).filter(r =>
     Number.isFinite(r?.vmiModeRaw) && [1,2,3].includes(r.vmiModeRaw) &&
     Number.isFinite(r.sh) && isPlausibleHumidity(r.sh) &&
