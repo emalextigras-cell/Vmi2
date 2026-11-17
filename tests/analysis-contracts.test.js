@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   median,
+  analyzeHourlyPatterns,
   compareOperatingPeriods,
   analyzeSpeedTimeContext,
   analyzeSpeedLevels,
@@ -305,4 +306,19 @@ test('summarizeTemperatureLimit conserve ses seuils par défaut et accepte des e
   });
   assert.equal(custom.minimumGroupSamples, 1);
   assert.equal(custom.minimumGroupDays, 1);
+});
+
+
+test('analyzeHourlyPatterns rejette un minimum de mesures invalide', () => {
+  for (const minSamples of [0, -1, 1.5, Infinity, NaN]) {
+    assert.throws(
+      () => analyzeHourlyPatterns([], minSamples),
+      RangeError
+    );
+  }
+});
+
+test('analyzeHourlyPatterns conserve son seuil par défaut et accepte un entier positif', () => {
+  assert.equal(analyzeHourlyPatterns([]).minSamples, 3);
+  assert.equal(analyzeHourlyPatterns([], 1).minSamples, 1);
 });
