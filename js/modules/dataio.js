@@ -22,14 +22,18 @@ const normalizeHeader = value => String(value ?? '')
 
 /**
  * Repère l'en-tête VMI+ dans les lignes CSV ou tableur.
- * Exige les colonnes Date, Mode et Debit pour éviter un import décalé.
+ * La colonne Mode est optionnelle : elle ne doit pas empêcher l'import des
+ * historiques qui restent exploitables pour les mesures et les graphiques.
  */
 export function findVmiHeaderRowIndex(rows, maxRows = 20) {
   if (!Array.isArray(rows)) return -1;
   const limit = Math.min(rows.length, Math.max(1, Number.isFinite(maxRows) ? Math.floor(maxRows) : 20));
   for (let index = 0; index < limit; index++) {
     const headers = Array.isArray(rows[index]) ? rows[index].map(normalizeHeader) : [];
-    if (headers.includes('date') && headers.includes('mode') && headers.includes('debit')) {
+    const hasDate = headers.includes('date');
+    const hasMeasurement = ['debit', 'tachy rpm', 'tempext', 'temp', 'hum rel', 'hum abs']
+      .some(header => headers.includes(header));
+    if (hasDate && hasMeasurement) {
       return index;
     }
   }
@@ -88,6 +92,7 @@ export function getColumnMapping(headerRow) {
       mapping.operatingPct2 = secondOperatingPct;
     }
   }
+  if (!headers.includes('mode')) mapping.mode = -1;
   return mapping;
 }
 

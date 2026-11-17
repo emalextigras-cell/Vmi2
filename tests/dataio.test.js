@@ -285,14 +285,21 @@ test('repère l’en-tête VMI+ même si le nombre de lignes de métadonnées va
   assert.equal(record?.debit, 121);
 });
 
-test('refuse de choisir une ligne sans les trois colonnes d’ancrage VMI+', () => {
+test('accepte un historique exploitable sans colonne Mode', () => {
   const rows = [
     ['Date','Event','Debit'],
     ['10/11/2026 16:45:35','35','121'],
     ['Date','Mode','Autre']
   ];
-  assert.equal(findVmiHeaderRowIndex(rows), -1);
+  assert.equal(findVmiHeaderRowIndex(rows), 0);
+  const mapping = getColumnMapping(rows[0]);
+  assert.equal(mapping.mode, -1);
+  assert.equal(recFrom(rows[1], null, mapping)?.vmiModeRaw, null);
   assert.equal(findVmiHeaderRowIndex(null), -1);
+});
+
+test('refuse une ligne qui ne contient ni mesure ni colonne d’ancrage', () => {
+  assert.equal(findVmiHeaderRowIndex([['Date','Event'], ['10/11/2026 16:45:35','35']]), -1);
 });
 
 test('la détection de l’en-tête est limitée à la fenêtre autorisée', () => {

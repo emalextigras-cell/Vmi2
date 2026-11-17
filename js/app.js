@@ -591,7 +591,7 @@ $('fx').onchange=async e=>{
    rows=XLSX.utils.sheet_to_json(sheet,{header:1,raw:true,defval:''});
   }
   const headerIndex=findVmiHeaderRowIndex(rows);
-  if(headerIndex<0)throw new Error('En-tête VMI+ introuvable : les colonnes Date, mode et Debit doivent être présentes dans les 20 premières lignes. Aucun relevé n’a été importé.');
+  if(headerIndex<0)throw new Error('En-tête VMI+ introuvable : une colonne Date et au moins une mesure (Debit, température, humidité ou régime) doivent être présentes dans les 20 premières lignes. Aucun relevé n’a été importé.');
   const columnMapping=getColumnMapping(rows[headerIndex]);
   const recs=[];for(let i=headerIndex+1;i<rows.length;i++){const r=recFrom(rows[i],spreadsheet,columnMapping);if(r)recs.push(r)}
   ingest(recs,'Import');
