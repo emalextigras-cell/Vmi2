@@ -49,7 +49,7 @@ export function analyzeSeasonalVentilation(data, { minSamples = 6, minDays = 2, 
     Number.isFinite(row?.t) && validTemperature(row?.st) && validTemperature(row?.tExt)
   ).map(row => ({ ...row, calendarSeason: calendarSeason(row.t), day: localDay(row.t) }));
 
-  const seasons = ['été', 'hiver', 'intersaison'].map(season => {
+  const seasons = /** @type {SeasonalVentilationSummary['seasons']} */ (['été', 'hiver', 'intersaison'].map(season => {
     const seasonalRows = rows.filter(row => row.calendarSeason === season);
     const days = new Map();
     for (const row of seasonalRows) {
@@ -88,7 +88,7 @@ export function analyzeSeasonalVentilation(data, { minSamples = 6, minDays = 2, 
       if (Number.isFinite(row.seasonRaw)) codeCounts[row.seasonRaw] = (codeCounts[row.seasonRaw] || 0) + 1;
     }
     return {
-      season, sampleCount: seasonalRows.length, dayCount: daily.length,
+      season: /** @type {'été'|'hiver'|'intersaison'} */ (season), sampleCount: seasonalRows.length, dayCount: daily.length,
       thermalSampleCount: relevantSamples,
       medianOutdoorMinusIndoor: median(daily.map(day => day.medianOutdoorMinusIndoor)),
       medianHumidityDelta: median(daily.map(day => day.humidityDelta)),
@@ -96,7 +96,7 @@ export function analyzeSeasonalVentilation(data, { minSamples = 6, minDays = 2, 
       opportunityDays: opportunityDays.map(day => day.day),
       enough, codeCounts
     };
-  });
+  }));
 
   const latest = rows.length ? rows.reduce((a,b) => a.t > b.t ? a : b) : null;
   const currentSeason = latest?.calendarSeason ?? null;
