@@ -1302,7 +1302,7 @@ export function summarizeRawVmiSpeed(data) {
     if (!Number.isFinite(row?.vmiSpeedRaw)) continue;
     const code = row.vmiSpeedRaw;
     if (!groups.has(code)) groups.set(code, []);
-    if (Number.isFinite(row.debit)) groups.get(code).push(row.debit);
+    if (Number.isFinite(row.debit) && row.debit >= 0) groups.get(code).push(row.debit);
   }
   return [...groups.entries()].sort((a,b)=>a[0]-b[0]).map(([code, values]) => ({
     code,
