@@ -1,4 +1,5 @@
 /** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
+/** @typedef {import('../types/vmi-types.js').SeasonalVentilationSummary} SeasonalVentilationSummary */
 /** @typedef {import('../types/vmi-types.js').UnknownRecord} UnknownRecord */
 /** @typedef {import('../types/vmi-types.js').AnalysisOptions} AnalysisOptions */
 
@@ -11,10 +12,9 @@ import { median } from './analysis.js';
 import { absoluteHumidity } from './psychrometry.js';
 import { isPlausibleTemperature, isPlausibleHumidity } from './data-quality.js';
 
-/**
- * calendarSeason — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
- * @param {unknown} timestamp Paramètre timestamp.
- * @returns {UnknownRecord} Résultat structuré du module.
+/** Détermine la saison calendaire à partir d'un horodatage local.
+ * @param {number} timestamp Horodatage Unix en millisecondes.
+ * @returns {'hiver'|'été'|'intersaison'|null} Saison, ou null si l'horodatage est invalide.
  */
 export function calendarSeason(timestamp) {
   if (!Number.isFinite(timestamp)) return null;
@@ -39,13 +39,10 @@ function localDay(timestamp) {
  * Une opportunité thermique est seulement un contexte favorable observé,
  * pas une preuve de refroidissement/réchauffement réel du logement.
  */
-/**
- * analyzeSeasonalVentilation — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
- * @param {VmiRecord[]} data Paramètre data.
- * @param {AnalysisOptions} options Options de calcul.
- * @param {unknown} minDays Paramètre minDays.
- * @param {unknown} temperatureMargin Paramètre temperatureMargin.
- * @returns {UnknownRecord} Résultat structuré du module.
+/** Analyse les opportunités saisonnières à partir des températures mesurées.
+ * @param {VmiRecord[]} data Historique thermique et hygrométrique.
+ * @param {{minSamples?: number, minDays?: number, temperatureMargin?: number}} [options] Seuils de couverture et d'écart thermique.
+ * @returns {SeasonalVentilationSummary} Synthèse saisonnière et conseil manuel.
  */
 export function analyzeSeasonalVentilation(data, { minSamples = 6, minDays = 2, temperatureMargin = 2 } = {}) {
   const rows = (Array.isArray(data) ? data : []).filter(row =>
