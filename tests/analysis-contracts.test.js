@@ -644,3 +644,19 @@ test('buildHygrometricDiagnosis résume de nombreux intervalles exclus sans dép
   assert.equal(result.excludedGapCount, 129999);
   assert.equal(result.largestExcludedGapHours, 1 / 60);
 });
+
+
+test('analyzeSpeedLevels ne compte pas deux fois un même mode et horodatage', () => {
+  const timestamp = at(15, 8);
+  const result = analyzeSpeedLevels([
+    { t: timestamp, vmiModeRaw: 1, st: 20, sh: 40, rpm: 1000 },
+    { t: timestamp, vmiModeRaw: 1, st: 20, sh: 60, rpm: 1200 },
+    { t: at(15, 9), vmiModeRaw: 1, st: 20, sh: 50, rpm: 1100 }
+  ], 3);
+  const mode1 = result.groups.find(group => group.v === 1);
+
+  assert.equal(mode1.n, 2);
+  assert.equal(mode1.rh, 55);
+  assert.equal(mode1.rpm, 1150);
+  assert.equal(result.status, 'insufficient');
+});
