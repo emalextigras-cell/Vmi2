@@ -706,3 +706,17 @@ test('summarizeRawVmiMode ne compte pas deux fois un même mode et horodatage', 
   assert.equal(mode1.medianDebit, 210);
   assert.equal(mode1.medianRenewalRate, 0.75);
 });
+
+
+test('summarizeRawVmiSpeed ne compte pas deux fois un même code vitesse et horodatage', () => {
+  const timestamp = at(21, 8);
+  const result = summarizeRawVmiSpeed([
+    { t: timestamp, vmiSpeedRaw: 1, debit: 100 },
+    { t: timestamp, vmiSpeedRaw: 1, debit: 300 },
+    { t: at(22, 8), vmiSpeedRaw: 1, debit: 120 }
+  ]);
+  const speed1 = result.find(group => group.code === 1);
+
+  assert.equal(speed1.sampleCount, 2);
+  assert.equal(speed1.medianDebit, 210);
+});
