@@ -47,7 +47,7 @@ export function analyzeSpeedLevels(data, minSamples = 10, targetRH = 50) {
         ? absoluteHumidity(r.te,r.he) : null;
       return inside != null && incoming != null ? inside-incoming : null;
     }).filter(Number.isFinite);
-    const times=samples.map(r=>r.t).filter(Number.isFinite);
+    const times=samples.map(r=>r.t).filter(t=>Number.isFinite(t)&&Number.isFinite(new Date(t).getTime()));
     const coveredDays=new Set(times.map(t=>{
       const d=new Date(t);
       return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
