@@ -1,4 +1,5 @@
 /** @typedef {import('../types/vmi-types.js').UnknownRecord} UnknownRecord */
+/** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
 
 /**
  * Validation structurelle minimale d'une ligne d'historique Bluetooth VMI+.
@@ -8,7 +9,7 @@
  */
 /** Valide et décode une ligne d'historique Bluetooth.
  * @param {string} line Ligne brute reçue.
- * @returns {{valid: true, record: VmiRecord}|{valid: false, reason: string}} Résultat de validation.
+ * @returns {{valid: true, fields: string[]}|{valid: false, reason: string}} Résultat de validation.
  */
 export function validateBluetoothHistoryRow(line) {
   if (typeof line !== 'string' || !line.trim()) return { valid: false, reason: 'empty' };
