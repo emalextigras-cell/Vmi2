@@ -204,6 +204,7 @@ export interface RapidChangeEvent {
   deltaAbsoluteHumidity:number; reasons:string[];
 }
 export interface HygrometricDiagnosisResult {
+  [key:string]: unknown;
   status:string; sampleCount:number; dayCount:number; observedHours:number;
   coverageLevel:string; excludedGapCount:number; largestExcludedGapHours:number;
   maxGapHours:number;
@@ -223,7 +224,7 @@ export interface SpeedLevelResult {
 export interface DailySpeedStats {
   medianRH:number|null;medianIndoorHA:number|null;medianIncomingHA:number|null;
   medianDeltaHA:number|null;deltaSamples:number;medianRPM:number|null;rpmSamples:number;
-  dayCount:number;daily:Array<{medianRH:number|null;medianIndoorHA:number|null;medianIncomingHA:number|null;medianDeltaHA:number|null;deltaSamples:number;medianRPM:number|null;rpmSamples:number}>;
+  dayCount:number;daily:Array<{sampleCount:number;medianRH:number|null;medianIndoorHA:number|null;medianIncomingHA:number|null;medianDeltaHA:number|null;deltaSamples:number;medianRPM:number|null;rpmSamples:number}>;
 }
 export interface SpeedTimeComparison {
   bucket:number;label:string;speeds:[number,number];sharedDayCount:number;
@@ -264,4 +265,42 @@ export interface AssistantSummary {
   sections:Array<{id:string;title:string;status:string;summary:string;details:string[]}>;
   recommendations:Array<{priority:string;title:string;text:string;reason:string}>;
   limits:string[];
+}
+
+export interface FanEnergyEstimateResult {
+  status:string;sampleCount:number;firstAt:number|null;lastAt:number|null;observedHours:number;
+  coveredHours:number;coveragePercent:number;acceptedIntervalCount:number;longGapCount:number;
+  invalidFlowIntervalCount:number;duplicateTimestampCount:number;conflictingTimestampCount:number;
+  estimatedWh:number|null;estimatedKwh:number|null;averagePowerW:number|null;maxGapHours:number;limits:string[];
+}
+export interface FanEnergyByModeResult {
+  groups:Array<{mode:number;status:string;estimatedKwh:number|null;coveredHours:number;candidateHours:number;
+    coveragePercent:number;weightedAveragePowerW:number|null;medianDailyAveragePowerW:number|null;
+    climate:Record<string,number|null>;climateCoverageHours:Record<string,number>;
+    dayCount:number;intervalCount:number;longGapCount:number;invalidFlowIntervalCount:number}>;
+  hasManualModeData:boolean;transitionIntervalCount:number;duplicateTimestampCount:number;
+  conflictingTimestampCount:number;maxGapHours:number;minDays:number;limits:string[];
+}
+export interface WeeklyDiagnosticResult {
+  status:string;periods:Array<{id:string;start:string;end:string;dayCount:number;sampleCount:number;
+    medianIndoorHA:number|null;medianIncomingHA:number|null;medianDeltaHA:number|null;
+    medianRH:number|null;medianTemperature:number|null;energyCoveredDays:number;
+    estimatedFanKwh:number|null;fanHours:number|null}>;
+  comparison:{indoorHA:number|null;incomingHA:number|null;deltaHA:number|null;relativeHumidity:number|null;temperature:number|null}|null;
+  findings:Array<{type:string;title:string;text:string}>;
+  windowDays:number;minSamplesPerDay:number;minDaysPerWindow:number;minEnergyDays:number;
+  maxGapHours:number;changeThreshold:number;duplicateTimestampCount:number;conflictingTimestampCount:number;limits:string[];
+}
+export interface EnergyClimateMeterContextResult {
+  meters:Array<{meterType:EnergyMeterType;label:string;intervals:Array<{
+    from:number;to:number;elapsedHours:number;previousKwh:number;currentKwh:number;
+    deltaKwh:number|null;averagePowerW:number|null;status:'measured';context:{
+      indoorTemp:number|null;outdoorTemp:number|null;indoorRH:number|null;incomingTemp:number|null;
+      incomingRH:number|null;indoorAbsHumidity:number|null;incomingAbsHumidity:number|null;
+      deltaAbsHumidity:number|null;coverageHours:number;coveragePercent:number;coveredMs:number;
+      ready:boolean;metricCoverageHours:Record<string,number>
+    }
+  }>}>;
+  historySampleCount:number;maxGapHours:number;minCoveredHours:number;minCoveragePercent:number;
+  matchedIntervalCount:number;measuredIntervalCount:number;limits:string[];
 }
