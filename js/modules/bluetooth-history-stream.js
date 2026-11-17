@@ -1,9 +1,27 @@
 /**
+ * @typedef {Object} VmiRecord
+ * @property {number} [t] Horodatage Unix en millisecondes.
+ * @property {number} [st] Température intérieure en °C.
+ * @property {number} [sh] Humidité relative intérieure en %.
+ * @property {number} [te] Température de l'air entrant en °C.
+ * @property {number} [he] Humidité relative de l'air entrant en %.
+ * @property {number} [rpm] Régime moteur en tr/min.
+ * @property {number} [debit] Débit en m³/h.
+ * @property {number} [vmiModeRaw] Code brut du mode VMI.
+ */
+/** @typedef {Record<string, unknown>} UnknownRecord */
+/** @typedef {{minSamples?: number, minDays?: number}} AnalysisOptions */
+
+/**
  * Contrôle l'ordre des fragments d'historique observés dans les notifications VMI.
  * La capture confirme l'index de ligne (octets 9-10) et l'index de fragment
  * (octet 12, par pas de 10). Le parseur historique interprète l'octet 13
  * comme indicateur de fin, mais la capture fournie n'observe aucune valeur 1.
  * Cette garde détecte uniquement les répétitions, trous et désordres observés.
+ */
+/**
+ * createHistoryStreamState — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @returns {UnknownRecord} Résultat structuré du module.
  */
 export function createHistoryStreamState() {
   return {
@@ -15,6 +33,12 @@ export function createHistoryStreamState() {
   };
 }
 
+/**
+ * acceptHistoryFragment — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {unknown} state Paramètre state.
+ * @param {unknown} fragment Paramètre fragment.
+ * @returns {UnknownRecord} Résultat structuré du module.
+ */
 export function acceptHistoryFragment(state, fragment) {
   const sequence = Number(fragment?.sequence);
   const chunkIndex = Number(fragment?.chunkIndex);
@@ -83,11 +107,22 @@ export function acceptHistoryFragment(state, fragment) {
 }
 
 /** Les relevés issus d'un transfert incomplet ne peuvent pas servir de borne d'arrêt. */
+/**
+ * isHistorySyncBaseline — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {unknown} record Paramètre record.
+ * @returns {UnknownRecord} Résultat structuré du module.
+ */
 export function isHistorySyncBaseline(record) {
   return !!record && record.syncPartial !== true;
 }
 
 /** Marque les lignes reçues selon que le transfert entier est certifié ou non. */
+/**
+ * markHistoryRows — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} records Paramètre records.
+ * @param {unknown} complete Paramètre complete.
+ * @returns {UnknownRecord} Résultat structuré du module.
+ */
 export function markHistoryRows(records, complete) {
   return (Array.isArray(records) ? records : []).map(record => ({
     ...record,
@@ -96,6 +131,11 @@ export function markHistoryRows(records, complete) {
 }
 
 /** Signale une notification d'historique tronquée dont les index ne sont pas lisibles. */
+/**
+ * markHistoryStreamInvalid — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {unknown} state Paramètre state.
+ * @returns {UnknownRecord} Résultat structuré du module.
+ */
 export function markHistoryStreamInvalid(state) {
   state.gapCount++;
   // Sans index lisible, on ne peut pas savoir quel fragment manque : abandonner
