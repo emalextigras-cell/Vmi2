@@ -971,7 +971,7 @@ function prepareHygrometricRows(inputRows) {
       code:'hourly-comparison-limited',level:'info',
       basis:hourlyComparisonDiagnostics,
       title:'Comparaison horaire non concluante',
-      detail:hourlyComparisonReason+' Aucun créneau n’est désigné comme plus favorable lorsque ces conditions ne sont pas réunies.',
+      detail:hourlyComparisonDiagnostics.reason+' Aucun créneau n’est désigné comme plus favorable lorsque ces conditions ne sont pas réunies.',
       recommendation:'Conserver l’historique et réévaluer après plusieurs journées comportant des relevés répartis dans les différentes tranches horaires.'
     });
   }
