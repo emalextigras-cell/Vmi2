@@ -32,10 +32,11 @@ export const isPlausibleTemperature = value =>
  * @returns {boolean} Résultat de isPlaceholderSensorRecord.
  */
 export function isPlaceholderSensorRecord(record) {
-  if (!record) return false;
-  return record.st === 20 && record.sh === 50 &&
-    record.t1 === 20 && record.h1 === 50 &&
-    record.te === 20 && record.he === 50;
+  if (!record || typeof record !== 'object') return false;
+  const row = /** @type {Record<string, unknown>} */ (record);
+  return row.st === 20 && row.sh === 50 &&
+    row.t1 === 20 && row.h1 === 50 &&
+    row.te === 20 && row.he === 50;
 }
 
 
