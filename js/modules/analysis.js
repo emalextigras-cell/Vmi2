@@ -429,11 +429,19 @@ export function summarizeTemperatureLimit(data, {
   }
 
   const rows = Array.isArray(data) ? data : [];
-  const eligible = rows.filter(row =>
-    (row?.t == null || (Number.isFinite(row.t) && Number.isFinite(new Date(row.t).getTime()))) &&
-    Number.isFinite(row?.consTmaxRaw) && isPlausibleTemperature(row.consTmaxRaw) &&
-    Number.isFinite(row?.tExt) && isPlausibleTemperature(row.tExt)
-  );
+  const untimedEligible = [];
+  const uniqueTimedEligible = new Map();
+  for (const row of rows) {
+    if ((row?.t != null && (!Number.isFinite(row.t) || !Number.isFinite(new Date(row.t).getTime()))) ||
+        !Number.isFinite(row?.consTmaxRaw) || !isPlausibleTemperature(row.consTmaxRaw) ||
+        !Number.isFinite(row?.tExt) || !isPlausibleTemperature(row.tExt)) continue;
+    if (row.t == null) {
+      untimedEligible.push(row);
+    } else {
+      uniqueTimedEligible.set(`${row.vmiModeRaw ?? 'unknown'}:${row.t}`, row);
+    }
+  }
+  const eligible = [...untimedEligible, ...uniqueTimedEligible.values()];
   const settings = new Map();
   const dayKey = timestamp => {
     const date = new Date(timestamp);
