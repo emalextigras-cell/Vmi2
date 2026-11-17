@@ -829,6 +829,31 @@ function analyzeHygrometricTrend(dailyDays, trendDelta) {
   };
 }
 
+/**
+ * Évalue la robustesse de l'échantillonnage indépendamment des conclusions hygrométriques.
+ * @param {{inputSampleCount:number,acceptedSampleCount:number,dailySampleCounts:number[],observedHours:number,observedCoveragePercent:number|null,minSamples:number}} metrics Mesures de couverture déjà calculées.
+ * @returns {{dayCount:number,daysWithAtLeastThreeSamples:number,acceptedSampleShare:number,coverageLevel:string,sufficient:boolean,coverageRatio:number}} Indicateurs de couverture et suffisance.
+ */
+function assessHygrometricCoverage({
+  inputSampleCount,acceptedSampleCount,dailySampleCounts,
+  observedHours,observedCoveragePercent,minSamples
+}) {
+  const dayCount=dailySampleCounts.length;
+  const daysWithAtLeastThreeSamples=dailySampleCounts.filter(count=>count>=3).length;
+  const acceptedSampleShare=inputSampleCount?acceptedSampleCount/inputSampleCount:0;
+  const coverageRatio=observedCoveragePercent==null?0:observedCoveragePercent/100;
+  // Le niveau décrit la robustesse de l'échantillonnage, pas l'état physique de la VMI.
+  const coverageLevel=acceptedSampleCount>=60&&dayCount>=5&&daysWithAtLeastThreeSamples>=5&&
+    observedHours>=24&&coverageRatio>=0.5&&acceptedSampleShare>=0.9?'élevée'
+    :acceptedSampleCount>=24&&dayCount>=3&&daysWithAtLeastThreeSamples>=3&&
+      observedHours>=12&&coverageRatio>=0.2&&acceptedSampleShare>=0.7?'modérée':'faible';
+  const sufficient=acceptedSampleCount>=minSamples&&dayCount>=2&&observedHours>=3;
+  return {
+    dayCount,daysWithAtLeastThreeSamples,acceptedSampleShare,
+    coverageLevel,sufficient,coverageRatio
+  };
+}
+
 export function buildHygrometricDiagnosis(data, {
   dryDelta = 1,
   trendDelta = 0.8,
@@ -893,14 +918,11 @@ function prepareHygrometricRows(inputRows) {
     const d=new Date(t);
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   };
-  const days=new Set(rows.map(r=>dayKey(r.t)));
   const dailySampleCounts=new Map();
   for(const row of rows){
     const key=dayKey(row.t);
     dailySampleCounts.set(key,(dailySampleCounts.get(key)||0)+1);
   }
-  const daysWithAtLeastThreeSamples=[...dailySampleCounts.values()].filter(count=>count>=3).length;
-  const acceptedSampleShare=inputRows.length?rows.length/inputRows.length:0;
   const periods=analyzeHygrometricPeriods(rows,{threshold:dryDelta,maxGapHours});
   const observedHours=periods.observedDurationMs/3600000;
   const intervalMs=rows.slice(1).map((r,i)=>r.t-rows[i].t).filter(gap=>gap>0);
@@ -946,20 +968,22 @@ function prepareHygrometricRows(inputRows) {
   });
   const {bestWindow,diagnostics:hourlyComparisonDiagnostics}=compareHourlyWindows(rows,hourlyDetails,dayKey);
 
-  // Le niveau décrit la robustesse de l'échantillonnage, pas l'état physique de la VMI.
-  // Il tient compte de la couverture temporelle et de la part de lignes réellement retenues.
-  const coverageRatio=observedCoveragePercent==null?0:observedCoveragePercent/100;
-  const coverageLevel=rows.length>=60&&days.size>=5&&daysWithAtLeastThreeSamples>=5&&
-    observedHours>=24&&coverageRatio>=0.5&&acceptedSampleShare>=0.9?'élevée'
-    :rows.length>=24&&days.size>=3&&daysWithAtLeastThreeSamples>=3&&
-      observedHours>=12&&coverageRatio>=0.2&&acceptedSampleShare>=0.7?'modérée':'faible';
-  const sufficient=rows.length>=minSamples&&days.size>=2&&observedHours>=3;
+  const coverage=assessHygrometricCoverage({
+    inputSampleCount:inputRows.length,
+    acceptedSampleCount:rows.length,
+    dailySampleCounts:[...dailySampleCounts.values()],
+    observedHours,observedCoveragePercent,minSamples
+  });
+  const {
+    dayCount,daysWithAtLeastThreeSamples,acceptedSampleShare,
+    coverageLevel,sufficient,coverageRatio
+  }=coverage;
   const observations=[];
 
   if(!sufficient){
     observations.push({
       code:'coverage-limited',level:'info',
-      basis:{validSamples:rows.length,requiredSamples:minSamples,distinctDays:days.size,requiredDays:2,observedHours,requiredObservedHours:3},
+      basis:{validSamples:rows.length,requiredSamples:minSamples,distinctDays:dayCount,requiredDays:2,observedHours,requiredObservedHours:3},
       title:'Historique encore trop limité',
       detail:`${rows.length} relevé(s) simultanés valides sur ${days.size} jour(s), avec ${fmtHours(observedHours)} de périodes exploitables. Il faut davantage de mesures réparties sur plusieurs jours pour produire un diagnostic fiable.`,
       recommendation:'Importer un historique plus long et vérifier que les températures et humidités du salon et de l’air entrant sont présentes.'
@@ -1082,7 +1106,7 @@ function prepareHygrometricRows(inputRows) {
       minimumDailySamples:3
     },
     sampleCount:rows.length,
-    dayCount:days.size,
+    dayCount,
     observedHours,
     coverageSpanHours,
     observedCoveragePercent,
