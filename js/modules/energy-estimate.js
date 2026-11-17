@@ -73,7 +73,7 @@ export function estimateFanPowerFromFlow(flow) {
 /** Intègre l'énergie estimée entre relevés successifs.
  * @param {VmiRecord[]} history Historique horodaté avec débits.
  * @param {{maxGapHours?: number}} [options] Écart maximal entre relevés intégrés.
- * @returns {Record<string, unknown>} Résumé de l'estimation et de sa couverture.
+ * @returns {import('../types/vmi-types.js').FanEnergyEstimateResult} Résumé de l'estimation et de sa couverture.
  */
 export function summarizeFanEnergyEstimate(history, options = {}) {
   const { maxGapHours = 2 } = options ?? {};
@@ -141,7 +141,7 @@ function medianEstimate(values) {
 /** Compare les estimations énergétiques par niveau manuel.
  * @param {VmiRecord[]} history Historique horodaté avec modes manuels.
  * @param {{maxGapHours?: number, minDays?: number}} [options] Seuils d'intégration et de couverture.
- * @returns {Record<string, unknown>} Résultats descriptifs par mode manuel.
+ * @returns {import('../types/vmi-types.js').FanEnergyByModeResult} Résultats descriptifs par mode manuel.
  */
 export function summarizeFanEnergyByManualMode(history, options = {}) {
   const { maxGapHours = 2, minDays = 2 } = options ?? {};
