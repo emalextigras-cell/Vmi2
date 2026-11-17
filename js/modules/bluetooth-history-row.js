@@ -1,8 +1,25 @@
 /**
+ * @typedef {Object} VmiRecord
+ * @property {number} [t] Horodatage Unix en millisecondes.
+ * @property {number} [st] Température intérieure en °C.
+ * @property {number} [sh] Humidité relative intérieure en %.
+ * @property {number} [te] Température de l'air entrant en °C.
+ * @property {number} [he] Humidité relative de l'air entrant en %.
+ * @property {number} [rpm] Régime moteur en tr/min.
+ * @property {number} [debit] Débit en m³/h.
+ */
+/** @typedef {Record<string, unknown>} UnknownRecord */
+
+/**
  * Validation structurelle minimale d'une ligne d'historique Bluetooth VMI+.
  * On ne fixe pas un nombre total de colonnes : les champs optionnels peuvent varier.
  * La date et le compteur de jours (colonne 12, index 11) sont indispensables
  * au rapprochement/dédoublonnage et à la correction d'horloge.
+ */
+/**
+ * validateBluetoothHistoryRow — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {unknown} line Paramètre line.
+ * @returns {UnknownRecord} Résultat structuré du module.
  */
 export function validateBluetoothHistoryRow(line) {
   if (typeof line !== 'string' || !line.trim()) return { valid: false, reason: 'empty' };
