@@ -579,3 +579,22 @@ test('analyzeSpeedLevels résume un historique volumineux sans dépassement de p
   assert.equal(mode1.lastAt, start + 199999 * 60000);
   assert.equal(mode1.spanHours, (199999 * 60000) / 3600000);
 });
+
+
+test('summarizeOperatingReference résume un historique volumineux sans dépassement de pile', () => {
+  const timestamp = Date.UTC(2026, 0, 1);
+  const rows = Array.from({ length: 200000 }, () => ({
+    t: timestamp,
+    vmiModeRaw: 1,
+    debit: 100
+  }));
+  const result = summarizeOperatingReference(rows);
+  const mode1 = result.groups.find(group => group.mode === 1);
+  const debit = mode1.fields.find(field => field.key === 'debit');
+
+  assert.equal(debit.count, 200000);
+  assert.equal(debit.min, 100);
+  assert.equal(debit.max, 100);
+  assert.equal(mode1.firstAt, timestamp);
+  assert.equal(mode1.lastAt, timestamp);
+});
