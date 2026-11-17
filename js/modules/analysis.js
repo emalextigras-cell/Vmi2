@@ -689,7 +689,12 @@ export function buildHygrometricDiagnosis(data, {
   minSamples = 12,
   maxGapHours = 2
 } = {}) {
-  const inputRows = Array.isArray(data) ? data : [];
+/**
+ * Prépare les relevés hygrométriques valides et mesure la qualité des entrées.
+ * Les doublons valides gardent la dernière occurrence rencontrée, comme auparavant.
+ * @param {VmiRecord[]} inputRows Historique brut à analyser.
+ */
+function prepareHygrometricRows(inputRows) {
   const unique = new Map();
   let missingTimestampCount = 0;
   let incompleteSensorRecordCount = 0;
@@ -721,6 +726,23 @@ export function buildHygrometricDiagnosis(data, {
     });
   }
   const rows=[...unique.values()].sort((a,b)=>a.t-b.t);
+  return {
+    rows,
+    missingTimestampCount,
+    incompleteSensorRecordCount,
+    implausibleSensorRecordCount,
+    duplicateTimestampCount
+  };
+}
+
+  const inputRows = Array.isArray(data) ? data : [];
+  const {
+    rows,
+    missingTimestampCount,
+    incompleteSensorRecordCount,
+    implausibleSensorRecordCount,
+    duplicateTimestampCount
+  } = prepareHygrometricRows(inputRows);
   const dayKey=t=>{
     const d=new Date(t);
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
