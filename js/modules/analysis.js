@@ -1332,15 +1332,21 @@ export function summarizeOperatingReference(data, { minSamples = 10 } = {}) {
  */
 export function summarizeRawVmiMode(data) {
   const groups = new Map();
+  const uniqueTimedSamples = new Map();
   for (const row of Array.isArray(data) ? data : []) {
     if (!Number.isFinite(row?.vmiModeRaw)) continue;
     const mode = row.vmiModeRaw;
     if (!groups.has(mode)) groups.set(mode, []);
-    if (Number.isFinite(row.debit) && row.debit >= 0) {
-      const volume = Number.isFinite(row.volumeRaw) && row.volumeRaw > 0 ? row.volumeRaw : null;
-      groups.get(mode).push({ debit: row.debit, renewalRate: volume ? row.debit / volume : null });
+    if (!Number.isFinite(row.debit) || row.debit < 0) continue;
+    const volume = Number.isFinite(row.volumeRaw) && row.volumeRaw > 0 ? row.volumeRaw : null;
+    const sample = { debit: row.debit, renewalRate: volume ? row.debit / volume : null };
+    if (Number.isFinite(row.t) && Number.isFinite(new Date(row.t).getTime())) {
+      uniqueTimedSamples.set(`${mode}:${row.t}`, { mode, sample });
+    } else {
+      groups.get(mode).push(sample);
     }
   }
+  for (const { mode, sample } of uniqueTimedSamples.values()) groups.get(mode).push(sample);
   // Référence communiquée par l'utilisateur : mode 3 = 184 m³/h.
   // Elle reste distincte des débits Debit (m³/h) réellement présents dans l'historique.
   if (!groups.has(3)) groups.set(3, []);
