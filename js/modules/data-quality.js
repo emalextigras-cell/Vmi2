@@ -1,14 +1,52 @@
+/**
+ * @typedef {Object} VmiRecord
+ * @property {number} [t] Horodatage Unix en millisecondes.
+ * @property {number} [st] Température intérieure en °C.
+ * @property {number} [sh] Humidité relative intérieure en %.
+ * @property {number} [te] Température de l'air entrant en °C.
+ * @property {number} [he] Humidité relative de l'air entrant en %.
+ * @property {number} [tExt] Température extérieure en °C.
+ * @property {number} [h1] Humidité de la sonde résistances en %.
+ * @property {number} [t1] Température de la sonde résistances en °C.
+ * @property {number} [rpm] Régime moteur en tr/min.
+ * @property {number} [debit] Débit en m³/h.
+ * @property {number} [vmiModeRaw] Code brut du mode VMI.
+ * @property {number} [d] Compteur de jours de fonctionnement.
+ * @property {number} [consTmaxRaw] Consigne brute de température maximale.
+ * @property {boolean} [fixed] Indique qu'un horodatage a été recalé.
+ * @property {string|number} [id] Identifiant facultatif.
+ */
+
+/** @typedef {number|null} NullableNumber */
+/** @typedef {Record<string, unknown>} UnknownRecord */
+/** @typedef {{minSamples?: number, minDays?: number, maxGapMinutes?: number}} AnalysisOptions */
+
 /** Contrôle de plausibilité des mesures, sans modifier les valeurs reçues de la VMI+. */
 
+/**
+ * isPlausibleHumidity — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {number} value Paramètre value.
+ * @returns {boolean} Résultat de isPlausibleHumidity.
+ */
 export const isPlausibleHumidity = value =>
   !Number.isFinite(value) || (value >= 0 && value <= 100);
 
+/**
+ * isPlausibleTemperature — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {number} value Paramètre value.
+ * @returns {boolean} Résultat de isPlausibleTemperature.
+ */
 export const isPlausibleTemperature = value =>
   !Number.isFinite(value) || (value >= -30 && value <= 60);
 
 /**
  * Détecte une trame de remplacement probable : les trois sondes renvoient
  * simultanément exactement 20 °C et 50 %. Les valeurs brutes restent conservées.
+ */
+/**
+ * isPlaceholderSensorRecord — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {unknown} record Paramètre record.
+ * @returns {boolean} Résultat de isPlaceholderSensorRecord.
  */
 export function isPlaceholderSensorRecord(record) {
   if (!record) return false;
@@ -32,6 +70,12 @@ const TRANSIENT_SPIKE_FIELDS = [
  * Repère les pics isolés qui reviennent près du niveau initial.
  * Ce sont des événements à vérifier, jamais une preuve de panne de capteur.
  * Les deux intervalles voisins doivent être datés et <= maxGapMinutes.
+ */
+/**
+ * detectTransientSensorSpikes — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} records Paramètre records.
+ * @param {AnalysisOptions} options Paramètre options.
+ * @returns {UnknownRecord} Résultat de detectTransientSensorSpikes.
  */
 export function detectTransientSensorSpikes(records, options = {}) {
   const maxGapMinutes = options?.maxGapMinutes ?? 30;
@@ -89,6 +133,11 @@ const FIELDS = [
   { key: 'te', label: 'Température air entrant', type: 'temperature' }
 ];
 
+/**
+ * summarizeDataQuality — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} records Paramètre records.
+ * @returns {UnknownRecord} Résultat de summarizeDataQuality.
+ */
 export function summarizeDataQuality(records) {
   const rows = Array.isArray(records) ? records : [];
   const fieldCoverage = FIELDS.map(field => {
