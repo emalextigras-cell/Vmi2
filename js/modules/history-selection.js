@@ -1,9 +1,9 @@
 /** Sélectionne les relevés affichés sans modifier l'historique source. */
 import { dayStart, shiftDay, MIN_VALID } from './date-utils.js';
 
-export function selectDataRange(records, { selectedDate = null, daysSetting = 30 } = {}) {
+export function selectDataRange(records, { selectedDate = null, daysSetting = 30, maxTimestamp = Date.now() } = {}) {
   const data = (Array.isArray(records) ? records : [])
-    .filter(record => record && record.t >= MIN_VALID)
+    .filter(record => record && Number.isFinite(record.t) && record.t >= MIN_VALID && record.t <= maxTimestamp)
     .sort((a, b) => a.t - b.t);
 
   if (selectedDate) {
