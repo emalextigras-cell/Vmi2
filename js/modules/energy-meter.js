@@ -11,10 +11,9 @@ export const ENERGY_METER_LABELS = Object.freeze({
   total: 'Total VMI (compteur global)'
 });
 
-/**
- * isValidEnergyReading — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
- * @param {unknown} reading Paramètre reading.
- * @returns {UnknownRecord} Résultat structuré du module.
+/** Vérifie le format et les contraintes d'un index de compteur électrique.
+ * @param {unknown} reading Valeur à valider.
+ * @returns {boolean} true si l'index est exploitable.
  */
 export function isValidEnergyReading(reading) {
   return !!reading &&
@@ -26,11 +25,10 @@ export function isValidEnergyReading(reading) {
 }
 
 /** Ajoute ou corrige un index pour le même compteur au même instant. */
-/**
- * upsertEnergyReading — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
- * @param {unknown} readings Paramètre readings.
- * @param {unknown} reading Paramètre reading.
- * @returns {UnknownRecord} Résultat structuré du module.
+/** Ajoute ou remplace l'index du même compteur au même instant.
+ * @param {EnergyReading[]} readings Index déjà enregistrés.
+ * @param {EnergyReading} reading Nouvel index validé.
+ * @returns {EnergyReading[]} Index triés après insertion.
  */
 export function upsertEnergyReading(readings, reading) {
   if (!isValidEnergyReading(reading)) {
@@ -43,10 +41,9 @@ export function upsertEnergyReading(readings, reading) {
 }
 
 /** Calcule uniquement les écarts entre deux index successifs d'un même compteur. */
-/**
- * summarizeEnergyReadings — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
- * @param {unknown} readings Paramètre readings.
- * @returns {UnknownRecord} Résultat structuré du module.
+/** Calcule les écarts mesurés entre index successifs de chaque compteur.
+ * @param {EnergyReading[]} readings Index bruts à analyser.
+ * @returns {EnergySummary} Synthèse par compteur et limites de calcul.
  */
 export function summarizeEnergyReadings(readings) {
   const valid = (Array.isArray(readings) ? readings : []).filter(isValidEnergyReading);
@@ -107,10 +104,9 @@ export function summarizeEnergyReadings(readings) {
  * Un intervalle qui traverse deux mois n'est jamais réparti artificiellement :
  * il est comptabilisé à part et exclu des totaux mensuels.
  */
-/**
- * summarizeMonthlyEnergyReadings — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
- * @param {unknown} readings Paramètre readings.
- * @returns {UnknownRecord} Résultat structuré du module.
+/** Regroupe les intervalles mesurés par mois civil.
+ * @param {EnergyReading[]} readings Index électriques enregistrés.
+ * @returns {MonthlyEnergySummary[]} Totaux mensuels et intervalles chevauchant deux mois.
  */
 export function summarizeMonthlyEnergyReadings(readings) {
   const summary = summarizeEnergyReadings(readings);
