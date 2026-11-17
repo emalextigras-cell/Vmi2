@@ -642,7 +642,7 @@ async function restoreBackup(obj){
  return {add:result.addedHistory,enriched:result.enrichedHistory,addL:result.addedLive,addEnergy:result.addedEnergyReadings};
 }
 $('expHist').onclick=()=>{
- const rows=hist.filter(r=>r.t>=MIN_VALID);
+ const rows=hist.filter(r=>r.t>=MIN_VALID&&r.t<=Date.now());
  if(!rows.length){$('backupInfo').textContent='Aucun historique à exporter.';return}
  downloadText(histToCsv(rows),`vmi-historique-${localDay()}.csv`,'text/csv;charset=utf-8');
  $('backupInfo').textContent=`${rows.length} relevés exportés (séparateur « ; », virgule décimale, prêt pour Excel).`;
@@ -696,7 +696,7 @@ $('restoreFile').onchange=async e=>{
    et on prévient avant que des relevés non téléchargés soient écrasés. */
 function renderFreshness(){
  const box=$('fresh');
- const rows=hist.filter(r=>r.t>=MIN_VALID);
+ const rows=hist.filter(r=>r.t>=MIN_VALID&&r.t<=Date.now());
  if(!rows.length){box.className='advice';box.textContent='Aucun historique mémorisé. Connecte la VMI pour le télécharger : elle ne garde que ses 800 derniers relevés (environ 4 semaines).';return}
  const newest=rows[rows.length-1].t,age=(Date.now()-newest)/DAY;
  const spanDays=Math.max(1,Math.min(14,(newest-rows[0].t)/DAY));
@@ -719,7 +719,7 @@ function buildDiagnostic(){
  L.push(`VMI Purevent – diagnostic – version ${APP_VERSION} – ${new Date().toLocaleString('fr-FR')}`);
  L.push('Navigateur : '+navigator.userAgent);
  L.push(`Bluetooth : ${navigator.bluetooth?'disponible':'indisponible'} · connecté : ${connected()?'oui':'non'} · service worker : ${'serviceWorker' in navigator?(navigator.serviceWorker.controller?'actif':'non actif'):'absent'} · SheetJS : ${window.XLSX?'chargé':'non chargé'}`);
- const valid=hist.filter(r=>r.t>=MIN_VALID);
+ const valid=hist.filter(r=>r.t>=MIN_VALID&&r.t<=Date.now());
  L.push(`Historique : ${hist.length} relevés dont ${valid.length} valides`);
  if(valid.length){
   const ts=valid.map(r=>r.t);

@@ -18,7 +18,7 @@ export function createBackupSnapshot({ hist, live, meta, energyReadings, exporte
 /** Fusionne une sauvegarde sans effacer les champs déjà connus à timestamp égal. */
 export function mergeBackupData({
   backup, currentHist = [], currentLive = [], currentMeta = {},
-  currentEnergyReadings = [], minValid, maxLive = 10000
+  currentEnergyReadings = [], minValid, maxLive = 10000, maxTimestamp = Date.now()
 }) {
   if (!backup || backup.app !== 'vmi-purevent' || !Array.isArray(backup.hist)) {
     throw new Error('Fichier de sauvegarde non reconnu.');
@@ -29,10 +29,15 @@ export function mergeBackupData({
   if (!Number.isSafeInteger(maxLive) || maxLive < 0) {
     throw new RangeError('maxLive doit être un entier sûr positif ou nul.');
   }
-  const history = new Map(currentHist.filter(r => isRawDateEligible(r, minValid) && r.t >= minValid).map(r => [r.t, r]));
+  if (!Number.isFinite(maxTimestamp)) {
+    throw new RangeError('maxTimestamp doit être un horodatage fini.');
+  }
+  const isUsableHistory = record => isRawDateEligible(record, minValid) &&
+    record.t >= minValid && record.t <= maxTimestamp;
+  const history = new Map(currentHist.filter(isUsableHistory).map(r => [r.t, r]));
   let addedHistory = 0, enrichedHistory = 0;
   for (const record of backup.hist) {
-    if (!isRawDateEligible(record, minValid) || record.t < minValid) continue;
+    if (!isUsableHistory(record)) continue;
     if (!history.has(record.t)) { history.set(record.t, record); addedHistory++; }
     else {
       const previous = history.get(record.t), merged = mergeRecordFields(previous, record);
