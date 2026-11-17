@@ -1106,7 +1106,7 @@ function prepareHygrometricRows(inputRows) {
   }
 
   return {
-    methodology:{version:'hygrometric-diagnostic-v7',dryDeltaThreshold:dryDelta,trendDeltaThreshold:trendDelta,trendMinimumDailySamples:3,trendMinimumDays:6,trendWindowDays:3,trendMinimumDirectionalDays:2,trendMaximumWindowSpanDays:4,trendMaximumComparisonSpanDays:14,minimumSamples:minSamples,minimumDistinctDays:2,minimumObservedHours:3,dominantDurationShare:0.6,maximumGapHours:maxGapHours,hourlyBucketHours:6,hourlyMinimumSamples:5,hourlyMinimumDistinctDays:2,hourlyMinimumSharedDays:2,hourlyMinimumDailySamples:3,minimumDailySamplesForConfidence:3,moderateCoveragePercent:20,highCoveragePercent:50,moderateAcceptedShare:0.7,highAcceptedShare:0.9},
+    methodology:{version:'hygrometric-diagnostic-v7',dryDeltaThreshold:dryDelta,dryDeltaThresholdKind:'heuristic',dominantDurationShareKind:'heuristic',trendDeltaThreshold:trendDelta,trendMinimumDailySamples:3,trendMinimumDays:6,trendWindowDays:3,trendMinimumDirectionalDays:2,trendMaximumWindowSpanDays:4,trendMaximumComparisonSpanDays:14,minimumSamples:minSamples,minimumDistinctDays:2,minimumObservedHours:3,dominantDurationShare:0.6,maximumGapHours:maxGapHours,hourlyBucketHours:6,hourlyMinimumSamples:5,hourlyMinimumDistinctDays:2,hourlyMinimumSharedDays:2,hourlyMinimumDailySamples:3,minimumDailySamplesForConfidence:3,moderateCoveragePercent:20,highCoveragePercent:50,moderateAcceptedShare:0.7,highAcceptedShare:0.9},
     status:sufficient?'analysis-available':'insufficient-data',
     inputQuality:{
       inputSampleCount:inputRows.length,
@@ -1142,6 +1142,8 @@ function prepareHygrometricRows(inputRows) {
     observations,
     limits:[
       `Les durées sont estimées entre deux relevés, sans extrapolation au-delà de ${maxGapHours} heure(s).`,
+      `Le seuil de ${dryDelta} g/m³ est un critère heuristique configurable, pas une norme ni une limite physique validée pour ces capteurs.`,
+      'La dominance à 60 % est une règle de classement heuristique, pas une preuve d’efficacité d’assèchement.',
       'L’humidité absolue décrit la teneur en vapeur d’eau, pas le débit ni le renouvellement d’air réel.',
       'Le point de rosée calculé n’est pas une mesure de température de paroi : aucun risque de condensation n’est déduit.',
       'Les observations ne prouvent ni une panne, ni la cause d’une variation, ni une vitesse optimale.'
