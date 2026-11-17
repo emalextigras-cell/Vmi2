@@ -26,7 +26,7 @@ const modeOf = values => {
  * « jours de fonctionnement ». Retourne { fixed, kept }, comme la v13.
  * Les règles de regroupement et le seuil horaire sont volontairement conservés.
  */
-export function fixClock(records, history = [], minValid = MIN_VALID) {
+export function fixClock(records, history = [], minValid = MIN_VALID, maxTimestamp = Infinity) {
   // Les relevés entrants anciens doivent rester disponibles pendant cette
   // fonction : leur compteur de jours peut permettre de reconstruire leur date.
   // L'historique déjà stocké, lui, reste filtré pour ne servir que de référence fiable.
@@ -39,6 +39,7 @@ export function fixClock(records, history = [], minValid = MIN_VALID) {
   const epochOffset = modeOf(known.map(record => dayNumber(record.t) - record.d));
   const bad = records.filter(record => record.t < minValid).sort((a, b) => a.t - b.t);
   let fixed = 0;
+  const futureRecords = new Set();
 
   if (epochOffset !== undefined && bad.length) {
     const episodes = [];
@@ -60,15 +61,28 @@ export function fixClock(records, history = [], minValid = MIN_VALID) {
 
       for (const record of episode) {
         const date = new Date(record.t);
-        record.t = new Date(
+        const correctedTimestamp = new Date(
           date.getFullYear(), date.getMonth(), date.getDate() + offset,
           date.getHours(), date.getMinutes(), date.getSeconds()
         ).getTime();
+        if (Number.isFinite(maxTimestamp) && correctedTimestamp > maxTimestamp) {
+          futureRecords.add(record);
+          continue;
+        }
+        record.t = correctedTimestamp;
         record.fixed = true;
         fixed++;
       }
     }
   }
 
-  return { fixed, kept: records.filter(record => isRawDateEligible(record, minValid) && record.t >= minValid) };
+  const kept = records.filter(record => {
+    if (!isRawDateEligible(record, minValid) || record.t < minValid) return false;
+    if (Number.isFinite(maxTimestamp) && record.t > maxTimestamp) {
+      futureRecords.add(record);
+      return false;
+    }
+    return true;
+  });
+  return { fixed, future: futureRecords.size, kept };
 }
