@@ -10,7 +10,8 @@ import {
   summarizeTemperatureLimit,
   summarizeOperatingReference,
   summarizeRawVmiMode,
-  summarizeRawVmiSpeed
+  summarizeRawVmiSpeed,
+  summarizeDailyTrends
 } from '../js/modules/analysis.js';
 
 const at = (day, hour = 8) => new Date(2026, 9, day, hour, 0, 0).getTime();
@@ -399,4 +400,19 @@ test('analyzeSpeedLevels exclut les dates hors plage des indicateurs calendaires
   assert.equal(mode1.daysCovered, 0);
   assert.equal(mode1.firstAt, null);
   assert.equal(mode1.lastAt, null);
+});
+
+
+test('summarizeDailyTrends ignore les horodatages hors plage JavaScript', () => {
+  const result = summarizeDailyTrends([
+    { t: 8640000000000001, st: 20, sh: 50 },
+    { t: at(12), st: 20, sh: 50 },
+    { t: at(12, 10), st: 21, sh: 52 },
+    { t: at(12, 12), st: 19, sh: 48 }
+  ]);
+
+  assert.equal(result.days.length, 1);
+  assert.equal(result.days[0].date, '2026-10-12');
+  assert.equal(result.days[0].sampleCount, 3);
+  assert.equal(result.sampledDays, 1);
 });
