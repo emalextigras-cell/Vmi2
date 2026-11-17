@@ -1,3 +1,6 @@
+/** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
+/** @typedef {{t:number, rk:string}} ParsedCell */
+/** @typedef {{SSF:{parse_date_code:(value:number)=>({y:number,m:number,d:number,H:number,M:number,S:number}|null)}}} SpreadsheetDateParser */
 /** Conversion des dates et des lignes d'export VMI+/tableur. */
 import { DAY, pad, num } from './date-utils.js';
 
@@ -14,6 +17,10 @@ const FALLBACK_COLUMN = Object.freeze({
   salonHumidity: 118
 });
 
+/** Indique si le nom correspond à un fichier CSV.
+ * @param {string} name Nom de fichier.
+ * @returns {boolean} true si l'extension est .csv.
+ */
 export const isCsvFile = name => /\.csv$/i.test(String(name ?? ''));
 
 const normalizeHeader = value => String(value ?? '')
@@ -23,6 +30,11 @@ const normalizeHeader = value => String(value ?? '')
 /**
  * Repère l'en-tête VMI+ dans les lignes CSV ou tableur.
  * Exige les colonnes Date, Mode et Debit pour éviter un import décalé.
+ */
+/** Recherche la ligne d'en-tête dans les premières lignes importées.
+ * @param {unknown[][]} rows Lignes de la feuille.
+ * @param {number} [maxRows] Nombre maximal de lignes inspectées.
+ * @returns {number} Index de l'en-tête, ou -1 si absent.
  */
 export function findVmiHeaderRowIndex(rows, maxRows = 20) {
   if (!Array.isArray(rows)) return -1;
@@ -70,9 +82,13 @@ const HEADER_ALIASES = {
   outdoorTemp: ['tempext', 'temperature exterieure']
 };
 
+/** Construit la correspondance entre les noms de colonnes et leurs indices.
+ * @param {unknown[]} headerRow Ligne d'en-tête.
+ * @returns {Record<string, number>} Correspondance champ vers indice de colonne.
+ */
 export function getColumnMapping(headerRow) {
   const headers = Array.isArray(headerRow) ? headerRow.map(normalizeHeader) : [];
-  const mapping = { ...FALLBACK_COLUMN };
+  const mapping = /** @type {Record<string, number>} */ ({ ...FALLBACK_COLUMN });
   for (const [key, aliases] of Object.entries(HEADER_ALIASES)) {
     const index = headers.findIndex(header => aliases.includes(header));
     if (index >= 0) mapping[key] = index;
@@ -91,7 +107,12 @@ export function getColumnMapping(headerRow) {
   return mapping;
 }
 
-export function parseCell(value, spreadsheet = globalThis.XLSX) {
+/** Convertit une cellule importée en valeur exploitable.
+ * @param {unknown} value Valeur brute de la cellule.
+ * @param {SpreadsheetDateParser|null} [spreadsheet] API de tableur optionnelle.
+ * @returns {ParsedCell|null} Date convertie, ou null si la cellule est invalide.
+ */
+export function parseCell(value, spreadsheet = /** @type {SpreadsheetDateParser|null} */ (globalThis.XLSX)) {
   if (typeof value === 'number' && value > 30000 && spreadsheet) {
     const c = spreadsheet.SSF.parse_date_code(value);
     if (!c) return null;
@@ -118,6 +139,12 @@ export function parseCell(value, spreadsheet = globalThis.XLSX) {
   return null;
 }
 
+/** Construit un relevé normalisé depuis une ligne importée.
+ * @param {unknown[]} row Ligne de données.
+ * @param {SpreadsheetDateParser|null} [spreadsheet] API de tableur optionnelle.
+ * @param {Record<string, number>|null} [mapping] Correspondance des colonnes.
+ * @returns {Partial<VmiRecord>|null} Relevé construit, ou null si inexploitable.
+ */
 export function recFrom(row, spreadsheet = globalThis.XLSX, mapping = null) {
   const columns = mapping || FALLBACK_COLUMN;
   const parsed = parseCell(row[columns.date ?? 0], spreadsheet);
@@ -165,6 +192,10 @@ export function recFrom(row, spreadsheet = globalThis.XLSX, mapping = null) {
   return Object.keys(record).some(key => !['t','rk','vit','boost','hol'].includes(key) && record[key] != null) ? record : null;
 }
 
+/** Convertit une date en numéro de jour civil.
+ * @param {number} timestamp Horodatage en millisecondes.
+ * @returns {number} Numéro de jour.
+ */
 export const dayNumber = timestamp => {
   const d = new Date(timestamp);
   return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / DAY);
@@ -172,6 +203,11 @@ export const dayNumber = timestamp => {
 
 
 /** Parse un CSV délimité en respectant les champs entre guillemets et les guillemets doublés. */
+/** Parse le texte CSV en lignes et cellules.
+ * @param {string} text Contenu CSV.
+ * @param {string|null} [delimiter] Séparateur explicite ou détection automatique.
+ * @returns {string[][]} Lignes découpées.
+ */
 export function parseCsvRows(text, delimiter = null) {
   const source=String(text??'').replace(/^\uFEFF/,'');
   if(!delimiter){

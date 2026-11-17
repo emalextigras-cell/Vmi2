@@ -1,17 +1,31 @@
+/** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
 /** Rendu SVG des graphiques et infobulles tactiles. */
 import { absoluteHumidity } from './psychrometry.js';
 import { pad, dayStart, shiftDay } from './date-utils.js';
 import { isPlausibleHumidity, isPlausibleTemperature, isPlaceholderSensorRecord } from './data-quality.js';
 const COLORS=['#286348','#c16b32','#356da5','#8056a8'];
 const viewStates=new Map();
+/** Réinitialise les états d'affichage des graphiques.
+ * @returns {void}
+ */
 export function resetChartViews(){viewStates.clear();}
 const fmtTick=(t,withHour)=>{const d=new Date(t);return withHour?`${pad(d.getDate())}/${pad(d.getMonth()+1)} ${pad(d.getHours())}h`:`${pad(d.getDate())}/${pad(d.getMonth()+1)}/${String(d.getFullYear()).slice(2)}`};
 const fmtPoint=(t,daily)=>{const d=new Date(t);return daily?`${pad(d.getHours())}:${pad(d.getMinutes())}`:`${pad(d.getDate())}/${pad(d.getMonth()+1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`};
 /* Conserve les relevés tels quels : aucune valeur manquante n'est interpolée.
    Un point absent ou rejeté crée une interruption visible dans la courbe. */
+/** Normalise les points d'une série en conservant les trous de données.
+ * @param {Array<{t:number, v:number|null, blocked?:boolean}>} points Points de la série.
+ * @returns {Array<{t:number, v:number|null, blocked:boolean}>} Points normalisés.
+ */
 export function fillMissing(points){
  return points.map(p=>({t:p.t,v:Number.isFinite(p.v)?p.v:null,blocked:!!p.blocked||!Number.isFinite(p.v)}));
 }
+/** Indique si un intervalle contient un point marqué comme manquant.
+ * @param {Array<{t:number, blocked?:boolean}>} points Points horodatés.
+ * @param {number} startTime Début exclusif de l'intervalle.
+ * @param {number} endTime Fin exclusive de l'intervalle.
+ * @returns {boolean} true si un point bloqué est présent.
+ */
 export function hasBlockedBetween(points, startTime, endTime){
  return points.some(point=>point.blocked&&point.t>startTime&&point.t<endTime);
 }
@@ -38,12 +52,13 @@ function drawChart(id,title,series,selectedDate,$){
  const gaps=new Map();
  for(const s of series){const dts=[];for(let i=1;i<s.points.length&&dts.length<400;i++)dts.push(s.points[i].t-s.points[i-1].t);dts.sort((a,b)=>a-b);gaps.set(s,Math.max(4*3600000,6*(dts.length?dts[Math.floor(dts.length/2)]:0)))}
  for(const s of series){
-  const pts=s.points.filter(p=>Number.isFinite(p.v));if(!pts.length)continue;
+  /** @type {Array<{t:number,v:number,blocked?:boolean}>} */
+  const pts=s.points.filter(p=>typeof p.v === 'number' && Number.isFinite(p.v));if(!pts.length)continue;
   const gap=gaps.get(s);
   // Chaque relevé réel est tracé pour les historiques usuels ; au-delà de 5 000, affichage allégé.
   const step=pts.length>5000?Math.ceil(pts.length/5000):1;
   const sel=pts.filter((p,i)=>i%step===0||i===pts.length-1);
-  let d='',prev=null,segLen=0,dots='';
+  let d='',/** @type {{t:number,v:number,blocked?:boolean}|null} */ prev=null,segLen=0,dots='';
   sel.forEach(p=>{
    const blockedBetween=prev!==null&&hasBlockedBetween(s.points,prev.t,p.t);
    if(prev===null||p.t-prev.t>gap||blockedBetween){if(segLen===1)dots+=`<circle cx="${X(prev.t).toFixed(1)}" cy="${Y(prev.v).toFixed(1)}" r="1.8" fill="${s.color}"/>`;d+=`M${X(p.t).toFixed(1)} ${Y(p.v).toFixed(1)}`;segLen=1}
@@ -82,6 +97,12 @@ function seriesFor(data,key,name,color,derive=null,invalid=null){
  const points=data.map(r=>({t:r.t,v:isPlaceholderSensorRecord(r)?null:(derive?derive(r):r[key]),blocked:isPlaceholderSensorRecord(r)||(invalid?invalid(r):false)}));
  return {name,color,points:fillMissing(points)};
 }
+/** Met à jour les graphiques de l'historique sélectionné.
+ * @param {VmiRecord[]} data Relevés disponibles.
+ * @param {string|null} selectedDate Jour affiché, ou null pour toute la période.
+ * @param {(id:string)=>HTMLElement|null} $ Fonction de résolution des éléments DOM.
+ * @returns {void}
+ */
 export function renderCharts(data,selectedDate,$){
  drawChart('chartRH','Humidité relative',[
   seriesFor(data,'sh','Salon',COLORS[0],r=>isPlausibleHumidity(r.sh)?r.sh:null,r=>Number.isFinite(r.sh)&&!isPlausibleHumidity(r.sh)),seriesFor(data,'h1','Sonde résistances',COLORS[1],r=>isPlausibleHumidity(r.h1)?r.h1:null,r=>Number.isFinite(r.h1)&&!isPlausibleHumidity(r.h1)),seriesFor(data,'he','Air entrant',COLORS[2],r=>isPlausibleHumidity(r.he)?r.he:null,r=>Number.isFinite(r.he)&&!isPlausibleHumidity(r.he))],selectedDate,$);

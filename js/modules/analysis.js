@@ -1,7 +1,15 @@
+/** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
+/** @typedef {import('../types/vmi-types.js').UnknownRecord} UnknownRecord */
+/** @typedef {import('../types/vmi-types.js').AnalysisOptions} AnalysisOptions */
+
 /** Analyses statistiques communes (sans effet sur les commandes VMI). */
 import { absoluteHumidity, dewPoint } from './psychrometry.js';
 import { isPlausibleHumidity, isPlausibleTemperature } from './data-quality.js';
 
+/** Médiane d'une liste de valeurs numériques finies.
+ * @param {number[]} values Valeurs à résumer.
+ * @returns {number|null} Médiane, ou null si aucune valeur numérique finie.
+ */
 export function median(values) {
   const sorted = values.filter(Number.isFinite).sort((a,b)=>a-b);
   if (!sorted.length) return null;
@@ -12,6 +20,13 @@ export function median(values) {
 /**
  * Compare uniquement les niveaux manuels 1/2/3 déjà identifiés dans les relevés.
  * Les valeurs brutes importées de VMI+ ne sont pas assimilées à ces niveaux.
+ */
+/**
+ * analyzeSpeedLevels — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} data Paramètre data.
+ * @param {number} minSamples Paramètre minSamples.
+ * @param {number} targetRH Paramètre targetRH.
+ * @returns {import('../types/vmi-types.js').SpeedLevelResult} Comparaison descriptive des niveaux manuels.
  */
 export function analyzeSpeedLevels(data, minSamples = 10, targetRH = 50) {
   const rows = (Array.isArray(data) ? data : []).filter(r =>
@@ -35,7 +50,7 @@ export function analyzeSpeedLevels(data, minSamples = 10, targetRH = 50) {
     }));
     const rpms=samples.map(r=>r.rpm).filter(v=>Number.isFinite(v)&&v>0&&v<10000);
     return {
-      v,n:samples.length,
+      v,n:samples.length,sharedDays:0,
       daysCovered:coveredDays.size,
       coveredDayKeys:[...coveredDays],
       rh:median(samples.map(r=>r.sh)),
@@ -68,6 +83,12 @@ export function analyzeSpeedLevels(data, minSamples = 10, targetRH = 50) {
  * Décrit les mesures par niveau manuel et tranche horaire locale de 6 h.
  * Une médiane n'est affichée que si l'effectif et le nombre de jours suffisent.
  * Les tranches ne sont pas considérées comme des essais contrôlés.
+ */
+/**
+ * analyzeSpeedTimeContext — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} data Relevés hygrométriques et modes manuels.
+ * @param {AnalysisOptions} options Seuils minimaux de comparaison.
+ * @returns {import('../types/vmi-types.js').SpeedTimeContextResult} Groupes horaires et comparaisons descriptives.
  */
 export function analyzeSpeedTimeContext(data, { minSamples = 5, minDays = 2 } = {}) {
   const rows=(Array.isArray(data)?data:[]).filter(r=>
@@ -136,7 +157,7 @@ export function analyzeSpeedTimeContext(data, { minSamples = 5, minDays = 2 } = 
       const firstStats=ready?summarize(firstDaySamples):null;
       const secondStats=ready?summarize(secondDaySamples):null;
       const comparison={
-        bucket,label:buckets[bucket],speeds:pair,
+        bucket,label:buckets[bucket],speeds: /** @type {[number,number]} */ (pair),
         sharedDayCount:sharedDayKeys.length,
         sampleCountFirst:firstSamples.length,
         sampleCountSecond:secondSamples.length,
@@ -208,6 +229,12 @@ export function analyzeSpeedTimeContext(data, { minSamples = 5, minDays = 2 } = 
  * Compare deux périodes calendaires successives à mode et tranche horaire identiques.
  * Les valeurs brutes restent brutes ; aucune variation n'est qualifiée de panne ou d'encrassement.
  */
+/**
+ * compareOperatingPeriods — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} data Historique des relevés VMI.
+ * @param {AnalysisOptions} options Paramètres de fenêtre et de couverture.
+ * @returns {UnknownRecord} Comparaison des périodes successives.
+ */
 export function compareOperatingPeriods(data, {
   periodDays = 7, minSamples = 12, minDays = 3
 } = {}) {
@@ -238,12 +265,12 @@ export function compareOperatingPeriods(data, {
     endMs: period.end.getTime()
   }));
 
-  const metrics = [
+  const metrics = /** @type {Array<{key:'debit'|'rpm'|'vmiPwmRaw'|'motorPressureRaw',label:string,unit:string,verified?:boolean}>} */ ([
     { key: 'debit', label: 'Débit', unit: 'm³/h', verified: true },
     { key: 'rpm', label: 'Régime moteur', unit: 'tr/min' },
     { key: 'vmiPwmRaw', label: 'PWM', unit: 'valeur brute' },
     { key: 'motorPressureRaw', label: 'Pression moteur', unit: 'valeur brute, unité inconnue' }
-  ];
+  ]);
   const comparisons = [];
   for (const mode of [1, 2, 3]) {
     for (let bucket = 0; bucket < 4; bucket++) {
@@ -256,8 +283,8 @@ export function compareOperatingPeriods(data, {
         );
         const days = new Set(samples.map(row => key(new Date(row.t))));
         const values = Object.fromEntries(metrics.map(metric => {
-          const valid = samples.map(row => row[metric.key]).filter(value =>
-            Number.isFinite(value) &&
+          const valid = samples.map(row => row[metric.key]).filter((value) =>
+            typeof value === 'number' && Number.isFinite(value) &&
             (metric.key !== 'rpm' || (value > 0 && value < 10000)) &&
             (metric.key !== 'debit' || value >= 0)
           );
@@ -313,9 +340,14 @@ export function compareOperatingPeriods(data, {
 }
 
 /** Inventaire des champs VMI+ disponibles ; aucune unité ni consommation n'est déduite. */
+/**
+ * summarizeEnergyReadiness — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} data Paramètre data.
+ * @returns {import('../types/vmi-types.js').EnergyReadinessResult} Inventaire des champs énergétiques.
+ */
 export function summarizeEnergyReadiness(data) {
   const rows=Array.isArray(data)?data:[];
-  const fields=[
+  const fields = /** @type {Array<{key:'rpm'|'debit'|'vmiSpeedRaw'|'vmiPwmRaw'|'consDpRaw'|'consResRaw'|'consHydroRRaw'|'consTmaxRaw'|'kmoteurRaw'|'jmoteurRaw'|'kreseauRaw'|'jreseauRaw'|'motorPressureRaw'|'offsetPressureRaw'|'operatingPctRaw'|'operatingPct2Raw'|'dcintRaw',label:string,unit:string,verified:boolean}>} */ ([
     {key:'rpm',label:'Régime moteur',unit:'tr/min (confirmé)',verified:true},
     {key:'debit',label:'Débit',unit:'m³/h',verified:true},
     {key:'vmiSpeedRaw',label:'Code vitesse VMI+',unit:'code brut',verified:false},
@@ -333,8 +365,8 @@ export function summarizeEnergyReadiness(data) {
     {key:'operatingPctRaw',label:'% fonct',unit:'échelle à confirmer',verified:false},
     {key:'operatingPct2Raw',label:'% fonct.1',unit:'échelle à confirmer',verified:false},
     {key:'dcintRaw',label:'Dcint',unit:'signification et unité à confirmer',verified:false}
-  ].map(field=>{
-    const values=rows.map(r=>r?.[field.key]).filter(Number.isFinite);
+  ]).map(field=>{
+    const values=rows.map(r=>r?.[field.key]).filter((value) => typeof value === 'number' && Number.isFinite(value));
     return {...field,count:values.length,
       zeroCount:values.filter(value=>value===0).length,
       nonZeroCount:values.filter(value=>value!==0).length,
@@ -353,6 +385,12 @@ export function summarizeEnergyReadiness(data) {
 /**
  * Analyse les relevés autour de la consigne de température extérieure Cons TMax.
  * Les comparaisons restent descriptives et sont séparées par mode manuel déclaré.
+ */
+/**
+ * summarizeTemperatureLimit — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} data Historique des relevés VMI.
+ * @param {{minimumGroupSamples?: number, minimumGroupDays?: number}} options Seuils de couverture par groupe.
+ * @returns {import('../types/vmi-types.js').TemperatureLimitResult} Résumé descriptif de la consigne de température.
  */
 export function summarizeTemperatureLimit(data, {
   minimumGroupSamples = 5, minimumGroupDays = 2
@@ -464,6 +502,12 @@ export function summarizeTemperatureLimit(data, {
  * Les durées sont estimées entre deux mesures successives par interpolation
  * du delta. Les intervalles supérieurs à maxGapHours ne sont jamais extrapolés.
  */
+/**
+ * analyzeHygrometricPeriods — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} data Historique des relevés hygrométriques.
+ * @param {{threshold?: number, maxGapHours?: number}} options Seuils de regroupement temporel.
+ * @returns {import('../types/vmi-types.js').HygrometricPeriodsResult} Périodes hygrométriques détectées.
+ */
 export function analyzeHygrometricPeriods(data, { threshold = 1, maxGapHours = 2 } = {}) {
   const rows=(Array.isArray(data)?data:[])
     .filter(r=>Number.isFinite(r?.t)&&Number.isFinite(r.st)&&isPlausibleTemperature(r.st)&&
@@ -524,6 +568,11 @@ function validHygroRow(r) {
 }
 
 /** Médianes journalières locales : aucune interpolation entre les jours. */
+/**
+ * summarizeDailyTrends — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} data Paramètre data.
+ * @returns {import('../types/vmi-types.js').DailyTrendsResult} Médianes journalières et évolutions.
+ */
 export function summarizeDailyTrends(data) {
   const days = new Map();
   for (const r of Array.isArray(data) ? data : []) {
@@ -554,6 +603,12 @@ export function summarizeDailyTrends(data) {
 }
 
 /** Profils horaires locaux. Une tranche n'est interprétée qu'à partir de 3 relevés. */
+/**
+ * analyzeHourlyPatterns — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} data Paramètre data.
+ * @param {number} minSamples Paramètre minSamples.
+ * @returns {import('../types/vmi-types.js').HourlyPatternsResult} Répartition horaire des mesures.
+ */
 export function analyzeHourlyPatterns(data, minSamples = 3) {
   const buckets = Array.from({length:4}, (_,i) => ({
     label: ['00–05 h','06–11 h','12–17 h','18–23 h'][i],
@@ -585,6 +640,12 @@ export function analyzeHourlyPatterns(data, minSamples = 3) {
  * Repère des variations rapides à examiner, sans les qualifier de panne.
  * Seules les mesures successives espacées de 2 h maximum sont comparées.
  */
+/**
+ * detectRapidChanges — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} data Historique des relevés horodatés.
+ * @param {{maxGapHours?: number, rhJump?: number, absoluteHumidityJump?: number}} options Seuils de détection des variations rapides.
+ * @returns {Array<{start:number,end:number,gapMs:number,deltaRH:number,deltaAbsoluteHumidity:number,reasons:string[]}>} Événements de variation rapide.
+ */
 export function detectRapidChanges(data, { maxGapHours = 2, rhJump = 15, absoluteHumidityJump = 3 } = {}) {
   const rows=(Array.isArray(data)?data:[])
     .filter(validHygroRow)
@@ -615,6 +676,12 @@ export function detectRapidChanges(data, { maxGapHours = 2, rhJump = 15, absolut
  * Diagnostic hygrométrique explicable.
  * Les constats reposent sur les mesures disponibles, sans inférer le débit réel,
  * la consommation électrique, une panne ou un lien de causalité.
+ */
+/**
+ * buildHygrometricDiagnosis — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} data Historique des relevés hygrométriques.
+ * @param {{dryDelta?: number, trendDelta?: number, minSamples?: number, maxGapHours?: number}} options Seuils et paramètres du diagnostic.
+ * @returns {import('../types/vmi-types.js').HygrometricDiagnosisResult} Diagnostic hygrométrique explicable.
  */
 export function buildHygrometricDiagnosis(data, {
   dryDelta = 1,
@@ -991,6 +1058,12 @@ export function buildHygrometricDiagnosis(data, {
  * Référence descriptive du fonctionnement par mode VMI+.
  * Mode et code Vitesse brut restent distincts ; les unités non confirmées restent brutes.
  */
+/**
+ * summarizeOperatingReference — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} data Historique des relevés VMI.
+ * @param {{minSamples?: number}} options Effectif minimal par groupe.
+ * @returns {import('../types/vmi-types.js').OperatingReferenceResult} Référence descriptive de fonctionnement.
+ */
 export function summarizeOperatingReference(data, { minSamples = 10 } = {}) {
   const rows = Array.isArray(data) ? data : [];
   const modes = new Map();
@@ -1008,7 +1081,7 @@ export function summarizeOperatingReference(data, { minSamples = 10 } = {}) {
   ];
   const groups = [...modes.entries()].sort((a, b) => a[0] - b[0]).map(([mode, samples]) => {
     const fields = metrics.map(metric => {
-      const values = samples.map(row => row?.[metric.key]).filter(Number.isFinite);
+      const values = samples.map(row => row?.[metric.key]).filter((value) => typeof value === 'number' && Number.isFinite(value));
       const center = median(values);
       return {
         ...metric, count: values.length, median: center,
@@ -1043,6 +1116,11 @@ export function summarizeOperatingReference(data, { minSamples = 10 } = {}) {
   };
 }
 
+/**
+ * summarizeRawVmiMode — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} data Paramètre data.
+ * @returns {Array<{mode:number,sampleCount:number,medianDebit:number|null,minDebit:number|null,maxDebit:number|null,medianRenewalRate:number|null,referenceDebit:number|null,referenceRenewalRate:number|null}>} Résumé des codes Mode bruts.
+ */
 export function summarizeRawVmiMode(data) {
   const groups = new Map();
   for (const row of Array.isArray(data) ? data : []) {
@@ -1068,6 +1146,11 @@ export function summarizeRawVmiMode(data) {
   }));
 }
 
+/**
+ * summarizeRawVmiSpeed — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} data Paramètre data.
+ * @returns {Array<{code:number,sampleCount:number,medianDebit:number|null,minDebit:number|null,maxDebit:number|null}>} Résumé des codes Vitesse bruts.
+ */
 export function summarizeRawVmiSpeed(data) {
   const groups = new Map();
   for (const row of Array.isArray(data) ? data : []) {

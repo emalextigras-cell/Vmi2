@@ -1,3 +1,6 @@
+/** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
+/** @typedef {import('../types/vmi-types.js').UnknownRecord} UnknownRecord */
+
 import { estimateFanPowerFromFlow } from './energy-estimate.js';
 import { absoluteHumidity } from './psychrometry.js';
 
@@ -39,6 +42,12 @@ const median = values => {
  * intérieur/entrant. Les journées ne sont retenues que si les deux sources
  * sont présentes : >= minFanHours intégrées et >= minClimateSamples valides.
  * Aucun lien causal ni rendement n'est calculé.
+ */
+/**
+ * Construit une vue journalière croisant estimation du ventilateur et climat intérieur/entrant.
+ * @param {VmiRecord[]} history Historique thermique et hygrométrique.
+ * @param {{maxGapHours?: number, minFanHours?: number, minClimateSamples?: number, minDays?: number}} options Seuils de couverture et de regroupement.
+ * @returns {{status:string,days:Array<{date:string,paired:boolean,fanHours:number,fanIntervals:number,estimatedKwh:number|null,averagePowerW:number|null,climateSampleCount:number,medianIndoorRH:number|null,medianIndoorTemp:number|null,medianIndoorAbsHumidity:number|null,medianIncomingAbsHumidity:number|null,medianDeltaAbsHumidity:number|null}>,matchedDays:Array<{date:string,paired:boolean,fanHours:number,fanIntervals:number,estimatedKwh:number|null,averagePowerW:number|null,climateSampleCount:number,medianIndoorRH:number|null,medianIndoorTemp:number|null,medianIndoorAbsHumidity:number|null,medianIncomingAbsHumidity:number|null,medianDeltaAbsHumidity:number|null}>,matchedDayCount:number,duplicateTimestampCount:number,conflictingTimestampCount:number,maxGapHours:number,minFanHours:number,minClimateSamples:number,minDays:number,limits:string[]}} Synthèse journalière descriptive avec limites de couverture.
  */
 export function summarizeDailyEnergyClimateContext(history, {
   maxGapHours = 2, minFanHours = 3, minClimateSamples = 3, minDays = 3

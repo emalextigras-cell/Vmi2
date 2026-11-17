@@ -1,7 +1,14 @@
+/** @typedef {import('../types/vmi-types.js').UnknownRecord} UnknownRecord */
+
 /**
  * Décodage pur des notifications VMI observées.
  * Les offsets et seuils de longueur reprennent strictement le parseur historique.
  * Aucune interprétation physique ni correction de valeur n'est ajoutée ici.
+ */
+/**
+ * decodeVmiNotification — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {Uint8Array|ArrayBuffer|number[]} input Paramètre input.
+ * @returns {UnknownRecord|null} Résultat de decodeVmiNotification.
  */
 export function decodeVmiNotification(input) {
   if (!input) return null;

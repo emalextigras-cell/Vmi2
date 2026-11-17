@@ -1,6 +1,13 @@
+/** @typedef {import('../types/vmi-types.js').VmiBluetoothDevice} VmiBluetoothDevice */
+
 /**
  * Sélection prudente d'un périphérique Bluetooth déjà autorisé par le navigateur.
  * Ne choisit jamais arbitrairement entre plusieurs appareils.
+ */
+/** Sélectionne un périphérique déjà autorisé, sans choisir arbitrairement.
+ * @param {VmiBluetoothDevice[]} devices Périphériques autorisés disponibles.
+ * @param {string} [preferredId] Identifiant à privilégier si présent.
+ * @returns {VmiBluetoothDevice|null} Périphérique retenu, ou null si aucun choix sûr.
  */
 export function chooseAuthorizedDevice(devices, preferredId = '') {
   const available = Array.isArray(devices)

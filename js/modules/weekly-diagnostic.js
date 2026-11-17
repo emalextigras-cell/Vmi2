@@ -1,3 +1,4 @@
+/** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
 import { absoluteHumidity } from './psychrometry.js';
 import { isPlausibleHumidity, isPlausibleTemperature } from './data-quality.js';
 import { summarizeDailyEnergyClimateContext } from './energy-climate.js';
@@ -34,6 +35,11 @@ const shiftDate = (date,days) => new Date(date.getFullYear(),date.getMonth(),dat
  * Compare deux fenêtres calendaires hebdomadaires à partir des médianes
  * journalières. Les jours ont le même poids ; les données hors fenêtre ne
  * peuvent pas relier des historiques éloignés. L'énergie reste estimée.
+ */
+/** Compare deux fenêtres calendaires à partir des médianes journalières.
+ * @param {VmiRecord[]} history Historique thermique et hygrométrique.
+ * @param {{windowDays?: number, minSamplesPerDay?: number, minDaysPerWindow?: number, minEnergyDays?: number, maxGapHours?: number, changeThreshold?: number}} [options] Seuils et paramètres de comparaison.
+ * @returns {import('../types/vmi-types.js').WeeklyDiagnosticResult} Diagnostic hebdomadaire descriptif et niveaux de couverture.
  */
 export function summarizeWeeklyDiagnostic(history,{
   windowDays=7,

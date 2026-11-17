@@ -6,6 +6,7 @@ on:
       - main
       - work/modularisation-phase-1
       - audit/bluetooth-hardening
+      - chore/jsdoc-strict-typing
   pull_request:
     branches:
       - main
@@ -24,3 +25,5 @@ jobs:
         run: find js tests -name '*.js' -print0 | xargs -0 -n1 node --check
       - name: Exécuter les tests
         run: npm test
+      - name: Vérifier les types JSDoc
+        run: npx --yes --package typescript@5.9.3 -- tsc --noEmit -p jsconfig.json

@@ -1,8 +1,24 @@
+/** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
+/** @typedef {import('../types/vmi-types.js').TransientSpikeSummary} TransientSpikeSummary */
+/** @typedef {import('../types/vmi-types.js').DataQualitySummary} DataQualitySummary */
+/** @typedef {import('../types/vmi-types.js').UnknownRecord} UnknownRecord */
+/** @typedef {import('../types/vmi-types.js').AnalysisOptions} AnalysisOptions */
+
 /** Contrôle de plausibilité des mesures, sans modifier les valeurs reçues de la VMI+. */
 
+/**
+ * isPlausibleHumidity — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {number} value Paramètre value.
+ * @returns {boolean} Résultat de isPlausibleHumidity.
+ */
 export const isPlausibleHumidity = value =>
   !Number.isFinite(value) || (value >= 0 && value <= 100);
 
+/**
+ * isPlausibleTemperature — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {number} value Paramètre value.
+ * @returns {boolean} Résultat de isPlausibleTemperature.
+ */
 export const isPlausibleTemperature = value =>
   !Number.isFinite(value) || (value >= -30 && value <= 60);
 
@@ -10,14 +26,21 @@ export const isPlausibleTemperature = value =>
  * Détecte une trame de remplacement probable : les trois sondes renvoient
  * simultanément exactement 20 °C et 50 %. Les valeurs brutes restent conservées.
  */
+/**
+ * isPlaceholderSensorRecord — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {unknown} record Paramètre record.
+ * @returns {boolean} Résultat de isPlaceholderSensorRecord.
+ */
 export function isPlaceholderSensorRecord(record) {
-  if (!record) return false;
-  return record.st === 20 && record.sh === 50 &&
-    record.t1 === 20 && record.h1 === 50 &&
-    record.te === 20 && record.he === 50;
+  if (!record || typeof record !== 'object') return false;
+  const row = /** @type {Record<string, unknown>} */ (record);
+  return row.st === 20 && row.sh === 50 &&
+    row.t1 === 20 && row.h1 === 50 &&
+    row.te === 20 && row.he === 50;
 }
 
 
+/** @type {Array<{key:'st'|'te'|'tExt'|'t1'|'sh'|'he'|'h1',label:string,type:'humidity'|'temperature',spike:number,stable:number}>} */
 const TRANSIENT_SPIKE_FIELDS = [
   { key: 'st', label: 'Température salon', type: 'temperature', spike: 12, stable: 3 },
   { key: 'te', label: 'Température air entrant', type: 'temperature', spike: 12, stable: 3 },
@@ -32,6 +55,11 @@ const TRANSIENT_SPIKE_FIELDS = [
  * Repère les pics isolés qui reviennent près du niveau initial.
  * Ce sont des événements à vérifier, jamais une preuve de panne de capteur.
  * Les deux intervalles voisins doivent être datés et <= maxGapMinutes.
+ */
+/** Repère les pics isolés sur les sondes, sans conclure à une panne.
+ * @param {VmiRecord[]} records Historique horodaté.
+ * @param {{maxGapMinutes?: number}} [options] Écart maximal entre relevés voisins.
+ * @returns {TransientSpikeSummary} Pics détectés et seuils utilisés.
  */
 export function detectTransientSensorSpikes(records, options = {}) {
   const maxGapMinutes = options?.maxGapMinutes ?? 30;
@@ -51,7 +79,8 @@ export function detectTransientSensorSpikes(records, options = {}) {
     for (let index = 1; index < rows.length - 1; index++) {
       const before = rows[index - 1], current = rows[index], after = rows[index + 1];
       const a = before[field.key], b = current[field.key], c = after[field.key];
-      if (![a, b, c].every(Number.isFinite)) continue;
+      if (typeof a !== 'number' || typeof b !== 'number' || typeof c !== 'number' ||
+          !Number.isFinite(a) || !Number.isFinite(b) || !Number.isFinite(c)) continue;
       const plausible = field.type === 'humidity'
         ? [a, b, c].every(isPlausibleHumidity)
         : [a, b, c].every(isPlausibleTemperature);
@@ -66,7 +95,7 @@ export function detectTransientSensorSpikes(records, options = {}) {
       candidates.push({
         key: field.key, label: field.label, timestamp: current.t, value: b,
         previousValue: a, nextValue: c,
-        unit: field.type === 'humidity' ? '%' : '°C',
+        unit: /** @type {'%'|'°C'} */ (field.type === 'humidity' ? '%' : '°C'),
         deviation: spikeFromNeighbors,
         gapBeforeMinutes: gapBefore / 60000, gapAfterMinutes: gapAfter / 60000
       });
@@ -79,6 +108,7 @@ export function detectTransientSensorSpikes(records, options = {}) {
   };
 }
 
+/** @type {Array<{key:'sh'|'h1'|'he'|'st'|'tExt'|'t1'|'te',label:string,type:'humidity'|'temperature'}>} */
 const FIELDS = [
   { key: 'sh', label: 'Humidité salon', type: 'humidity' },
   { key: 'h1', label: 'Humidité sonde résistances', type: 'humidity' },
@@ -89,13 +119,17 @@ const FIELDS = [
   { key: 'te', label: 'Température air entrant', type: 'temperature' }
 ];
 
+/** Résume la complétude et la plausibilité des mesures reçues.
+ * @param {VmiRecord[]} records Relevés à contrôler.
+ * @returns {DataQualitySummary} Couverture, anomalies et pics transitoires.
+ */
 export function summarizeDataQuality(records) {
   const rows = Array.isArray(records) ? records : [];
   const fieldCoverage = FIELDS.map(field => {
     let present = 0, invalid = 0;
     for (const row of rows) {
       const value = row?.[field.key];
-      if (!Number.isFinite(value)) continue;
+      if (typeof value !== 'number' || !Number.isFinite(value)) continue;
       present++;
       const valid = field.type === 'humidity'
         ? isPlausibleHumidity(value)
@@ -121,7 +155,7 @@ export function summarizeDataQuality(records) {
     if (isPlaceholderSensorRecord(row)) { affected.add(index); placeholderRecords++; }
     for (const field of FIELDS) {
       const value = row?.[field.key];
-      if (!Number.isFinite(value)) continue;
+      if (typeof value !== 'number' || !Number.isFinite(value)) continue;
       const valid = field.type === 'humidity'
         ? isPlausibleHumidity(value)
         : isPlausibleTemperature(value);

@@ -1,7 +1,16 @@
+/** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
+/** @typedef {import('../types/vmi-types.js').UnknownRecord} UnknownRecord */
+/** @typedef {import('../types/vmi-types.js').EnergyReading} EnergyReading */
+
 /** Fonctions pures de création et de restauration des sauvegardes. */
 import { mergeRecordFields, isRawDateEligible } from './history.js';
 import { isValidEnergyReading } from './energy-meter.js';
 
+/**
+ * Construit une sauvegarde versionnée sans modifier les données sources.
+ * @param {{hist: VmiRecord[], live: VmiRecord[], meta: UnknownRecord, energyReadings?: EnergyReading[], exportedAt?: string}} options Données à sauvegarder et horodatage d'export.
+ * @returns {UnknownRecord} Instantané de sauvegarde compatible avec le format VMI.
+ */
 export function createBackupSnapshot({ hist, live, meta, energyReadings, exportedAt = new Date().toISOString() }) {
   const snapshot = {
     app: 'vmi-purevent', version: 1, exportedAt,
@@ -16,6 +25,11 @@ export function createBackupSnapshot({ hist, live, meta, energyReadings, exporte
 }
 
 /** Fusionne une sauvegarde sans effacer les champs déjà connus à timestamp égal. */
+/**
+ * Fusionne une sauvegarde dans les données locales en préservant les champs existants.
+ * @param {{backup: UnknownRecord, currentHist?: VmiRecord[], currentLive?: VmiRecord[], currentMeta?: UnknownRecord, currentEnergyReadings?: EnergyReading[], minValid: number, maxLive?: number, maxTimestamp?: number}} options Sauvegarde et état local à fusionner.
+ * @returns {UnknownRecord} Données fusionnées et compteurs d'import.
+ */
 export function mergeBackupData({
   backup, currentHist = [], currentLive = [], currentMeta = {},
   currentEnergyReadings = [], minValid, maxLive = 10000, maxTimestamp = Date.now()
@@ -23,6 +37,7 @@ export function mergeBackupData({
   if (!backup || backup.app !== 'vmi-purevent' || !Array.isArray(backup.hist)) {
     throw new Error('Fichier de sauvegarde non reconnu.');
   }
+  const source = /** @type {UnknownRecord & {hist:VmiRecord[], live?:VmiRecord[], meta?:{lastSync?:string}, energyReadings?:EnergyReading[]}} */ (backup);
   if (!Number.isFinite(minValid) || minValid <= 0) {
     throw new RangeError('minValid doit être un horodatage fini strictement positif.');
   }
@@ -36,7 +51,7 @@ export function mergeBackupData({
     record.t >= minValid && record.t <= maxTimestamp;
   const history = new Map(currentHist.filter(isUsableHistory).map(r => [r.t, r]));
   let addedHistory = 0, enrichedHistory = 0;
-  for (const record of backup.hist) {
+  for (const record of source.hist) {
     if (!isUsableHistory(record)) continue;
     if (!history.has(record.t)) { history.set(record.t, record); addedHistory++; }
     else {
@@ -47,9 +62,9 @@ export function mergeBackupData({
   }
   const hist = [...history.values()].sort((a,b) => a.t-b.t);
   let live = [...currentLive], addedLive = 0;
-  if (Array.isArray(backup.live)) {
+  if (Array.isArray(source.live)) {
     const byTime = new Map(live.filter(r => r && Number.isFinite(r.t)).map(r => [r.t,r]));
-    for (const record of backup.live) {
+    for (const record of source.live) {
       if (!record || !Number.isFinite(record.t)) continue;
       if (!byTime.has(record.t)) { byTime.set(record.t,record); addedLive++; }
       else byTime.set(record.t,mergeRecordFields(byTime.get(record.t),record));
@@ -59,14 +74,14 @@ export function mergeBackupData({
     else if(live.length>maxLive) live=live.slice(-maxLive);
   }
   const meta={...(currentMeta||{})};
-  if(backup.meta&&backup.meta.lastSync&&(!meta.lastSync||backup.meta.lastSync>meta.lastSync)) meta.lastSync=backup.meta.lastSync;
+  if(source.meta?.lastSync&&(!meta.lastSync||source.meta.lastSync>String(meta.lastSync))) meta.lastSync=source.meta.lastSync;
 
   let energyReadings = Array.isArray(currentEnergyReadings)
     ? currentEnergyReadings.filter(isValidEnergyReading) : [];
   let addedEnergyReadings = 0;
-  if (Array.isArray(backup.energyReadings)) {
+  if (Array.isArray(source.energyReadings)) {
     const byId = new Map(energyReadings.map(reading => [reading.id, reading]));
-    for (const reading of backup.energyReadings.filter(isValidEnergyReading)) {
+    for (const reading of source.energyReadings.filter(isValidEnergyReading)) {
       if (!byId.has(reading.id)) {
         byId.set(reading.id, reading);
         addedEnergyReadings++;

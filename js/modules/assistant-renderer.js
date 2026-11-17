@@ -1,5 +1,14 @@
+/** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
+/** @typedef {import('../types/vmi-types.js').EnergyReading} EnergyReading */
+
 import { buildVmiAssistantSummary } from './assistant-summary.js';
 
+/**
+ * Rend la synthèse explicable de la VMI dans les éléments DOM fournis.
+ * @param {VmiRecord[]} data Historique utilisé par l'assistant.
+ * @param {{documentRef?: Document, targetRH?: number, minSamples?: number, energyReadings?: EnergyReading[], meterHistory?: VmiRecord[], onError?: Function}} options Dépendances d'affichage et paramètres d'analyse.
+ * @returns {void} Met à jour les éléments DOM, sans modifier la VMI.
+ */
 export function renderVmiAssistant(data, {
   documentRef = globalThis.document,
   targetRH = 50,

@@ -1,4 +1,12 @@
-/** Présentation de la fraîcheur des flux reçus en direct, sans interpréter leur contenu. */
+
+
+/**
+ * Formate la fraîcheur des flux Bluetooth sans interpréter leur contenu.
+ * @param {number|null|undefined} timestamp Horodatage de dernière réception en millisecondes.
+ * @param {number} now Horodatage courant en millisecondes.
+ * @param {number} staleAfterMs Délai au-delà duquel un flux est considéré ancien.
+ * @returns {string} État textuel de fraîcheur des trois flux.
+ */
 function ageLabel(timestamp, now, staleAfterMs) {
   if (!Number.isFinite(timestamp) || timestamp <= 0) return "non reçues";
   const ageMs = Math.max(0, now - timestamp);
@@ -9,6 +17,12 @@ function ageLabel(timestamp, now, staleAfterMs) {
   return ageMs > staleAfterMs ? `anciennes (${age})` : `à jour (${age})`;
 }
 
+/** Construit l'état de fraîcheur des flux reçus en direct.
+ * @param {{salon?: number, probes?: number, state?: number}} [lastSeen] Horodatages de dernière réception.
+ * @param {number} [now] Horodatage courant en millisecondes.
+ * @param {number} [staleAfterMs] Seuil d'ancienneté en millisecondes.
+ * @returns {string} État textuel des flux.
+ */
 export function buildLiveFreshnessText(lastSeen = {}, now = Date.now(), staleAfterMs = 90000) {
   return [
     `Salon : ${ageLabel(lastSeen.salon, now, staleAfterMs)}`,

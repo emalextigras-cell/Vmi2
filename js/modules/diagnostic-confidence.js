@@ -1,3 +1,5 @@
+
+
 /** Présentation explicable de la robustesse des données du diagnostic. */
 export function formatDiagnosisConfidence(result, formatNumber = value =>
   Number(value).toLocaleString('fr-FR', { maximumFractionDigits: 1 })

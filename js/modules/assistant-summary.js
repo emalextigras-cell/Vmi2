@@ -1,3 +1,7 @@
+/** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
+/** @typedef {import('../types/vmi-types.js').EnergyReading} EnergyReading */
+/** @typedef {import('../types/vmi-types.js').UnknownRecord} UnknownRecord */
+
 /**
  * Assistant VMI local : synthèse pédagogique des analyses existantes.
  * Ce module ne pilote pas la VMI et ne remplace aucun calcul métier :
@@ -58,6 +62,12 @@ const recommendation = (priority, title, text, reason) => ({
 /**
  * Produit une synthèse pour débutant à partir du même historique que les
  * panneaux d'analyse. Les résultats restent descriptifs et explicables.
+ */
+/**
+ * buildVmiAssistantSummary — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} data Paramètre data.
+ * @param {{targetRH?: number, minSamples?: number, energyReadings?: EnergyReading[], meterHistory?: VmiRecord[]}} [options] Paramètres de la synthèse.
+ * @returns {import('../types/vmi-types.js').AssistantSummary} Synthèse pédagogique structurée.
  */
 export function buildVmiAssistantSummary(data, options = {}) {
   const rows = Array.isArray(data) ? data : [];

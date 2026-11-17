@@ -1,7 +1,13 @@
+/** @typedef {import('../types/vmi-types.js').UnknownRecord} UnknownRecord */
+/** @typedef {import('../types/vmi-types.js').EnergyReading} EnergyReading */
+/** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
+/** @typedef {import('../types/vmi-types.js').EnergySummary} EnergySummary */
+/** @typedef {import('../types/vmi-types.js').MonthlyEnergySummary} MonthlyEnergySummary */
+
 import { absoluteHumidity } from './psychrometry.js';
 
 /** Suivi des index kWh relevés sur des compteurs électriques externes. */
-export const ENERGY_METER_TYPES = Object.freeze(['ventilation', 'preheating', 'total']);
+export const ENERGY_METER_TYPES = /** @type {readonly import('../types/vmi-types.js').EnergyMeterType[]} */ (Object.freeze(['ventilation', 'preheating', 'total']));
 
 export const ENERGY_METER_LABELS = Object.freeze({
   ventilation: 'Ventilation (compteur dédié)',
@@ -9,16 +15,26 @@ export const ENERGY_METER_LABELS = Object.freeze({
   total: 'Total VMI (compteur global)'
 });
 
+/** Vérifie le format et les contraintes d'un index de compteur électrique.
+ * @param {unknown} reading Valeur à valider.
+ * @returns {reading is EnergyReading} true si l'index est exploitable.
+ */
 export function isValidEnergyReading(reading) {
-  return !!reading &&
-    typeof reading.id === 'string' && reading.id.length > 0 &&
-    ENERGY_METER_TYPES.includes(reading.meterType) &&
-    Number.isFinite(reading.t) && reading.t > 0 &&
-    Number.isFinite(reading.kwh) && reading.kwh >= 0 &&
-    (reading.note == null || typeof reading.note === 'string');
+  if (!reading || typeof reading !== 'object') return false;
+  const candidate = /** @type {Record<string, unknown>} */ (reading);
+  return typeof candidate.id === 'string' && candidate.id.length > 0 &&
+    typeof candidate.meterType === 'string' && ENERGY_METER_TYPES.some(type => type === candidate.meterType) &&
+    typeof candidate.t === 'number' && Number.isFinite(candidate.t) && candidate.t > 0 &&
+    typeof candidate.kwh === 'number' && Number.isFinite(candidate.kwh) && candidate.kwh >= 0 &&
+    (candidate.note == null || typeof candidate.note === 'string');
 }
 
 /** Ajoute ou corrige un index pour le même compteur au même instant. */
+/** Ajoute ou remplace l'index du même compteur au même instant.
+ * @param {EnergyReading[]} readings Index déjà enregistrés.
+ * @param {EnergyReading} reading Nouvel index validé.
+ * @returns {EnergyReading[]} Index triés après insertion.
+ */
 export function upsertEnergyReading(readings, reading) {
   if (!isValidEnergyReading(reading)) {
     throw new TypeError('Relevé invalide : compteur, date et index kWh sont obligatoires.');
@@ -30,9 +46,13 @@ export function upsertEnergyReading(readings, reading) {
 }
 
 /** Calcule uniquement les écarts entre deux index successifs d'un même compteur. */
+/** Calcule les écarts mesurés entre index successifs de chaque compteur.
+ * @param {EnergyReading[]} readings Index bruts à analyser.
+ * @returns {EnergySummary} Synthèse par compteur et limites de calcul.
+ */
 export function summarizeEnergyReadings(readings) {
   const valid = (Array.isArray(readings) ? readings : []).filter(isValidEnergyReading);
-  const meters = ENERGY_METER_TYPES.map(meterType => {
+  const meters = /** @type {EnergySummary['meters']} */ (ENERGY_METER_TYPES.map(meterType => {
     const byTimestamp = new Map();
     for (const reading of valid.filter(item => item.meterType === meterType).sort((a, b) => a.t - b.t)) {
       // En cas de doublon issu d'une sauvegarde, le dernier relevé de la liste prévaut.
@@ -70,7 +90,7 @@ export function summarizeEnergyReadings(readings) {
       totalKwh: measured.reduce((sum, interval) => sum + interval.deltaKwh, 0),
       intervals
     };
-  }).filter(meter => meter.readingCount > 0);
+  }).filter(meter => meter.readingCount > 0));
   return {
     readingCount: valid.length,
     meters,
@@ -88,6 +108,10 @@ export function summarizeEnergyReadings(readings) {
  * Regroupe les intervalles mesurés par mois civil.
  * Un intervalle qui traverse deux mois n'est jamais réparti artificiellement :
  * il est comptabilisé à part et exclu des totaux mensuels.
+ */
+/** Regroupe les intervalles mesurés par mois civil.
+ * @param {EnergyReading[]} readings Index électriques enregistrés.
+ * @returns {MonthlyEnergySummary[]} Totaux mensuels et intervalles chevauchant deux mois.
  */
 export function summarizeMonthlyEnergyReadings(readings) {
   const summary = summarizeEnergyReadings(readings);
@@ -150,6 +174,13 @@ const assertValidEnergyClimateOptions = (maxGapHours, minCoveredHours, minCovera
  * Les segments d'historique sont intégrés par interpolation linéaire seulement
  * entre deux relevés espacés d'au plus maxGapHours. Aucun prolongement avant
  * le premier relevé, après le dernier, ni comblement des grands trous.
+ */
+/**
+ * summarizeEnergyClimateContext — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {EnergyReading[]} readings Index des compteurs électriques externes.
+ * @param {VmiRecord[]} history Historique thermique et hygrométrique.
+ * @param {{maxGapHours?: number, minCoveredHours?: number, minCoveragePercent?: number}} [options] Seuils de couverture climatique.
+ * @returns {import('../types/vmi-types.js').EnergyClimateMeterContextResult} Résultat structuré du module.
  */
 export function summarizeEnergyClimateContext(readings, history, options = {}) {
   const {

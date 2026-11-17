@@ -1,9 +1,17 @@
+/** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
+/** @typedef {import('../types/vmi-types.js').UnknownRecord} UnknownRecord */
+
 /** Fonctions pures de nettoyage et de conservation de l'historique local. */
 import { MIN_VALID } from './date-utils.js';
 
 /**
  * La date brute rk fait foi pour les nouveaux relevés : les anciens relevés
  * déjà validés par une correction d'horloge restent conservés.
+ */
+/** Vérifie l'éligibilité temporelle d'un relevé sans modifier sa date.
+ * @param {Partial<VmiRecord> & {rk?: string}} record Relevé à vérifier.
+ * @param {number} [minValid] Timestamp minimal accepté pour les dates corrigées.
+ * @returns {boolean} true si le relevé peut être conservé.
  */
 export function isRawDateEligible(record, minValid = MIN_VALID) {
   if (!record || !Number.isFinite(record.t)) return false;
@@ -16,11 +24,22 @@ export function isRawDateEligible(record, minValid = MIN_VALID) {
   return true;
 }
 
+/** Filtre les relevés selon leur date brute et leur horodatage maximal.
+ * @param {VmiRecord[]} records Relevés à filtrer.
+ * @param {number} [minValid] Timestamp minimal accepté pour les dates corrigées.
+ * @param {number} [maxTimestamp] Timestamp maximal accepté.
+ * @returns {VmiRecord[]} Relevés temporellement admissibles.
+ */
 export function filterRawDateHistory(records, minValid = MIN_VALID, maxTimestamp = Date.now()) {
   return (Array.isArray(records) ? records : []).filter(record =>
     isRawDateEligible(record, minValid) && record.t <= maxTimestamp
   );
 }
+/** Filtre les relevés vides puis limite la taille de l'historique.
+ * @param {VmiRecord[]} records Relevés à conserver.
+ * @param {number} maxRecords Nombre maximal de relevés.
+ * @returns {{records: VmiRecord[], removed: number}} Historique conservé et nombre retiré.
+ */
 export function pruneHistory(records, maxRecords) {
   const valid = (Array.isArray(records) ? records : []).filter(record =>
     record && (record.st != null || record.sh != null || record.tExt != null || record.te != null ||
@@ -37,6 +56,11 @@ export function pruneHistory(records, maxRecords) {
 /**
  * Complète un relevé existant avec les valeurs non nulles d'une nouvelle source.
  * Les champs déjà renseignés sont conservés si la nouvelle source ne les fournit pas.
+ */
+/** Fusionne deux relevés en conservant les valeurs connues en cas de transfert partiel.
+ * @param {Partial<VmiRecord>|null|undefined} existing Relevé déjà stocké.
+ * @param {Partial<VmiRecord>|null|undefined} incoming Relevé entrant.
+ * @returns {Partial<VmiRecord>|null|undefined} Relevé fusionné.
  */
 export function mergeRecordFields(existing, incoming) {
   if (!existing) return incoming;

@@ -1,3 +1,8 @@
+/** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
+/** @typedef {import('../types/vmi-types.js').SeasonalVentilationSummary} SeasonalVentilationSummary */
+/** @typedef {import('../types/vmi-types.js').UnknownRecord} UnknownRecord */
+/** @typedef {import('../types/vmi-types.js').AnalysisOptions} AnalysisOptions */
+
 /** Analyse saisonnière et opportunités de surventilation.
  * La saison calendaire est dérivée de l'horodatage ; le code Saison VMI+ reste
  * conservé séparément tant que sa table de correspondance n'est pas prouvée.
@@ -7,6 +12,10 @@ import { median } from './analysis.js';
 import { absoluteHumidity } from './psychrometry.js';
 import { isPlausibleTemperature, isPlausibleHumidity } from './data-quality.js';
 
+/** Détermine la saison calendaire à partir d'un horodatage local.
+ * @param {number} timestamp Horodatage Unix en millisecondes.
+ * @returns {'hiver'|'été'|'intersaison'|null} Saison, ou null si l'horodatage est invalide.
+ */
 export function calendarSeason(timestamp) {
   if (!Number.isFinite(timestamp)) return null;
   const month = new Date(timestamp).getMonth() + 1;
@@ -30,12 +39,17 @@ function localDay(timestamp) {
  * Une opportunité thermique est seulement un contexte favorable observé,
  * pas une preuve de refroidissement/réchauffement réel du logement.
  */
+/** Analyse les opportunités saisonnières à partir des températures mesurées.
+ * @param {VmiRecord[]} data Historique thermique et hygrométrique.
+ * @param {{minSamples?: number, minDays?: number, temperatureMargin?: number}} [options] Seuils de couverture et d'écart thermique.
+ * @returns {SeasonalVentilationSummary} Synthèse saisonnière et conseil manuel.
+ */
 export function analyzeSeasonalVentilation(data, { minSamples = 6, minDays = 2, temperatureMargin = 2 } = {}) {
   const rows = (Array.isArray(data) ? data : []).filter(row =>
     Number.isFinite(row?.t) && validTemperature(row?.st) && validTemperature(row?.tExt)
   ).map(row => ({ ...row, calendarSeason: calendarSeason(row.t), day: localDay(row.t) }));
 
-  const seasons = ['été', 'hiver', 'intersaison'].map(season => {
+  const seasons = /** @type {SeasonalVentilationSummary['seasons']} */ (['été', 'hiver', 'intersaison'].map(season => {
     const seasonalRows = rows.filter(row => row.calendarSeason === season);
     const days = new Map();
     for (const row of seasonalRows) {
@@ -74,7 +88,7 @@ export function analyzeSeasonalVentilation(data, { minSamples = 6, minDays = 2, 
       if (Number.isFinite(row.seasonRaw)) codeCounts[row.seasonRaw] = (codeCounts[row.seasonRaw] || 0) + 1;
     }
     return {
-      season, sampleCount: seasonalRows.length, dayCount: daily.length,
+      season: /** @type {'été'|'hiver'|'intersaison'} */ (season), sampleCount: seasonalRows.length, dayCount: daily.length,
       thermalSampleCount: relevantSamples,
       medianOutdoorMinusIndoor: median(daily.map(day => day.medianOutdoorMinusIndoor)),
       medianHumidityDelta: median(daily.map(day => day.humidityDelta)),
@@ -82,7 +96,7 @@ export function analyzeSeasonalVentilation(data, { minSamples = 6, minDays = 2, 
       opportunityDays: opportunityDays.map(day => day.day),
       enough, codeCounts
     };
-  });
+  }));
 
   const latest = rows.length ? rows.reduce((a,b) => a.t > b.t ? a : b) : null;
   const currentSeason = latest?.calendarSeason ?? null;

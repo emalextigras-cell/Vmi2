@@ -1,9 +1,16 @@
+/** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
+/** @typedef {{sequence: number|null, expectedChunk: number, skippedSequence: number|null, fragments: Map<string,string>, gapCount: number}} HistoryStreamState */
+
 /**
  * Contrôle l'ordre des fragments d'historique observés dans les notifications VMI.
  * La capture confirme l'index de ligne (octets 9-10) et l'index de fragment
  * (octet 12, par pas de 10). Le parseur historique interprète l'octet 13
  * comme indicateur de fin, mais la capture fournie n'observe aucune valeur 1.
  * Cette garde détecte uniquement les répétitions, trous et désordres observés.
+ */
+/**
+ * createHistoryStreamState — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @returns {HistoryStreamState} État du flux initialisé.
  */
 export function createHistoryStreamState() {
   return {
@@ -15,10 +22,18 @@ export function createHistoryStreamState() {
   };
 }
 
+/**
+ * acceptHistoryFragment — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {HistoryStreamState} state État du flux à mettre à jour.
+ * @param {unknown} fragment Fragment reçu, validé avant acceptation.
+ * @returns {{accepted: boolean, duplicate: boolean, gap: boolean, resetBuffer: boolean}} Décision de réception du fragment.
+ */
 export function acceptHistoryFragment(state, fragment) {
-  const sequence = Number(fragment?.sequence);
-  const chunkIndex = Number(fragment?.chunkIndex);
-  const payload = String(fragment?.payload ?? '');
+  const data = fragment && typeof fragment === 'object'
+    ? /** @type {Record<string, unknown>} */ (fragment) : {};
+  const sequence = Number(data.sequence);
+  const chunkIndex = Number(data.chunkIndex);
+  const payload = String(data.payload ?? '');
   if (!Number.isInteger(sequence) || sequence < 0 ||
       !Number.isInteger(chunkIndex) || chunkIndex < 0 || chunkIndex % 10 !== 0) {
     state.gapCount++;
@@ -83,11 +98,21 @@ export function acceptHistoryFragment(state, fragment) {
 }
 
 /** Les relevés issus d'un transfert incomplet ne peuvent pas servir de borne d'arrêt. */
+/** Indique si un relevé constitue une base complète de synchronisation.
+ * @param {Partial<VmiRecord>|null|undefined} record Relevé à vérifier.
+ * @returns {boolean} true si le relevé n'est pas marqué partiel.
+ */
 export function isHistorySyncBaseline(record) {
   return !!record && record.syncPartial !== true;
 }
 
 /** Marque les lignes reçues selon que le transfert entier est certifié ou non. */
+/**
+ * markHistoryRows — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} records Paramètre records.
+ * @param {boolean} complete Indique si le flux reçu est complet.
+ * @returns {VmiRecord[]} Relevés annotés avec leur état de synchronisation.
+ */
 export function markHistoryRows(records, complete) {
   return (Array.isArray(records) ? records : []).map(record => ({
     ...record,
@@ -96,6 +121,11 @@ export function markHistoryRows(records, complete) {
 }
 
 /** Signale une notification d'historique tronquée dont les index ne sont pas lisibles. */
+/**
+ * markHistoryStreamInvalid — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {HistoryStreamState} state État du flux à invalider.
+ * @returns {{accepted: false, duplicate: false, gap: true, resetBuffer: true}} Signal de flux invalide.
+ */
 export function markHistoryStreamInvalid(state) {
   state.gapCount++;
   // Sans index lisible, on ne peut pas savoir quel fragment manque : abandonner

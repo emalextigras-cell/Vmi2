@@ -1,6 +1,9 @@
+
+
 /**
- * File d'écriture BLE séquentielle.
- * Les commandes conservent le délai historique de 350 ms et l'ordre d'arrivée.
+ * createBleWriteQueue — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {{isConnected: Function, getCharacteristic: Function, getConnectionToken?: Function, sleep: Function, onSuccess?: Function, onError?: Function, delayMs?: number}} options Dépendances et paramètres de la file d'écriture BLE.
+ * @returns {{write: Function}} File d'écriture séquentielle.
  */
 export function createBleWriteQueue({
   isConnected,
@@ -20,13 +23,13 @@ export function createBleWriteQueue({
       const ensureSession = () => {
         if (getConnectionToken() !== connectionToken || !isConnected()) {
           const error = new Error('Commande annulée : la connexion Bluetooth a changé ou a été interrompue.');
-          error.code = 'BLE_SESSION_CHANGED';
+          /** @type {Error & {code: string}} */ (error).code = 'BLE_SESSION_CHANGED';
           throw error;
         }
       };
       if (getConnectionToken() !== connectionToken) {
         const error = new Error('Commande annulée : la session Bluetooth a changé.');
-        error.code = 'BLE_SESSION_CHANGED';
+        /** @type {Error & {code: string}} */ (error).code = 'BLE_SESSION_CHANGED';
         throw error;
       }
       if (!isConnected()) throw new Error('VMI non connectée');

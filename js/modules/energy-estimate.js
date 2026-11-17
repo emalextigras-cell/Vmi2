@@ -1,3 +1,4 @@
+/** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
 import { absoluteHumidity } from './psychrometry.js';
 
 /**
@@ -46,6 +47,10 @@ export const PUREVENT_FAN_POWER_POINTS = Object.freeze([
   Object.freeze({ flow: 350, powerW: 99 })
 ]);
 
+/** Estime la puissance du ventilateur par interpolation dans la plage constructeur.
+ * @param {number} flow Débit d'air en m³/h.
+ * @returns {number|null} Puissance estimée en watts, ou null hors domaine.
+ */
 export function estimateFanPowerFromFlow(flow) {
   if (!Number.isFinite(flow)) return null;
   const points = PUREVENT_FAN_POWER_POINTS;
@@ -64,6 +69,11 @@ export function estimateFanPowerFromFlow(flow) {
  * Intègre une puissance estimée entre relevés successifs.
  * Les intervalles > maxGapHours et les débits hors domaine constructeur
  * sont exclus, sans interpolation à travers les trous.
+ */
+/** Intègre l'énergie estimée entre relevés successifs.
+ * @param {VmiRecord[]} history Historique horodaté avec débits.
+ * @param {{maxGapHours?: number}} [options] Écart maximal entre relevés intégrés.
+ * @returns {import('../types/vmi-types.js').FanEnergyEstimateResult} Résumé de l'estimation et de sa couverture.
  */
 export function summarizeFanEnergyEstimate(history, options = {}) {
   const { maxGapHours = 2 } = options ?? {};
@@ -127,6 +137,11 @@ function medianEstimate(values) {
  * portent le même vmiModeRaw. Les changements de mode sont ignorés.
  * La puissance moyenne affichée est la médiane des moyennes journalières,
  * pour éviter qu'une journée très échantillonnée pèse davantage.
+ */
+/** Compare les estimations énergétiques par niveau manuel.
+ * @param {VmiRecord[]} history Historique horodaté avec modes manuels.
+ * @param {{maxGapHours?: number, minDays?: number}} [options] Seuils d'intégration et de couverture.
+ * @returns {import('../types/vmi-types.js').FanEnergyByModeResult} Résultats descriptifs par mode manuel.
  */
 export function summarizeFanEnergyByManualMode(history, options = {}) {
   const { maxGapHours = 2, minDays = 2 } = options ?? {};

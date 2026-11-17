@@ -1,8 +1,15 @@
+/** @typedef {import('../types/vmi-types.js').UnknownRecord} UnknownRecord */
+/** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
+
 /**
  * Validation structurelle minimale d'une ligne d'historique Bluetooth VMI+.
  * On ne fixe pas un nombre total de colonnes : les champs optionnels peuvent varier.
  * La date et le compteur de jours (colonne 12, index 11) sont indispensables
  * au rapprochement/dédoublonnage et à la correction d'horloge.
+ */
+/** Valide et décode une ligne d'historique Bluetooth.
+ * @param {string} line Ligne brute reçue.
+ * @returns {{valid: true, fields: string[]}|{valid: false, reason: string}} Résultat de validation.
  */
 export function validateBluetoothHistoryRow(line) {
   if (typeof line !== 'string' || !line.trim()) return { valid: false, reason: 'empty' };

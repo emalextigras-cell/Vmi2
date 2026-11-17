@@ -1,13 +1,17 @@
+/** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
+
 /** Correction des dates d'historique lorsque l'horloge interne de la VMI est erronée. */
 import { DAY, MIN_VALID } from './date-utils.js';
 import { filterRawDateHistory, isRawDateEligible } from './history.js';
 
+/** @param {number} timestamp @returns {number} */
 const dayNumber = timestamp => {
   const d = new Date(timestamp);
   return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / DAY);
 };
 const MIN_RECONSTRUCTABLE_RAW = Date.UTC(2020, 0, 1);
 
+/** @param {number[]} values @returns {number|undefined} */
 const modeOf = values => {
   const counts = new Map();
   let best, bestCount = 0;
@@ -29,6 +33,14 @@ const modeOf = values => {
  * Retourne { fixed, future, kept }.
  * Les règles de regroupement et le seuil horaire sont volontairement conservés.
  */
+/**
+ * fixClock — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} records Paramètre records.
+ * @param {VmiRecord[]} history Paramètre history.
+ * @param {number} minValid Timestamp minimal accepté.
+ * @param {number} maxTimestamp Timestamp maximal accepté, ou Infinity.
+ * @returns {{fixed:number, future:number, futureDetails:Array<{record:VmiRecord, correctedTimestamp:number}>, kept:VmiRecord[]}} Résultat de la correction.
+ */
 export function fixClock(records, history = [], minValid = MIN_VALID, maxTimestamp = Infinity) {
   // Les relevés entrants assez récents doivent rester disponibles pendant cette
   // fonction : leur compteur de jours peut permettre de reconstruire leur date.
@@ -47,6 +59,7 @@ export function fixClock(records, history = [], minValid = MIN_VALID, maxTimesta
     .sort((a, b) => a.t - b.t);
   let fixed = 0;
   const futureRecords = new Set();
+  /** @type {Array<{record:VmiRecord, correctedTimestamp:number}>} */
   const futureDetails = [];
 
   if (epochOffset !== undefined && bad.length) {
