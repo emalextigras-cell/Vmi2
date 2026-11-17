@@ -1,11 +1,10 @@
 
 
-/**
- * createStore — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
- * @param {{databaseName: string, storeName: string, onError?: Function}} options Configuration du stockage IndexedDB.
- * @returns {{get: Function, set: Function, setMany: Function}} Interface de persistance locale.
- */
 import { filterRawDateHistory } from './history.js';
+/** Crée un accès asynchrone à un object store IndexedDB.
+ * @param {{databaseName: string, storeName: string, onError?: (message:string)=>void}} options Configuration du stockage.
+ * @returns {{get: (key:IDBValidKey)=>Promise<unknown>, set: (key:IDBValidKey, value:unknown)=>Promise<void>, setMany: (entries:Array<[IDBValidKey,unknown]>)=>Promise<void>}} API de lecture/écriture.
+ */
 export function createStore({ databaseName, storeName, onError = () => {} }) {
   function openDB() {
     return new Promise((resolve, reject) => {
