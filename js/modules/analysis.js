@@ -398,8 +398,8 @@ export function summarizeEnergyReadiness(data) {
       zeroCount:values.filter(value=>value===0).length,
       nonZeroCount:values.filter(value=>value!==0).length,
       missingCount:rows.length-values.length,
-      min:values.length?Math.min(...values):null,
-      max:values.length?Math.max(...values):null,
+      min:values.length?values.reduce((min,value)=>Math.min(min,value),Infinity):null,
+      max:values.length?values.reduce((max,value)=>Math.max(max,value),-Infinity):null,
       distinct:[...new Set(values)].sort((a,b)=>a-b)};
   });
   return {
