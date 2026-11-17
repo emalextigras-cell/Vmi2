@@ -37,4 +37,4 @@ export function psychro(r){return {haIn:absoluteHumidity(r.st,r.sh),haOut:absolu
  * @param {unknown} v Paramètre v.
  * @returns {boolean} Résultat de validTemp.
  */
-export function validTemp(v){return Number.isFinite(v)&&v>-40&&v<80}
+export function validTemp(v){return typeof v === 'number' && Number.isFinite(v) && v>-40 && v<80}
