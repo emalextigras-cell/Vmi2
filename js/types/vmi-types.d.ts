@@ -179,3 +179,34 @@ export interface VmiBluetoothDevice {
   name?: string | null;
   gatt?: { connected?: boolean } | null;
 }
+
+export interface HygrometricPeriodsResult {
+  sampleCount:number; intervalCount:number; gapCount:number; medianDelta:number|null;
+  threshold:number; maxGapHours:number; observedDurationMs:number;
+  dryDurationMs:number; humidDurationMs:number; neutralDurationMs:number;
+  longestDryMs:number; longestHumidMs:number;
+}
+export interface DailyTrendDay {
+  date:string; sampleCount:number; medianRH:number|null;
+  medianTemperature:number|null; medianAbsoluteHumidity:number|null;
+}
+export interface DailyTrendsResult {
+  days:DailyTrendDay[]; sampledDays:number; latest:DailyTrendDay|null;
+  previous:DailyTrendDay|null; changeRH:number|null; changeAbsoluteHumidity:number|null;
+}
+export interface HourlyPatternBucket {
+  label:string; startHour:number; sampleCount:number;
+  medianRH:number|null; medianDelta:number|null;
+}
+export interface HourlyPatternsResult { buckets:HourlyPatternBucket[]; minSamples:number; }
+export interface RapidChangeEvent {
+  start:number; end:number; gapMs:number; deltaRH:number;
+  deltaAbsoluteHumidity:number; reasons:string[];
+}
+export interface HygrometricDiagnosisResult {
+  status:string; sampleCount:number; dayCount:number; observedHours:number;
+  coverageLevel:string; excludedGapCount:number; largestExcludedGapHours:number;
+  maxGapHours:number;
+  observations:Array<{code:string;level:string;basis:Record<string,unknown>;title:string;detail:string;recommendation:string}>;
+  confidenceBasis:{observedCoveragePercent:number|null;acceptedSampleShare:number;daysWithAtLeastThreeSamples:number;minimumDailySamples:number};
+}
