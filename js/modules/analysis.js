@@ -832,7 +832,7 @@ function analyzeHygrometricTrend(dailyDays, trendDelta) {
 /**
  * Évalue la robustesse de l'échantillonnage indépendamment des conclusions hygrométriques.
  * @param {{inputSampleCount:number,acceptedSampleCount:number,dailySampleCounts:number[],observedHours:number,observedCoveragePercent:number|null,minSamples:number}} metrics Mesures de couverture déjà calculées.
- * @returns {{dayCount:number,daysWithAtLeastThreeSamples:number,acceptedSampleShare:number,coverageLevel:string,sufficient:boolean,coverageRatio:number}} Indicateurs de couverture et suffisance.
+ * @returns {{dayCount:number,daysWithAtLeastThreeSamples:number,acceptedSampleShare:number,coverageLevel:string,sufficient:boolean}} Indicateurs de couverture et suffisance.
  */
 function assessHygrometricCoverage({
   inputSampleCount,acceptedSampleCount,dailySampleCounts,
@@ -976,7 +976,7 @@ function prepareHygrometricRows(inputRows) {
   });
   const {
     dayCount,daysWithAtLeastThreeSamples,acceptedSampleShare,
-    coverageLevel,sufficient,coverageRatio
+    coverageLevel,sufficient
   }=coverage;
   const observations=[];
 
