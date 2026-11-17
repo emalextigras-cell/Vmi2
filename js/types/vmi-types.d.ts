@@ -210,3 +210,58 @@ export interface HygrometricDiagnosisResult {
   observations:Array<{code:string;level:string;basis:Record<string,unknown>;title:string;detail:string;recommendation:string}>;
   confidenceBasis:{observedCoveragePercent:number|null;acceptedSampleShare:number;daysWithAtLeastThreeSamples:number;minimumDailySamples:number};
 }
+
+export interface SpeedLevelGroup {
+  v:number;n:number;daysCovered:number;rh:number|null;ha:number|null;delta:number|null;
+  dryingShare:number|null;rpm:number|null;rpmSamples:number;deltaSamples:number;
+  firstAt:number|null;lastAt:number|null;spanHours:number;sharedDays:number;
+}
+export interface SpeedLevelResult {
+  groups:SpeedLevelGroup[];status:string;bestSpeed:null;minSamples:number;targetRH:number;
+  sampleCount:number;comparableGroups:number;
+}
+export interface DailySpeedStats {
+  medianRH:number|null;medianIndoorHA:number|null;medianIncomingHA:number|null;
+  medianDeltaHA:number|null;deltaSamples:number;medianRPM:number|null;rpmSamples:number;
+  dayCount:number;daily:Array<{medianRH:number|null;medianIndoorHA:number|null;medianIncomingHA:number|null;medianDeltaHA:number|null;deltaSamples:number;medianRPM:number|null;rpmSamples:number}>;
+}
+export interface SpeedTimeComparison {
+  bucket:number;label:string;speeds:[number,number];sharedDayCount:number;
+  sampleCountFirst:number;sampleCountSecond:number;ready:boolean;reason:string|null;
+  first:DailySpeedStats|null;second:DailySpeedStats|null;
+  medianIncomingHADifference:number|null;medianDeltaHADifference:number|null;sharedDayKeys:string[];
+}
+export interface SpeedTimeContextResult {
+  groups:Array<Record<string,unknown>>;comparisons:SpeedTimeComparison[];
+  minSamples:number;minDays:number;comparableBuckets:number[];
+}
+export interface EnergyReadinessField {
+  key:string;label:string;unit:string;verified:boolean;count:number;zeroCount:number;
+  nonZeroCount:number;missingCount:number;min:number|null;max:number;distinct:number[];
+}
+export interface EnergyReadinessResult {
+  total:number;fields:EnergyReadinessField[];hasVerifiedElectricalEnergy:false;message:string;
+}
+export interface OperatingReferenceResult {
+  status:string;minSamples:number;
+  groups:Array<{mode:number;sampleCount:number;dayCount:number;firstAt:number|null;lastAt:number|null;ready:boolean;
+    fields:Array<{key:string;label:string;unit:string;verified:boolean;count:number;median:number|null;min:number|null;max:number|null;medianAbsoluteDeviation:number|null}>}>;
+  limits:string[];
+}
+export interface TemperatureLimitResult {
+  status:string;minimumGroupSamples:number;minimumGroupDays:number;inputSampleCount:number;
+  eligibleSampleCount:number;missingOutdoorTemperatureCount:number;
+  thresholds:Array<{threshold:number;sampleCount:number;aboveThresholdCount:number;atOrBelowThresholdCount:number;
+    modes:Array<{mode:number;above:{sampleCount:number;dayCount:number;medianOutdoorTemp:number|null};
+      atOrBelow:{sampleCount:number;dayCount:number;medianOutdoorTemp:number|null};sharedDayCount:number;
+      pairedAbove:{sampleCount:number;dayCount:number;medianDebit:number|null;medianRPM:number|null};
+      pairedAtOrBelow:{sampleCount:number;dayCount:number;medianDebit:number|null;medianRPM:number|null};comparable:boolean}>}>;
+  limits:string[];
+}
+export interface AssistantSummary {
+  status:'no-data'|'available'|'limited';title:string;overview:string;confidence:string;
+  sampleCount?:number;acceptedSampleCount?:number;period?:string;targetRH?:number;minSamples?:number;
+  sections:Array<{id:string;title:string;status:string;summary:string;details:string[]}>;
+  recommendations:Array<{priority:string;title:string;text:string;reason:string}>;
+  limits:string[];
+}
