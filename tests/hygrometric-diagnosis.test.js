@@ -622,3 +622,69 @@ test('la part acceptée tient compte des lignes sans horodatage et des doublons'
  assert.equal(result.inputQuality.acceptedSampleCount,valid.length);
  assert.equal(result.confidenceBasis.acceptedSampleShare,valid.length/rows.length);
 });
+
+
+test('analyzeHygrometricPeriods conserve la dernière mesure valide par horodatage',()=>{
+ const t0=new Date(2026,10,10,8,0,0).getTime();
+ const t1=t0+3600000;
+ const rows=[
+  {t:t0,st:20,sh:55,te:10,he:40},
+  {t:t0,st:20,sh:75,te:10,he:40},
+  {t:t1,st:20,sh:75,te:10,he:40}
+ ];
+ const before=JSON.stringify(rows);
+ const result=analyzeHygrometricPeriods(rows);
+ const expectedDelta=absoluteHumidity(20,75)-absoluteHumidity(10,40);
+ assert.equal(result.sampleCount,2);
+ assert.equal(result.intervalCount,1);
+ assert.equal(result.medianDelta,expectedDelta);
+ assert.equal(result.observedDurationMs,3600000);
+ assert.equal(JSON.stringify(rows),before);
+});
+
+test('analyzeHygrometricPeriods ne laisse pas une mesure invalide remplacer un doublon valide',()=>{
+ const t0=new Date(2026,10,10,8,0,0).getTime();
+ const rows=[
+  {t:t0,st:20,sh:60,te:10,he:40},
+  {t:t0,st:20,sh:150,te:10,he:40},
+  {t:t0+3600000,st:20,sh:60,te:10,he:40}
+ ];
+ const result=analyzeHygrometricPeriods(rows);
+ assert.equal(result.sampleCount,2);
+ assert.equal(result.intervalCount,1);
+ assert.equal(result.gapCount,0);
+});
+
+test('analyzeHygrometricPeriods exclut les horodatages hors plage JavaScript',()=>{
+ const rows=[
+  {t:8.64e15+1,st:20,sh:60,te:10,he:40},
+  {t:0,st:20,sh:60,te:10,he:40},
+  {t:3600000,st:20,sh:60,te:10,he:40}
+ ];
+ const result=analyzeHygrometricPeriods(rows);
+ assert.equal(result.sampleCount,2);
+ assert.equal(result.intervalCount,1);
+ assert.equal(result.observedDurationMs,3600000);
+});
+
+test('analyzeHygrometricPeriods rejette les seuils et fenêtres temporelles invalides',()=>{
+ const rows=makeRows({days:1,perDay:2});
+ for(const threshold of [0,-1,NaN,Infinity]){
+  assert.throws(()=>analyzeHygrometricPeriods(rows,{threshold}),RangeError);
+ }
+ for(const maxGapHours of [0,-1,NaN,Infinity]){
+  assert.throws(()=>analyzeHygrometricPeriods(rows,{maxGapHours}),RangeError);
+ }
+});
+
+test('analyzeHygrometricPeriods accepte un intervalle exactement égal au maximum autorisé',()=>{
+ const rows=[
+  {t:0,st:20,sh:65,te:10,he:40},
+  {t:2*3600000,st:20,sh:65,te:10,he:40},
+  {t:4*3600000+1,st:20,sh:65,te:10,he:40}
+ ];
+ const result=analyzeHygrometricPeriods(rows,{maxGapHours:2});
+ assert.equal(result.intervalCount,1);
+ assert.equal(result.gapCount,1);
+ assert.equal(result.observedDurationMs,2*3600000);
+});
