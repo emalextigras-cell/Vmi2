@@ -23,10 +23,10 @@ test('median ignore les valeurs non finies sans modifier le tableau source', () 
 
 test('compareOperatingPeriods compare deux périodes successives à mode et tranche identiques', () => {
   const rows = [
-    { t: at(28), vmiModeRaw: 1, debit: 100, rpm: 1000, vmiPwmRaw: 300, motorPressureRaw: 40 },
-    { t: at(29), vmiModeRaw: 1, debit: 100, rpm: 1000, vmiPwmRaw: 300, motorPressureRaw: 40 },
-    { t: at(4), vmiModeRaw: 1, debit: 120, rpm: 1200, vmiPwmRaw: 320, motorPressureRaw: 44 },
-    { t: at(5), vmiModeRaw: 1, debit: 120, rpm: 1200, vmiPwmRaw: 320, motorPressureRaw: 44 }
+    { t: at(4), vmiModeRaw: 1, debit: 100, rpm: 1000, vmiPwmRaw: 300, motorPressureRaw: 40 },
+    { t: at(5), vmiModeRaw: 1, debit: 100, rpm: 1000, vmiPwmRaw: 300, motorPressureRaw: 40 },
+    { t: at(11), vmiModeRaw: 1, debit: 120, rpm: 1200, vmiPwmRaw: 320, motorPressureRaw: 44 },
+    { t: at(12), vmiModeRaw: 1, debit: 120, rpm: 1200, vmiPwmRaw: 320, motorPressureRaw: 44 }
   ];
 
   const result = compareOperatingPeriods(rows, { periodDays: 7, minSamples: 2, minDays: 2 });
