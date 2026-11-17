@@ -26,7 +26,7 @@ export function median(values) {
  * @param {VmiRecord[]} data Paramètre data.
  * @param {number} minSamples Paramètre minSamples.
  * @param {number} targetRH Paramètre targetRH.
- * @returns {UnknownRecord} Résultat de analyzeSpeedLevels.
+ * @returns {import('../types/vmi-types.js').SpeedLevelResult} Comparaison descriptive des niveaux manuels.
  */
 export function analyzeSpeedLevels(data, minSamples = 10, targetRH = 50) {
   const rows = (Array.isArray(data) ? data : []).filter(r =>
@@ -88,7 +88,7 @@ export function analyzeSpeedLevels(data, minSamples = 10, targetRH = 50) {
  * analyzeSpeedTimeContext — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
  * @param {VmiRecord[]} data Relevés hygrométriques et modes manuels.
  * @param {AnalysisOptions} options Seuils minimaux de comparaison.
- * @returns {UnknownRecord} Groupes horaires et comparaisons descriptives.
+ * @returns {import('../types/vmi-types.js').SpeedTimeContextResult} Groupes horaires et comparaisons descriptives.
  */
 export function analyzeSpeedTimeContext(data, { minSamples = 5, minDays = 2 } = {}) {
   const rows=(Array.isArray(data)?data:[]).filter(r=>
@@ -343,7 +343,7 @@ export function compareOperatingPeriods(data, {
 /**
  * summarizeEnergyReadiness — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
  * @param {VmiRecord[]} data Paramètre data.
- * @returns {UnknownRecord} Résultat de summarizeEnergyReadiness.
+ * @returns {import('../types/vmi-types.js').EnergyReadinessResult} Inventaire des champs énergétiques.
  */
 export function summarizeEnergyReadiness(data) {
   const rows=Array.isArray(data)?data:[];
@@ -390,7 +390,7 @@ export function summarizeEnergyReadiness(data) {
  * summarizeTemperatureLimit — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
  * @param {VmiRecord[]} data Historique des relevés VMI.
  * @param {{minimumGroupSamples?: number, minimumGroupDays?: number}} options Seuils de couverture par groupe.
- * @returns {UnknownRecord} Résumé descriptif de la consigne de température.
+ * @returns {import('../types/vmi-types.js').TemperatureLimitResult} Résumé descriptif de la consigne de température.
  */
 export function summarizeTemperatureLimit(data, {
   minimumGroupSamples = 5, minimumGroupDays = 2
@@ -1062,7 +1062,7 @@ export function buildHygrometricDiagnosis(data, {
  * summarizeOperatingReference — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
  * @param {VmiRecord[]} data Historique des relevés VMI.
  * @param {{minSamples?: number}} options Effectif minimal par groupe.
- * @returns {UnknownRecord} Référence descriptive de fonctionnement.
+ * @returns {import('../types/vmi-types.js').OperatingReferenceResult} Référence descriptive de fonctionnement.
  */
 export function summarizeOperatingReference(data, { minSamples = 10 } = {}) {
   const rows = Array.isArray(data) ? data : [];
