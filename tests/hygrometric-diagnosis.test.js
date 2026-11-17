@@ -734,3 +734,17 @@ test('les seuils de potentiel et de dominance sont explicitement documentés com
  assert.ok(result.limits.some(item=>/1 g\/m³.*heuristique.*pas.*norme/i.test(item)));
  assert.ok(result.limits.some(item=>/60 %.*heuristique.*pas.*preuve/i.test(item)));
 });
+
+
+test('diagnostic exclut les horodatages hors plage JavaScript de la couverture',()=>{
+ const result=buildHygrometricDiagnosis([{
+  t:8.64e15+1,st:20,sh:60,te:10,he:40
+ }]);
+
+ assert.equal(result.inputQuality.inputSampleCount,1);
+ assert.equal(result.inputQuality.acceptedSampleCount,0);
+ assert.equal(result.inputQuality.missingTimestampCount,1);
+ assert.equal(result.inputQuality.excludedSampleCount,1);
+ assert.equal(result.sampleCount,0);
+ assert.equal(result.dayCount,0);
+});
