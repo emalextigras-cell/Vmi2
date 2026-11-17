@@ -736,10 +736,14 @@ export function detectRapidChanges(data, { maxGapHours = 2, rhJump = 15, absolut
     }
   }
 
-  const rows=(Array.isArray(data)?data:[])
-    .filter(r=>validHygroRow(r)&&Number.isFinite(new Date(r.t).getTime()))
-    .map(r=>({t:r.t,rh:r.sh,ha:absoluteHumidity(r.st,r.sh)}))
-    .sort((a,b)=>a.t-b.t);
+  // Une seule observation par horodatage : la dernière ligne valide prévaut.
+  // Une ligne invalide est ignorée et ne remplace jamais une mesure exploitable.
+  const uniqueRows=new Map();
+  for(const row of Array.isArray(data)?data:[]){
+    if(!validHygroRow(row)||!Number.isFinite(new Date(row.t).getTime()))continue;
+    uniqueRows.set(row.t,{t:row.t,rh:row.sh,ha:absoluteHumidity(row.st,row.sh)});
+  }
+  const rows=[...uniqueRows.values()].sort((a,b)=>a.t-b.t);
   const events=[];
   const maxGap=maxGapHours*60*60*1000;
   for(let i=1;i<rows.length;i++){
