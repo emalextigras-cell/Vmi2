@@ -613,3 +613,17 @@ test('summarizeRawVmiMode résume un historique volumineux sans dépassement de 
   assert.equal(mode1.minDebit, 100);
   assert.equal(mode1.maxDebit, 100);
 });
+
+
+test('summarizeRawVmiSpeed résume un historique volumineux sans dépassement de pile', () => {
+  const rows = Array.from({ length: 200000 }, () => ({
+    vmiSpeedRaw: 1,
+    debit: 100
+  }));
+  const result = summarizeRawVmiSpeed(rows);
+  const speed1 = result.find(group => group.code === 1);
+
+  assert.equal(speed1.sampleCount, 200000);
+  assert.equal(speed1.minDebit, 100);
+  assert.equal(speed1.maxDebit, 100);
+});
