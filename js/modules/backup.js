@@ -16,6 +16,11 @@
 import { mergeRecordFields, isRawDateEligible } from './history.js';
 import { isValidEnergyReading } from './energy-meter.js';
 
+/**
+ * Construit une sauvegarde versionnée sans modifier les données sources.
+ * @param {{hist: VmiRecord[], live: VmiRecord[], meta: UnknownRecord, energyReadings?: UnknownRecord[], exportedAt?: string}} options Données à sauvegarder et horodatage d'export.
+ * @returns {UnknownRecord} Instantané de sauvegarde compatible avec le format VMI.
+ */
 export function createBackupSnapshot({ hist, live, meta, energyReadings, exportedAt = new Date().toISOString() }) {
   const snapshot = {
     app: 'vmi-purevent', version: 1, exportedAt,
@@ -30,6 +35,11 @@ export function createBackupSnapshot({ hist, live, meta, energyReadings, exporte
 }
 
 /** Fusionne une sauvegarde sans effacer les champs déjà connus à timestamp égal. */
+/**
+ * Fusionne une sauvegarde dans les données locales en préservant les champs existants.
+ * @param {{backup: UnknownRecord, currentHist?: VmiRecord[], currentLive?: VmiRecord[], currentMeta?: UnknownRecord, currentEnergyReadings?: UnknownRecord[], minValid: number, maxLive?: number, maxTimestamp?: number}} options Sauvegarde et état local à fusionner.
+ * @returns {UnknownRecord} Données fusionnées et compteurs d'import.
+ */
 export function mergeBackupData({
   backup, currentHist = [], currentLive = [], currentMeta = {},
   currentEnergyReadings = [], minValid, maxLive = 10000, maxTimestamp = Date.now()
