@@ -1002,20 +1002,26 @@ function prepareHygrometricRows(inputRows) {
       recommendation:'Importer un historique plus long et vérifier que les températures et humidités du salon et de l’air entrant sont présentes.'
     });
   } else if(periods.medianDelta!=null&&periods.medianDelta>dryDelta&&dryShare>=0.6){
+    const lowCoverage=coverageLevel==='faible';
     observations.push({
-      code:'air-drying-potential',level:'positive',
-      basis:{medianIndoorMinusIncomingHA:periods.medianDelta,unit:'g/m³',threshold:dryDelta,durationShare:dryShare,requiredDurationShare:0.6},
-      title:'Conditions souvent favorables à l’assèchement',
-      detail:`L’air entrant est plus sec que l’air du logement pendant ${Math.round(dryShare*100)} % des durées observées. L’écart médian salon − air entrant est de ${periods.medianDelta.toFixed(1)} g/m³.`,
-      recommendation:'Le renouvellement d’air dispose d’un potentiel hygrométrique favorable pendant ces périodes. Cela ne mesure pas l’effet réel sans débit d’air validé.'
+      code:'air-drying-potential',level:lowCoverage?'info':'positive',
+      basis:{medianIndoorMinusIncomingHA:periods.medianDelta,unit:'g/m³',threshold:dryDelta,durationShare:dryShare,requiredDurationShare:0.6,coverageLevel},
+      title:lowCoverage?'Potentiel hygrométrique à confirmer':'Conditions souvent favorables à l’assèchement',
+      detail:`L’air entrant est plus sec que l’air du logement pendant ${Math.round(dryShare*100)} % des durées observées. L’écart médian salon − air entrant est de ${periods.medianDelta.toFixed(1)} g/m³.${lowCoverage?' La couverture des mesures est faible : ce signal reste provisoire et doit être confirmé sur davantage de journées.' : ''}`,
+      recommendation:lowCoverage
+        ?'La couverture est faible. Importer davantage de journées représentatives avant de considérer ce potentiel comme récurrent ; cela ne mesure pas l’effet réel sans débit d’air validé.'
+        :'Le renouvellement d’air dispose d’un potentiel hygrométrique favorable pendant ces périodes. Cela ne mesure pas l’effet réel sans débit d’air validé.'
     });
   } else if(periods.medianDelta!=null&&periods.medianDelta< -dryDelta&&humidShare>=0.6){
+    const lowCoverage=coverageLevel==='faible';
     observations.push({
       code:'air-moisture-potential',level:'caution',
-      basis:{medianIndoorMinusIncomingHA:periods.medianDelta,unit:'g/m³',threshold:-dryDelta,durationShare:humidShare,requiredDurationShare:0.6},
-      title:'L’air entrant est souvent plus humide',
-      detail:`L’air entrant est plus humide que l’air intérieur pendant ${Math.round(humidShare*100)} % des durées observées. L’écart médian salon − air entrant est de ${periods.medianDelta.toFixed(1)} g/m³.`,
-      recommendation:'Une hausse de vitesse ne garantit pas un assèchement dans ces conditions. Comparer les périodes et suivre l’évolution intérieure avant toute modification manuelle.'
+      basis:{medianIndoorMinusIncomingHA:periods.medianDelta,unit:'g/m³',threshold:-dryDelta,durationShare:humidShare,requiredDurationShare:0.6,coverageLevel},
+      title:lowCoverage?'Signal d’air entrant plus humide à confirmer':'L’air entrant est souvent plus humide',
+      detail:`L’air entrant est plus humide que l’air intérieur pendant ${Math.round(humidShare*100)} % des durées observées. L’écart médian salon − air entrant est de ${periods.medianDelta.toFixed(1)} g/m³.${lowCoverage?' La couverture des mesures est faible : ce signal reste provisoire.' : ''}`,
+      recommendation:lowCoverage
+        ?'La couverture est faible. Confirmer ce signal avec davantage de journées représentatives avant toute interprétation durable ou modification manuelle.'
+        :'Une hausse de vitesse ne garantit pas un assèchement dans ces conditions. Comparer les périodes et suivre l’évolution intérieure avant toute modification manuelle.'
     });
   } else {
     observations.push({
