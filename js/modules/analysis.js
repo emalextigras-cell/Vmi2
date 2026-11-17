@@ -646,6 +646,10 @@ export function summarizeDailyTrends(data) {
  * @returns {import('../types/vmi-types.js').HourlyPatternsResult} Répartition horaire des mesures.
  */
 export function analyzeHourlyPatterns(data, minSamples = 3) {
+  if (!Number.isInteger(minSamples) || minSamples <= 0) {
+    throw new RangeError('minSamples doit être un entier strictement positif.');
+  }
+
   const buckets = Array.from({length:4}, (_,i) => ({
     label: ['00–05 h','06–11 h','12–17 h','18–23 h'][i],
     startHour: i*6,
