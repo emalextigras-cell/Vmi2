@@ -720,3 +720,18 @@ test('summarizeRawVmiSpeed ne compte pas deux fois un même code vitesse et horo
   assert.equal(speed1.sampleCount, 2);
   assert.equal(speed1.medianDebit, 210);
 });
+
+
+test('summarizeOperatingReference ne déclare pas une référence disponible sans aucune métrique', () => {
+  const result = summarizeOperatingReference([
+    { t: at(23, 8), vmiModeRaw: 1 },
+    { t: at(24, 8), vmiModeRaw: 1 }
+  ], { minSamples: 2 });
+  const mode1 = result.groups.find(group => group.mode === 1);
+
+  assert.equal(mode1.sampleCount, 2);
+  assert.equal(mode1.dayCount, 2);
+  assert.ok(mode1.fields.every(field => field.count === 0 && field.median === null));
+  assert.equal(mode1.ready, false);
+  assert.equal(result.status, 'provisional');
+});
