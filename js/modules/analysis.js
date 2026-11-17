@@ -924,7 +924,7 @@ function prepareHygrometricRows(inputRows) {
   let implausibleSensorRecordCount = 0;
   let duplicateTimestampCount = 0;
   for (const r of inputRows) {
-    if (!Number.isFinite(r?.t)) {
+    if (!Number.isFinite(r?.t) || !Number.isFinite(new Date(r.t).getTime())) {
       missingTimestampCount++;
       continue;
     }
