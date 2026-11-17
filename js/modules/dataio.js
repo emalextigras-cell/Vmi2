@@ -1,4 +1,6 @@
 /** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
+/** @typedef {{t:number, rk:string}} ParsedCell */
+/** @typedef {{SSF:{parse_date_code:(value:number)=>({y:number,m:number,d:number,H:number,M:number,S:number}|null)}}} SpreadsheetDateParser */
 /** Conversion des dates et des lignes d'export VMI+/tableur. */
 import { DAY, pad, num } from './date-utils.js';
 
@@ -107,10 +109,10 @@ export function getColumnMapping(headerRow) {
 
 /** Convertit une cellule importée en valeur exploitable.
  * @param {unknown} value Valeur brute de la cellule.
- * @param {unknown} [spreadsheet] API de tableur optionnelle.
- * @returns {unknown} Valeur convertie.
+ * @param {SpreadsheetDateParser|null} [spreadsheet] API de tableur optionnelle.
+ * @returns {ParsedCell|null} Date convertie, ou null si la cellule est invalide.
  */
-export function parseCell(value, spreadsheet = globalThis.XLSX) {
+export function parseCell(value, spreadsheet = /** @type {SpreadsheetDateParser|null} */ (globalThis.XLSX)) {
   if (typeof value === 'number' && value > 30000 && spreadsheet) {
     const c = spreadsheet.SSF.parse_date_code(value);
     if (!c) return null;
@@ -139,7 +141,7 @@ export function parseCell(value, spreadsheet = globalThis.XLSX) {
 
 /** Construit un relevé normalisé depuis une ligne importée.
  * @param {unknown[]} row Ligne de données.
- * @param {unknown} [spreadsheet] API de tableur optionnelle.
+ * @param {SpreadsheetDateParser|null} [spreadsheet] API de tableur optionnelle.
  * @param {Record<string, number>|null} [mapping] Correspondance des colonnes.
  * @returns {Partial<VmiRecord>|null} Relevé construit, ou null si inexploitable.
  */
