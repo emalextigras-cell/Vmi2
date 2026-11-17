@@ -1007,7 +1007,9 @@ function prepareHygrometricRows(inputRows) {
   const excludedIntervals=intervalMs.filter(gap=>gap>maxGapMs);
   const medianAcceptedIntervalMs=median(acceptedIntervals);
   const medianSampleIntervalMinutes=medianAcceptedIntervalMs==null?null:medianAcceptedIntervalMs/60000;
-  const largestExcludedGapHours=excludedIntervals.length?Math.max(...excludedIntervals)/3600000:0;
+  const largestExcludedGapHours=excludedIntervals.length
+    ?excludedIntervals.reduce((maximum,gap)=>Math.max(maximum,gap),-Infinity)/3600000
+    :0;
   const coverageSpanHours=rows.length>1?(rows.at(-1).t-rows[0].t)/3600000:0;
   // Part de la période premier→dernier relevé couverte par des intervalles exploitables.
   const observedCoveragePercent=coverageSpanHours>0
