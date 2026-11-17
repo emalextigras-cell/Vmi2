@@ -673,3 +673,21 @@ test('detectRapidChanges ne compare que la dernière observation valide de chaqu
 
   assert.deepEqual(result, []);
 });
+
+
+test('summarizeOperatingReference ne pondère pas deux fois un même mode et horodatage', () => {
+  const timestamp = at(17, 8);
+  const result = summarizeOperatingReference([
+    { t: timestamp, vmiModeRaw: 1, debit: 100 },
+    { t: timestamp, vmiModeRaw: 1, debit: 300 },
+    { t: at(18, 8), vmiModeRaw: 1, debit: 110 }
+  ], { minSamples: 2 });
+  const mode1 = result.groups.find(group => group.mode === 1);
+  const debit = mode1.fields.find(field => field.key === 'debit');
+
+  assert.equal(mode1.sampleCount, 2);
+  assert.equal(mode1.dayCount, 2);
+  assert.equal(debit.count, 2);
+  assert.equal(debit.median, 205);
+  assert.equal(mode1.ready, true);
+});
