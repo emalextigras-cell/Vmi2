@@ -35,6 +35,14 @@ export interface VmiRecord {
   filterIndexPct?: number;
   fil?: number;
   d?: number;
+  vmiAbsP0?: number;
+  vmiAbsP1?: number;
+  systemStateRaw?: number;
+  failureRaw?: number;
+  vit?: number | null;
+  boost?: number | null;
+  hol?: number | null;
+  [key: string]: unknown;
   seasonRaw?: number;
   rk?: string;
   fixed?: boolean;
