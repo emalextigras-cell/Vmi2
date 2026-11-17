@@ -27,7 +27,6 @@ import { formatDiagnosisConfidence } from './modules/diagnostic-confidence.js';
 import { analyzeSeasonalVentilation } from './modules/seasonal-advice.js';
 import { renderVmiAssistant } from './modules/assistant-renderer.js';
 import { selectDataRange } from './modules/history-selection.js';
-import { setupWeather } from './modules/weather.js';
 
 
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{})}
@@ -1427,7 +1426,6 @@ function render(){
 $('targetRH').onchange=render;$('minSamples').onchange=render;
 
 setInterval(()=>{if(cur.sal_t!==undefined)updateLiveMetrics();else $('sampleAge').textContent=buildLiveFreshnessText(lastSeen)},5000);
-setupWeather({button:$('weatherEnable'),status:$('weatherStatus'),output:$('weatherOutput')});
 $('copyLog').onclick=()=>navigator.clipboard.writeText(logLines.join('\n')).then(()=>showError('Journal copié.'),showError);
 $('clearLog').onclick=()=>{logLines=[];$('log').textContent=''};
 $('themeBtn').onclick=()=>{
