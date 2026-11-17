@@ -53,15 +53,10 @@ const median = values => {
  * Aucun lien causal ni rendement n'est calculé.
  */
 /**
- * summarizeDailyEnergyClimateContext — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
- * @param {VmiRecord[]} history Paramètre history.
- * @param {unknown} {
-  maxGapHours Paramètre {
-  maxGapHours.
- * @param {unknown} minFanHours Paramètre minFanHours.
- * @param {unknown} minClimateSamples Paramètre minClimateSamples.
- * @param {unknown} minDays Paramètre minDays.
- * @returns {UnknownRecord} Résultat structuré du module.
+ * Construit une vue journalière croisant estimation du ventilateur et climat intérieur/entrant.
+ * @param {VmiRecord[]} history Historique thermique et hygrométrique.
+ * @param {{maxGapHours?: number, minFanHours?: number, minClimateSamples?: number, minDays?: number}} options Seuils de couverture et de regroupement.
+ * @returns {UnknownRecord} Synthèse journalière descriptive avec limites de couverture.
  */
 export function summarizeDailyEnergyClimateContext(history, {
   maxGapHours = 2, minFanHours = 3, minClimateSamples = 3, minDays = 3
