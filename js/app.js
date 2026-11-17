@@ -497,8 +497,10 @@ $('clk').onclick=setClock;
 
 /* Correction des dates historiques isolée dans clock-correction.js. */
 function ingest(recs,label,maxTimestamp=Date.now()){
+ const future=recs.filter(record=>Number.isFinite(record.t)&&record.t>maxTimestamp);
+ if(future.length)log(`${label} : dates futures reçues (${future.map(record=>record.rk+' · +'+Math.round((record.t-maxTimestamp)/1000)+' s').join(' ; ')})`);
  const {fixed,kept}=fixClock(recs,hist,MIN_VALID,maxTimestamp);
- hist=mergeImportedHistory(hist,kept);
+ hist=mergeImportedHistory(hist,kept,maxTimestamp);
  pruneHist();void persist('hist',hist,'Sauvegarde de l’historique').catch(()=>{});source='hist';
  // Conserver le jour choisi : une synchronisation en arrière-plan ne doit pas réinitialiser les graphiques.
  const lost=recs.length-kept.length;
@@ -513,7 +515,7 @@ const sigOf=r=>r.rk+'|'+r.d;
 function parseDownloadLine(line){
  if(!download.on)return;
  const validation=validateBluetoothHistoryRow(line);
- if(!validation.valid){download.invalidRows=(download.invalidRows||0)+1;log('Ligne historique Bluetooth rejetée ('+validation.reason+').');return}
+ if(!validation.valid){download.invalidRows=(download.invalidRows||0)+1;log('Ligne historique Bluetooth rejetée ('+validation.reason+') · date brute : '+String(line).split(';',1)[0]);return}
  const f=validation.fields,p=parseCell(f[0]);if(!p)return;
  if(download.sigs.size&&download.sigs.has(p.rk+'|'+num(f[11]))){finishDownload(true);return}
  const rec=recFrom(f);if(rec)download.rows.push(rec);

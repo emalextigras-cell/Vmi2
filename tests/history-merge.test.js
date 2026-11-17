@@ -7,6 +7,12 @@ test('mergeImportedHistory trie les relevés par date', () => {
   assert.deepEqual(result.map(row => row.t), [10, 20, 30]);
 });
 
+test('mergeImportedHistory retire les relevés futurs lors d’une reconnexion', () => {
+  const now = 1000;
+  const result = mergeImportedHistory([{ t: 900 }, { t: 1100 }], [{ t: 950 }, { t: 1200 }], now);
+  assert.deepEqual(result.map(row => row.t), [900, 950]);
+});
+
 test('mergeImportedHistory complète un relevé existant sans perdre ses champs', () => {
   const existing = { t: 100, sh: 48, st: 19.2, te: null };
   const imported = { t: 100, sh: 52, st: null, te: 16.4 };
