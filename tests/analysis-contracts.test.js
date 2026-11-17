@@ -518,3 +518,18 @@ test('analyzeSpeedTimeContext dédoublonne les observations par mode et horodata
   assert.equal(comparison.first.medianRH, 70);
   assert.equal(comparison.ready, true);
 });
+
+
+test('analyzeHourlyPatterns ne compte qu une observation par horodatage', () => {
+  const timestamp = at(12, 8);
+  const result = analyzeHourlyPatterns([
+    { t: timestamp, st: 20, sh: 50, te: 10, he: 60 },
+    { t: timestamp, st: 20, sh: 60, te: 10, he: 60 },
+    { t: timestamp, st: 20, sh: 70, te: 10, he: 60 }
+  ], 3);
+  const morning = result.buckets[1];
+
+  assert.equal(morning.sampleCount, 1);
+  assert.equal(morning.medianRH, null);
+  assert.equal(morning.medianDelta, null);
+});
