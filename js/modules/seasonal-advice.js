@@ -1,17 +1,6 @@
-/**
- * @typedef {Object} VmiRecord
- * @property {number} [t] Horodatage Unix en millisecondes.
- * @property {number} [st] Température intérieure en °C.
- * @property {number} [sh] Humidité relative intérieure en %.
- * @property {number} [te] Température de l'air entrant en °C.
- * @property {number} [he] Humidité relative de l'air entrant en %.
- * @property {number} [tExt] Température extérieure en °C.
- * @property {number} [rpm] Régime moteur en tr/min.
- * @property {number} [debit] Débit en m³/h.
- * @property {number} [vmiModeRaw] Code brut du mode VMI.
- */
-/** @typedef {Record<string, unknown>} UnknownRecord */
-/** @typedef {{minSamples?: number, minDays?: number}} AnalysisOptions */
+/** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
+/** @typedef {import('../types/vmi-types.js').UnknownRecord} UnknownRecord */
+/** @typedef {import('../types/vmi-types.js').AnalysisOptions} AnalysisOptions */
 
 /** Analyse saisonnière et opportunités de surventilation.
  * La saison calendaire est dérivée de l'horodatage ; le code Saison VMI+ reste
