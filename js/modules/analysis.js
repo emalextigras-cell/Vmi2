@@ -514,6 +514,19 @@ export function summarizeTemperatureLimit(data, {
       const sharedDays = [...aboveDays.keys()].filter(day => belowDays.has(day)).sort();
       const pairedAbove = pairedDailySummary(aboveDays, sharedDays);
       const pairedAtOrBelow = pairedDailySummary(belowDays, sharedDays);
+      const hasPairedMetric = (metric, isValid) => {
+        const dailyCounts = sharedDays.map(day => ({
+          above: (aboveDays.get(day) || []).filter(row => isValid(row[metric])).length,
+          below: (belowDays.get(day) || []).filter(row => isValid(row[metric])).length
+        }));
+        const metricSharedDays = dailyCounts.filter(day => day.above > 0 && day.below > 0);
+        return metricSharedDays.length >= minimumGroupDays &&
+          metricSharedDays.reduce((total, day) => total + day.above, 0) >= minimumGroupSamples &&
+          metricSharedDays.reduce((total, day) => total + day.below, 0) >= minimumGroupSamples;
+      };
+      const hasComparableMetric =
+        hasPairedMetric('debit', value => Number.isFinite(value) && value >= 0) ||
+        hasPairedMetric('rpm', value => Number.isFinite(value) && value > 0 && value < 10000);
       return {
         mode,
         above: summarize(aboveModeRows),
@@ -521,9 +534,7 @@ export function summarizeTemperatureLimit(data, {
         sharedDayCount: sharedDays.length,
         pairedAbove,
         pairedAtOrBelow,
-        comparable: sharedDays.length >= minimumGroupDays &&
-          pairedAbove.sampleCount >= minimumGroupSamples &&
-          pairedAtOrBelow.sampleCount >= minimumGroupSamples
+        comparable: sharedDays.length >= minimumGroupDays && hasComparableMetric
       };
     }).filter(group => group.above.sampleCount || group.atOrBelow.sampleCount);
     return {
