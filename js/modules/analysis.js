@@ -1304,11 +1304,12 @@ export function summarizeOperatingReference(data, { minSamples = 10 } = {}) {
       const date = new Date(timestamp);
       return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     }));
+    const hasMetrics = fields.some(field => field.count > 0);
     return {
       mode, sampleCount: samples.length, dayCount: days.size,
       firstAt,
       lastAt,
-      ready: samples.length >= minSamples && days.size >= 2,
+      ready: samples.length >= minSamples && days.size >= 2 && hasMetrics,
       fields
     };
   });
