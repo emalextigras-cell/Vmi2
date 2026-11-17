@@ -1,5 +1,6 @@
 /** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
 /** @typedef {import('../types/vmi-types.js').UnknownRecord} UnknownRecord */
+/** @typedef {import('../types/vmi-types.js').EnergyReading} EnergyReading */
 
 /** Fonctions pures de création et de restauration des sauvegardes. */
 import { mergeRecordFields, isRawDateEligible } from './history.js';
@@ -7,7 +8,7 @@ import { isValidEnergyReading } from './energy-meter.js';
 
 /**
  * Construit une sauvegarde versionnée sans modifier les données sources.
- * @param {{hist: VmiRecord[], live: VmiRecord[], meta: UnknownRecord, energyReadings?: UnknownRecord[], exportedAt?: string}} options Données à sauvegarder et horodatage d'export.
+ * @param {{hist: VmiRecord[], live: VmiRecord[], meta: UnknownRecord, energyReadings?: EnergyReading[], exportedAt?: string}} options Données à sauvegarder et horodatage d'export.
  * @returns {UnknownRecord} Instantané de sauvegarde compatible avec le format VMI.
  */
 export function createBackupSnapshot({ hist, live, meta, energyReadings, exportedAt = new Date().toISOString() }) {
@@ -26,7 +27,7 @@ export function createBackupSnapshot({ hist, live, meta, energyReadings, exporte
 /** Fusionne une sauvegarde sans effacer les champs déjà connus à timestamp égal. */
 /**
  * Fusionne une sauvegarde dans les données locales en préservant les champs existants.
- * @param {{backup: UnknownRecord, currentHist?: VmiRecord[], currentLive?: VmiRecord[], currentMeta?: UnknownRecord, currentEnergyReadings?: UnknownRecord[], minValid: number, maxLive?: number, maxTimestamp?: number}} options Sauvegarde et état local à fusionner.
+ * @param {{backup: UnknownRecord, currentHist?: VmiRecord[], currentLive?: VmiRecord[], currentMeta?: UnknownRecord, currentEnergyReadings?: EnergyReading[], minValid: number, maxLive?: number, maxTimestamp?: number}} options Sauvegarde et état local à fusionner.
  * @returns {UnknownRecord} Données fusionnées et compteurs d'import.
  */
 export function mergeBackupData({
