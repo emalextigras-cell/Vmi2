@@ -659,7 +659,8 @@ export function analyzeHourlyPatterns(data, minSamples = 3) {
   }));
   const values = buckets.map(() => ({rh:[], delta:[]}));
   for (const r of Array.isArray(data) ? data : []) {
-    if (!validHygroRow(r) || !Number.isFinite(r.te) || !isPlausibleTemperature(r.te) ||
+    if (!validHygroRow(r) || !Number.isFinite(new Date(r.t).getTime()) ||
+        !Number.isFinite(r.te) || !isPlausibleTemperature(r.te) ||
         !Number.isFinite(r.he) || !isPlausibleHumidity(r.he)) continue;
     const bucket = Math.floor(new Date(r.t).getHours()/6);
     values[bucket].rh.push(r.sh);
