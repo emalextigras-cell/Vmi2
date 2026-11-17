@@ -84,6 +84,8 @@ test('fixClock écarte les dates reconstruites après la fin de la synchronisati
 
   assert.equal(result.fixed, 0);
   assert.equal(result.future, 2);
+  assert.deepEqual(result.futureDetails.map(item => item.record), [first, second]);
+  assert.ok(result.futureDetails.every(item => item.correctedTimestamp > syncFinishedAt));
   assert.deepEqual(result.kept, []);
   assert.equal(first.t, new Date(2018, 4, 16, 11, 15, 45).getTime());
   assert.equal(second.t, new Date(2018, 4, 16, 11, 19, 35).getTime());
