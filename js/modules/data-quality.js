@@ -40,6 +40,7 @@ export function isPlaceholderSensorRecord(record) {
 }
 
 
+/** @type {Array<{key:'st'|'te'|'tExt'|'t1'|'sh'|'he'|'h1',label:string,type:'humidity'|'temperature',spike:number,stable:number}>} */
 const TRANSIENT_SPIKE_FIELDS = [
   { key: 'st', label: 'Température salon', type: 'temperature', spike: 12, stable: 3 },
   { key: 'te', label: 'Température air entrant', type: 'temperature', spike: 12, stable: 3 },
@@ -78,7 +79,8 @@ export function detectTransientSensorSpikes(records, options = {}) {
     for (let index = 1; index < rows.length - 1; index++) {
       const before = rows[index - 1], current = rows[index], after = rows[index + 1];
       const a = before[field.key], b = current[field.key], c = after[field.key];
-      if (![a, b, c].every(Number.isFinite)) continue;
+      if (typeof a !== 'number' || typeof b !== 'number' || typeof c !== 'number' ||
+          !Number.isFinite(a) || !Number.isFinite(b) || !Number.isFinite(c)) continue;
       const plausible = field.type === 'humidity'
         ? [a, b, c].every(isPlausibleHumidity)
         : [a, b, c].every(isPlausibleTemperature);
@@ -106,6 +108,7 @@ export function detectTransientSensorSpikes(records, options = {}) {
   };
 }
 
+/** @type {Array<{key:'sh'|'h1'|'he'|'st'|'tExt'|'t1'|'te',label:string,type:'humidity'|'temperature'}>} */
 const FIELDS = [
   { key: 'sh', label: 'Humidité salon', type: 'humidity' },
   { key: 'h1', label: 'Humidité sonde résistances', type: 'humidity' },
@@ -126,7 +129,7 @@ export function summarizeDataQuality(records) {
     let present = 0, invalid = 0;
     for (const row of rows) {
       const value = row?.[field.key];
-      if (!Number.isFinite(value)) continue;
+      if (typeof value !== 'number' || !Number.isFinite(value)) continue;
       present++;
       const valid = field.type === 'humidity'
         ? isPlausibleHumidity(value)
@@ -152,7 +155,7 @@ export function summarizeDataQuality(records) {
     if (isPlaceholderSensorRecord(row)) { affected.add(index); placeholderRecords++; }
     for (const field of FIELDS) {
       const value = row?.[field.key];
-      if (!Number.isFinite(value)) continue;
+      if (typeof value !== 'number' || !Number.isFinite(value)) continue;
       const valid = field.type === 'humidity'
         ? isPlausibleHumidity(value)
         : isPlausibleTemperature(value);
