@@ -1,3 +1,18 @@
+/**
+ * @typedef {Object} VmiRecord
+ * @property {number} [t] Horodatage Unix en millisecondes.
+ * @property {number} [st] Température intérieure en °C.
+ * @property {number} [sh] Humidité relative intérieure en %.
+ * @property {number} [te] Température de l'air entrant en °C.
+ * @property {number} [he] Humidité relative de l'air entrant en %.
+ * @property {number} [tExt] Température extérieure en °C.
+ * @property {number} [rpm] Régime moteur en tr/min.
+ * @property {number} [debit] Débit en m³/h.
+ * @property {number} [vmiModeRaw] Code brut du mode VMI.
+ */
+/** @typedef {Record<string, unknown>} UnknownRecord */
+/** @typedef {{minSamples?: number, minDays?: number}} AnalysisOptions */
+
 import { absoluteHumidity } from './psychrometry.js';
 
 /**
@@ -46,6 +61,11 @@ export const PUREVENT_FAN_POWER_POINTS = Object.freeze([
   Object.freeze({ flow: 350, powerW: 99 })
 ]);
 
+/**
+ * estimateFanPowerFromFlow — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {unknown} flow Paramètre flow.
+ * @returns {UnknownRecord} Résultat structuré du module.
+ */
 export function estimateFanPowerFromFlow(flow) {
   if (!Number.isFinite(flow)) return null;
   const points = PUREVENT_FAN_POWER_POINTS;
@@ -64,6 +84,12 @@ export function estimateFanPowerFromFlow(flow) {
  * Intègre une puissance estimée entre relevés successifs.
  * Les intervalles > maxGapHours et les débits hors domaine constructeur
  * sont exclus, sans interpolation à travers les trous.
+ */
+/**
+ * summarizeFanEnergyEstimate — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {unknown} history Paramètre history.
+ * @param {unknown} options Paramètre options.
+ * @returns {UnknownRecord} Résultat structuré du module.
  */
 export function summarizeFanEnergyEstimate(history, options = {}) {
   const { maxGapHours = 2 } = options ?? {};
@@ -127,6 +153,12 @@ function medianEstimate(values) {
  * portent le même vmiModeRaw. Les changements de mode sont ignorés.
  * La puissance moyenne affichée est la médiane des moyennes journalières,
  * pour éviter qu'une journée très échantillonnée pèse davantage.
+ */
+/**
+ * summarizeFanEnergyByManualMode — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {unknown} history Paramètre history.
+ * @param {unknown} options Paramètre options.
+ * @returns {UnknownRecord} Résultat structuré du module.
  */
 export function summarizeFanEnergyByManualMode(history, options = {}) {
   const { maxGapHours = 2, minDays = 2 } = options ?? {};
