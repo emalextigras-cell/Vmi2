@@ -1,3 +1,15 @@
+/**
+ * @typedef {Object} VmiRecord
+ * @property {number} [t] Horodatage Unix en millisecondes.
+ * @property {number} [st] Température intérieure en °C.
+ * @property {number} [sh] Humidité relative intérieure en %.
+ * @property {number} [te] Température de l'air entrant en °C.
+ * @property {number} [he] Humidité relative de l'air entrant en %.
+ * @property {number} [rpm] Régime moteur en tr/min.
+ * @property {number} [debit] Débit en m³/h.
+ */
+/** @typedef {Record<string, unknown>} UnknownRecord */
+
 import { estimateFanPowerFromFlow } from './energy-estimate.js';
 import { absoluteHumidity } from './psychrometry.js';
 
@@ -39,6 +51,17 @@ const median = values => {
  * intérieur/entrant. Les journées ne sont retenues que si les deux sources
  * sont présentes : >= minFanHours intégrées et >= minClimateSamples valides.
  * Aucun lien causal ni rendement n'est calculé.
+ */
+/**
+ * summarizeDailyEnergyClimateContext — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} history Paramètre history.
+ * @param {unknown} {
+  maxGapHours Paramètre {
+  maxGapHours.
+ * @param {unknown} minFanHours Paramètre minFanHours.
+ * @param {unknown} minClimateSamples Paramètre minClimateSamples.
+ * @param {unknown} minDays Paramètre minDays.
+ * @returns {UnknownRecord} Résultat structuré du module.
  */
 export function summarizeDailyEnergyClimateContext(history, {
   maxGapHours = 2, minFanHours = 3, minClimateSamples = 3, minDays = 3
