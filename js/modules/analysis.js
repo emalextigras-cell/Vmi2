@@ -687,6 +687,12 @@ export function analyzeHourlyPatterns(data, minSamples = 3) {
  * @returns {Array<{start:number,end:number,gapMs:number,deltaRH:number,deltaAbsoluteHumidity:number,reasons:string[]}>} Événements de variation rapide.
  */
 export function detectRapidChanges(data, { maxGapHours = 2, rhJump = 15, absoluteHumidityJump = 3 } = {}) {
+  for (const [name, value] of Object.entries({ maxGapHours, rhJump, absoluteHumidityJump })) {
+    if (!Number.isFinite(value) || value <= 0) {
+      throw new RangeError(`${name} doit être un nombre fini strictement positif.`);
+    }
+  }
+
   const rows=(Array.isArray(data)?data:[])
     .filter(validHygroRow)
     .map(r=>({t:r.t,rh:r.sh,ha:absoluteHumidity(r.st,r.sh)}))
