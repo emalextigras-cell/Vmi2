@@ -1226,7 +1226,10 @@ export function summarizeOperatingReference(data, { minSamples = 10 } = {}) {
   ];
   const groups = [...modes.entries()].sort((a, b) => a[0] - b[0]).map(([mode, samples]) => {
     const fields = metrics.map(metric => {
-      const values = samples.map(row => row?.[metric.key]).filter((value) => typeof value === 'number' && Number.isFinite(value));
+      const values = samples.map(row => row?.[metric.key]).filter((value) =>
+        typeof value === 'number' && Number.isFinite(value) &&
+        (metric.key !== 'debit' || value >= 0)
+      );
       const center = median(values);
       return {
         ...metric, count: values.length, median: center,
