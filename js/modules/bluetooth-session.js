@@ -23,12 +23,9 @@
 
 /** Exécute une séquence BLE uniquement dans la session qui l'a démarrée. */
 /**
- * runBleSessionSequence — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
- * @param {unknown} { token Paramètre { token.
- * @param {Function} getToken Paramètre getToken.
- * @param {Function} isActive Paramètre isActive.
- * @param {unknown} steps } Paramètre steps }.
- * @returns {Promise<boolean>} Résultat de runBleSessionSequence.
+ * Exécute une séquence BLE uniquement dans la session qui l'a démarrée.
+ * @param {{token: unknown, getToken: Function, isActive: Function, steps: Function[]}} options Identifiants de session et opérations séquentielles.
+ * @returns {Promise<boolean>} Vrai si toutes les étapes ont réussi dans la session active.
  */
 export async function runBleSessionSequence({ token, getToken, isActive, steps }) {
   for (const step of steps) {
