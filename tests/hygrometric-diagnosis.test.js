@@ -519,3 +519,25 @@ test('an invalid duplicate timestamp does not replace an earlier valid row',()=>
  assert.equal(result.inputQuality.duplicateTimestampCount,0);
  assert.equal(result.medianIndoorRH,55);
 });
+
+
+test('hourly comparison selects the strongest drying window among all eligible pairs',()=>{
+ const rows=makeHourlyRows([
+  {day:0,hour:7,incomingRH:20},{day:1,hour:7,incomingRH:20},
+  {day:0,hour:13,incomingRH:50},{day:1,hour:13,incomingRH:50},
+  {day:0,hour:19,incomingRH:35},{day:1,hour:19,incomingRH:35}
+ ]);
+ const result=buildHygrometricDiagnosis(rows);
+ const finding=result.observations.find(item=>item.code==='favorable-time-window');
+
+ assert.ok(finding);
+ assert.equal(finding.basis.timeWindow,'06–11 h');
+ assert.equal(finding.basis.comparisonWindow,'12–17 h');
+ assert.equal(finding.basis.sharedDayCount,2);
+ assert.equal(finding.basis.sampleCount,12);
+ assert.equal(finding.basis.comparisonSampleCount,12);
+ assert.ok(finding.basis.medianDelta>finding.basis.comparisonMedianDelta);
+ assert.equal(result.hourlyComparisonDiagnostics.candidateWindowCount,3);
+ assert.equal(result.hourlyComparisonDiagnostics.candidatePairCount,3);
+ assert.equal(result.hourlyComparisonDiagnostics.pairsMeetingDailyMinimum,3);
+});
