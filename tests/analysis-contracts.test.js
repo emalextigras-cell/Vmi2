@@ -503,3 +503,18 @@ test('compareOperatingPeriods ne compte pas deux fois un même horodatage et un 
   assert.equal(comparison.current.values.debit.count, 1);
   assert.equal(comparison.current.values.debit.median, 140);
 });
+
+
+test('analyzeSpeedTimeContext dédoublonne les observations par mode et horodatage', () => {
+  const timestamp = at(12, 8);
+  const result = analyzeSpeedTimeContext([
+    { t: timestamp, vmiModeRaw: 1, st: 20, sh: 50, te: 10, he: 60 },
+    { t: timestamp, vmiModeRaw: 1, st: 20, sh: 70, te: 10, he: 60 },
+    { t: at(12, 9), vmiModeRaw: 2, st: 20, sh: 60, te: 10, he: 60 }
+  ], { minSamples: 1, minDays: 1 });
+  const comparison = result.comparisons.find(item => item.bucket === 1 && item.speeds[0] === 1 && item.speeds[1] === 2);
+
+  assert.equal(comparison.sampleCountFirst, 1);
+  assert.equal(comparison.first.medianRH, 70);
+  assert.equal(comparison.ready, true);
+});
