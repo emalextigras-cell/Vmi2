@@ -782,6 +782,53 @@ function compareHourlyWindows(rows, hourlyDetails, dayKey) {
  * @param {{dryDelta?: number, trendDelta?: number, minSamples?: number, maxGapHours?: number}} options Seuils et paramètres du diagnostic.
  * @returns {import('../types/vmi-types.js').HygrometricDiagnosisResult} Diagnostic hygrométrique explicable.
  */
+/**
+ * Évalue une tendance durable à partir de deux fenêtres de trois jours échantillonnés.
+ * Les limites calendaires et les critères de persistance sont centralisés ici.
+ * @param {Array<{date:string,sampleCount:number,medianAbsoluteHumidity:number|null}>} dailyDays Résumés journaliers triés chronologiquement.
+ * @param {number} trendDelta Écart minimal entre les médianes des deux fenêtres, en g/m³.
+ * @returns {object} Fenêtres retenues, indicateurs de couverture et métriques de tendance.
+ */
+function analyzeHygrometricTrend(dailyDays, trendDelta) {
+  // Une journée isolée ne suffit pas : chaque fenêtre contient trois jours valides.
+  const eligibleTrendDays=dailyDays.filter(day=>day.sampleCount>=3&&Number.isFinite(day.medianAbsoluteHumidity));
+  const trendWindowDays=3;
+  const trendMinimumDays=trendWindowDays*2;
+  const firstTrendWindow=eligibleTrendDays.slice(0,trendWindowDays);
+  const lastTrendWindow=eligibleTrendDays.slice(-trendWindowDays);
+  const trendWindowsAreDistinct=eligibleTrendDays.length>=trendMinimumDays&&
+    firstTrendWindow.at(-1).date<lastTrendWindow[0].date;
+  const trendDateSpanDays=(start,end)=>(Date.parse(end+'T00:00:00Z')-Date.parse(start+'T00:00:00Z'))/86400000;
+  const trendWindowSpanDays=trendWindowsAreDistinct?[
+    trendDateSpanDays(firstTrendWindow[0].date,firstTrendWindow.at(-1).date),
+    trendDateSpanDays(lastTrendWindow[0].date,lastTrendWindow.at(-1).date)
+  ]:null;
+  const totalTrendSpanDays=trendWindowsAreDistinct
+    ?trendDateSpanDays(firstTrendWindow[0].date,lastTrendWindow.at(-1).date):null;
+  const maxTrendWindowSpanDays=4;
+  const maxTrendComparisonSpanDays=14;
+  const trendWindowsTemporallyCompact=trendWindowsAreDistinct&&
+    trendWindowSpanDays.every(span=>span<=maxTrendWindowSpanDays)&&
+    totalTrendSpanDays<=maxTrendComparisonSpanDays;
+  const first=trendWindowsTemporallyCompact?firstTrendWindow[0]:null;
+  const last=trendWindowsTemporallyCompact?lastTrendWindow.at(-1):null;
+  const baselineTrendMedian=trendWindowsTemporallyCompact?median(firstTrendWindow.map(day=>day.medianAbsoluteHumidity)):null;
+  const recentTrendMedian=trendWindowsTemporallyCompact?median(lastTrendWindow.map(day=>day.medianAbsoluteHumidity)):null;
+  const trendChange=trendWindowsTemporallyCompact?recentTrendMedian-baselineTrendMedian:null;
+  const trendDirectionalDays=trendWindowsTemporallyCompact?{
+    rising:lastTrendWindow.filter(day=>day.medianAbsoluteHumidity>baselineTrendMedian).length,
+    falling:lastTrendWindow.filter(day=>day.medianAbsoluteHumidity<baselineTrendMedian).length
+  }:null;
+  return {
+    eligibleTrendDays,trendWindowDays,trendMinimumDays,
+    firstTrendWindow,lastTrendWindow,trendWindowsAreDistinct,
+    trendWindowSpanDays,totalTrendSpanDays,
+    maxTrendWindowSpanDays,maxTrendComparisonSpanDays,
+    trendWindowsTemporallyCompact,first,last,
+    baselineTrendMedian,recentTrendMedian,trendChange,trendDirectionalDays
+  };
+}
+
 export function buildHygrometricDiagnosis(data, {
   dryDelta = 1,
   trendDelta = 0.8,
@@ -882,37 +929,14 @@ function prepareHygrometricRows(inputRows) {
     incoming:median(values.incoming),
     indoorMinusIncoming:median(values.indoorMinusIncoming)
   }]));
-  // Une tendance durable compare deux fenêtres non chevauchantes de trois jours
-  // suffisamment échantillonnés. Une journée isolée ne peut pas suffire.
-  const eligibleTrendDays=daily.days.filter(day=>day.sampleCount>=3&&Number.isFinite(day.medianAbsoluteHumidity));
-  const trendWindowDays=3;
-  const trendMinimumDays=trendWindowDays*2;
-  const firstTrendWindow=eligibleTrendDays.slice(0,trendWindowDays);
-  const lastTrendWindow=eligibleTrendDays.slice(-trendWindowDays);
-  const trendWindowsAreDistinct=eligibleTrendDays.length>=trendMinimumDays&&
-    firstTrendWindow.at(-1).date<lastTrendWindow[0].date;
-  const trendDateSpanDays=(start,end)=>(Date.parse(end+'T00:00:00Z')-Date.parse(start+'T00:00:00Z'))/86400000;
-  const trendWindowSpanDays=trendWindowsAreDistinct?[
-    trendDateSpanDays(firstTrendWindow[0].date,firstTrendWindow.at(-1).date),
-    trendDateSpanDays(lastTrendWindow[0].date,lastTrendWindow.at(-1).date)
-  ]:null;
-  const totalTrendSpanDays=trendWindowsAreDistinct
-    ?trendDateSpanDays(firstTrendWindow[0].date,lastTrendWindow.at(-1).date):null;
-  const maxTrendWindowSpanDays=4;
-  const maxTrendComparisonSpanDays=14;
-  const trendWindowsTemporallyCompact=trendWindowsAreDistinct&&
-    trendWindowSpanDays.every(span=>span<=maxTrendWindowSpanDays)&&
-    totalTrendSpanDays<=maxTrendComparisonSpanDays;
-  const first=trendWindowsTemporallyCompact?firstTrendWindow[0]:null;
-  const last=trendWindowsTemporallyCompact?lastTrendWindow.at(-1):null;
-  const baselineTrendMedian=trendWindowsTemporallyCompact?median(firstTrendWindow.map(day=>day.medianAbsoluteHumidity)):null;
-  const recentTrendMedian=trendWindowsTemporallyCompact?median(lastTrendWindow.map(day=>day.medianAbsoluteHumidity)):null;
-  const trendSpanDays=first&&last?(Date.parse(last.date+'T00:00:00Z')-Date.parse(first.date+'T00:00:00Z'))/86400000:0;
-  const trendChange=trendWindowsTemporallyCompact?recentTrendMedian-baselineTrendMedian:null;
-  const trendDirectionalDays=trendWindowsTemporallyCompact?{
-    rising:lastTrendWindow.filter(day=>day.medianAbsoluteHumidity>baselineTrendMedian).length,
-    falling:lastTrendWindow.filter(day=>day.medianAbsoluteHumidity<baselineTrendMedian).length
-  }:null;
+  const {
+    eligibleTrendDays,trendWindowDays,trendMinimumDays,
+    firstTrendWindow,lastTrendWindow,trendWindowsAreDistinct,
+    trendWindowSpanDays,totalTrendSpanDays,
+    maxTrendWindowSpanDays,maxTrendComparisonSpanDays,
+    trendWindowsTemporallyCompact,first,last,
+    baselineTrendMedian,recentTrendMedian,trendChange,trendDirectionalDays
+  }=analyzeHygrometricTrend(daily.days,trendDelta);
 
   const hourly=analyzeHourlyPatterns(rows,5);
   const hourlyDetails=hourly.buckets.map((bucket,index)=>{
