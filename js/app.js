@@ -788,14 +788,15 @@ function renderHygrometricPeriods(data){
  }
  const total=result.observedDurationMs;
  const pct=value=>Math.round(value/total*100);
- let message='Sur '+formatDuration(total)+' de périodes observées (sans extrapoler les trous de plus de 2 h) : ';
- message+='Air entrant plus sec : '+formatDuration(result.dryDurationMs)+' ('+pct(result.dryDurationMs)+' %). ';
- message+='Air entrant plus humide : '+formatDuration(result.humidDurationMs)+' ('+pct(result.humidDurationMs)+' %). ';
+ let message='Sur '+formatDuration(total)+' d’intervalles exploitables (interpolation entre relevés, sans extrapoler les trous de plus de '+result.maxGapHours+' h) : ';
+ message+='Potentiel favorable (air entrant plus sec) : '+formatDuration(result.dryDurationMs)+' ('+pct(result.dryDurationMs)+' %). ';
+ message+='Potentiel défavorable (air entrant plus humide) : '+formatDuration(result.humidDurationMs)+' ('+pct(result.humidDurationMs)+' %). ';
  message+='Écart faible : '+formatDuration(result.neutralDurationMs)+' ('+pct(result.neutralDurationMs)+' %). ';
  message+='Écart médian salon − air entrant : '+fmt(result.medianDelta)+' g/m³. ';
- message+='Plus longue séquence asséchante estimée : '+formatDuration(result.longestDryMs)+'. ';
- message+='Plus longue séquence où l’air entrant est plus humide : '+formatDuration(result.longestHumidMs)+'.';
- if(result.gapCount)message+=' '+result.gapCount+' interruption(s) de plus de 2 h exclue(s) du calcul.';
+ message+='Plus longue séquence estimée avec un écart favorable : '+formatDuration(result.longestDryMs)+'. ';
+ message+='Plus longue séquence avec un air entrant plus humide : '+formatDuration(result.longestHumidMs)+'.';
+ if(result.gapCount)message+=' '+result.gapCount+' interruption(s) de plus de '+result.maxGapHours+' h exclue(s) du calcul.';
+ message+=' Ces durées décrivent uniquement l’écart d’humidité absolue entre les deux capteurs. Elles ne prouvent pas une baisse de l’humidité dans le logement : cette évolution est évaluée séparément à partir des mesures intérieures. Le débit réellement renouvelé et les échanges d’humidité avec les parois ne sont pas mesurés ici.';
  box.className=result.humidDurationMs>result.dryDurationMs?'advice warn':'advice';
  box.textContent=message;
 }
