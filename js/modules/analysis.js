@@ -1231,7 +1231,7 @@ export function summarizeOperatingReference(data, { minSamples = 10 } = {}) {
         medianAbsoluteDeviation: center == null ? null : median(values.map(value => Math.abs(value - center)))
       };
     });
-    const timestamps = samples.map(row => row?.t).filter(Number.isFinite);
+    const timestamps = samples.map(row => row?.t).filter(timestamp => Number.isFinite(timestamp) && Number.isFinite(new Date(timestamp).getTime()));
     const days = new Set(timestamps.map(timestamp => {
       const date = new Date(timestamp);
       return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
