@@ -22,8 +22,9 @@
 /** @typedef {{minSamples?: number, minDays?: number, maxGapMinutes?: number}} AnalysisOptions */
 
 /**
- * File d'écriture BLE séquentielle.
- * Les commandes conservent le délai historique de 350 ms et l'ordre d'arrivée.
+ * createBleWriteQueue — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {{isConnected: Function, getCharacteristic: Function, getConnectionToken?: Function, sleep: Function, onSuccess?: Function, onError?: Function, delayMs?: number}} options Dépendances et paramètres de la file d'écriture BLE.
+ * @returns {{write: Function}} File d'écriture séquentielle.
  */
 export function createBleWriteQueue({
   isConnected,
