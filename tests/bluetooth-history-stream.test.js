@@ -71,6 +71,20 @@ test('accepte les cinq fragments observés dans la capture Bluetooth', () => {
   assert.equal(state.gapCount, 0);
 });
 
+test('récupère après le fragment 10 manquant observé sur la ligne 394', () => {
+  const state = createHistoryStreamState();
+  state.sequence = 393;
+  state.expectedChunk = 0;
+  assert.equal(acceptHistoryFragment(state, { sequence: 394, chunkIndex: 0, payload: 'ligne-394-0' }).accepted, true);
+  const missing = acceptHistoryFragment(state, { sequence: 394, chunkIndex: 20, payload: 'ligne-394-20' });
+  assert.equal(missing.gap, true);
+  assert.equal(missing.resetBuffer, true);
+  assert.equal(acceptHistoryFragment(state, { sequence: 394, chunkIndex: 30, payload: 'ligne-394-30' }).accepted, false);
+  assert.equal(acceptHistoryFragment(state, { sequence: 394, chunkIndex: 40, payload: 'ligne-394-40' }).accepted, false);
+  assert.equal(acceptHistoryFragment(state, { sequence: 395, chunkIndex: 0, payload: 'ligne-395-0' }).accepted, true);
+  assert.equal(state.gapCount, 1);
+});
+
 test('détecte un fragment reçu dans le désordre et ignore la suite de cette ligne', () => {
   const state = createHistoryStreamState();
   acceptHistoryFragment(state, { sequence: 0, chunkIndex: 0, payload: 'entête' });
