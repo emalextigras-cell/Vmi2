@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   median,
   analyzeHourlyPatterns,
+  detectRapidChanges,
   compareOperatingPeriods,
   analyzeSpeedTimeContext,
   analyzeSpeedLevels,
@@ -321,4 +322,34 @@ test('analyzeHourlyPatterns rejette un minimum de mesures invalide', () => {
 test('analyzeHourlyPatterns conserve son seuil par défaut et accepte un entier positif', () => {
   assert.equal(analyzeHourlyPatterns([]).minSamples, 3);
   assert.equal(analyzeHourlyPatterns([], 1).minSamples, 1);
+});
+
+
+test('detectRapidChanges rejette des seuils invalides', () => {
+  for (const options of [
+    { maxGapHours: 0 },
+    { maxGapHours: -1 },
+    { maxGapHours: Infinity },
+    { maxGapHours: NaN },
+    { rhJump: 0 },
+    { rhJump: -1 },
+    { rhJump: Infinity },
+    { absoluteHumidityJump: 0 },
+    { absoluteHumidityJump: -1 },
+    { absoluteHumidityJump: NaN }
+  ]) {
+    assert.throws(
+      () => detectRapidChanges([], options),
+      RangeError
+    );
+  }
+});
+
+test('detectRapidChanges conserve ses seuils par défaut et accepte des seuils positifs', () => {
+  assert.deepEqual(detectRapidChanges([]), []);
+  assert.deepEqual(detectRapidChanges([], {
+    maxGapHours: 1,
+    rhJump: 5,
+    absoluteHumidityJump: 1
+  }), []);
 });
