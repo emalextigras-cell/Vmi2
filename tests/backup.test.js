@@ -18,6 +18,18 @@ test('mergeBackupData ajoute et enrichit sans perdre les champs existants', () =
   assert.equal(result.enrichedHistory,1);
 });
 
+test('mergeBackupData ignore les relevés historiques futurs', () => {
+  const now = new Date(2026, 10, 17, 12).getTime();
+  const future = { t: now + 60_000, sh: 90 };
+  const result = mergeBackupData({
+    backup: { app:'vmi-purevent', hist:[{ t: now - 60_000, sh: 50 }, future] },
+    currentHist: [{ t: now + 120_000, sh: 80 }],
+    minValid: MIN_VALID,
+    maxTimestamp: now
+  });
+  assert.deepEqual(result.hist, [{ t: now - 60_000, sh: 50 }]);
+});
+
 test('mergeBackupData fusionne les relevés directs sans doublons et limite à 10000', () => {
   const result=mergeBackupData({backup:{app:'vmi-purevent',hist:[],live:[{t:1,sh:99},{t:2,sh:41}]},currentLive:[{t:1,sh:40}],minValid:MIN_VALID});
   assert.deepEqual(result.live,[{t:1,sh:99},{t:2,sh:41}]);
