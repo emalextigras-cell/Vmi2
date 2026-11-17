@@ -146,3 +146,36 @@ export interface MonthlyEnergySummary {
   crossMonthIntervalCount: number;
   crossMonthKwh: number;
 }
+
+export interface TransientSpikeSummary {
+  count: number;
+  candidates: Array<{
+    key: string; label: string; timestamp: number; value: number;
+    previousValue: number; nextValue: number; unit: '%' | '°C';
+    deviation: number; gapBeforeMinutes: number; gapAfterMinutes: number;
+  }>;
+  maxGapMinutes: number;
+  thresholds: {
+    temperatureSpike: number; temperatureNeighborDifference: number;
+    humiditySpike: number; humidityNeighborDifference: number;
+  };
+}
+export interface DataQualitySummary {
+  total: number;
+  affectedRecords: number;
+  invalidRecords: number;
+  placeholderRecords: number;
+  fields: Array<Record<string, unknown>>;
+  fieldCoverage: Array<Record<string, unknown>>;
+  coreSensorKeys: string[];
+  completeHygrometricRecords: number;
+  incompleteHygrometricRecords: number;
+  hygrometricCoveragePercent: number;
+  hasAnomalies: boolean;
+  transientSpikes: TransientSpikeSummary;
+}
+export interface VmiBluetoothDevice {
+  id: string;
+  name?: string | null;
+  gatt?: { connected?: boolean } | null;
+}
