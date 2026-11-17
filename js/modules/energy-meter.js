@@ -180,7 +180,7 @@ const assertValidEnergyClimateOptions = (maxGapHours, minCoveredHours, minCovera
  * @param {EnergyReading[]} readings Index des compteurs électriques externes.
  * @param {VmiRecord[]} history Historique thermique et hygrométrique.
  * @param {{maxGapHours?: number, minCoveredHours?: number, minCoveragePercent?: number}} [options] Seuils de couverture climatique.
- * @returns {UnknownRecord} Résultat structuré du module.
+ * @returns {import('../types/vmi-types.js').EnergyClimateMeterContextResult} Résultat structuré du module.
  */
 export function summarizeEnergyClimateContext(readings, history, options = {}) {
   const {
