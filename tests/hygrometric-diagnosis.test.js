@@ -712,7 +712,7 @@ test('un potentiel hygrométrique avec une couverture faible reste explicitement
  assert.equal(dryFinding.level,'info');
  assert.equal(dryFinding.basis.coverageLevel,'faible');
  assert.match(dryFinding.title,/à confirmer/i);
- assert.match(dryFinding.detail,/couverture faible/i);
+ assert.match(dryFinding.detail,/couverture des mesures est faible/i);
 
  const humid=buildHygrometricDiagnosis(makeRows({
   days:2,perDay:6,indoorRH:40,incomingRH:90,indoorTemp:20,incomingTemp:25
