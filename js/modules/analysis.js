@@ -1255,22 +1255,25 @@ export function summarizeOperatingReference(data, { minSamples = 10 } = {}) {
         (metric.key !== 'debit' || value >= 0)
       );
       const center = median(values);
+      const min = values.length ? values.reduce((minimum, value) => Math.min(minimum, value), Infinity) : null;
+      const max = values.length ? values.reduce((maximum, value) => Math.max(maximum, value), -Infinity) : null;
       return {
         ...metric, count: values.length, median: center,
-        min: values.length ? Math.min(...values) : null,
-        max: values.length ? Math.max(...values) : null,
+        min, max,
         medianAbsoluteDeviation: center == null ? null : median(values.map(value => Math.abs(value - center)))
       };
     });
     const timestamps = samples.map(row => row?.t).filter(timestamp => Number.isFinite(timestamp) && Number.isFinite(new Date(timestamp).getTime()));
+    const firstAt = timestamps.length ? timestamps.reduce((minimum, timestamp) => Math.min(minimum, timestamp), Infinity) : null;
+    const lastAt = timestamps.length ? timestamps.reduce((maximum, timestamp) => Math.max(maximum, timestamp), -Infinity) : null;
     const days = new Set(timestamps.map(timestamp => {
       const date = new Date(timestamp);
       return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     }));
     return {
       mode, sampleCount: samples.length, dayCount: days.size,
-      firstAt: timestamps.length ? Math.min(...timestamps) : null,
-      lastAt: timestamps.length ? Math.max(...timestamps) : null,
+      firstAt,
+      lastAt,
       ready: samples.length >= minSamples && days.size >= 2,
       fields
     };
