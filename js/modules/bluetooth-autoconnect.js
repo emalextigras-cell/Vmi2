@@ -4,11 +4,10 @@
  * Sélection prudente d'un périphérique Bluetooth déjà autorisé par le navigateur.
  * Ne choisit jamais arbitrairement entre plusieurs appareils.
  */
-/**
- * chooseAuthorizedDevice — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
- * @param {unknown} devices Paramètre devices.
- * @param {unknown} preferredId Paramètre preferredId.
- * @returns {UnknownRecord} Résultat structuré du module.
+/** Sélectionne un périphérique déjà autorisé, sans choisir arbitrairement.
+ * @param {BluetoothDevice[]} devices Périphériques autorisés disponibles.
+ * @param {string} [preferredId] Identifiant à privilégier si présent.
+ * @returns {BluetoothDevice|null} Périphérique retenu, ou null si aucun choix sûr.
  */
 export function chooseAuthorizedDevice(devices, preferredId = '') {
   const available = Array.isArray(devices)
