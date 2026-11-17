@@ -441,3 +441,8 @@ test('detectRapidChanges ignore les horodatages hors plage JavaScript', () => {
 
   assert.deepEqual(result, []);
 });
+
+
+test('median conserve une médiane finie pour des valeurs finies proches de Number.MAX_VALUE', () => {
+  assert.equal(median([Number.MAX_VALUE, Number.MAX_VALUE]), Number.MAX_VALUE);
+});
