@@ -1,3 +1,26 @@
+/**
+ * @typedef {Object} VmiRecord
+ * @property {number} [t] Horodatage Unix en millisecondes.
+ * @property {number} [st] Température intérieure en °C.
+ * @property {number} [sh] Humidité relative intérieure en %.
+ * @property {number} [te] Température de l'air entrant en °C.
+ * @property {number} [he] Humidité relative de l'air entrant en %.
+ * @property {number} [tExt] Température extérieure en °C.
+ * @property {number} [h1] Humidité de la sonde résistances en %.
+ * @property {number} [t1] Température de la sonde résistances en °C.
+ * @property {number} [rpm] Régime moteur en tr/min.
+ * @property {number} [debit] Débit en m³/h.
+ * @property {number} [vmiModeRaw] Code brut du mode VMI.
+ * @property {number} [d] Compteur de jours de fonctionnement.
+ * @property {number} [consTmaxRaw] Consigne brute de température maximale.
+ * @property {boolean} [fixed] Indique qu'un horodatage a été recalé.
+ * @property {string|number} [id] Identifiant facultatif.
+ */
+
+/** @typedef {number|null} NullableNumber */
+/** @typedef {Record<string, unknown>} UnknownRecord */
+/** @typedef {{minSamples?: number, minDays?: number, maxGapMinutes?: number}} AnalysisOptions */
+
 /** Conversion des dates et des lignes d'export VMI+/tableur. */
 import { DAY, pad, num } from './date-utils.js';
 
@@ -14,6 +37,11 @@ const FALLBACK_COLUMN = Object.freeze({
   salonHumidity: 118
 });
 
+/**
+ * isCsvFile — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {string} name Paramètre name.
+ * @returns {UnknownRecord} Résultat de isCsvFile.
+ */
 export const isCsvFile = name => /\.csv$/i.test(String(name ?? ''));
 
 const normalizeHeader = value => String(value ?? '')
@@ -23,6 +51,12 @@ const normalizeHeader = value => String(value ?? '')
 /**
  * Repère l'en-tête VMI+ dans les lignes CSV ou tableur.
  * Exige les colonnes Date, Mode et Debit pour éviter un import décalé.
+ */
+/**
+ * findVmiHeaderRowIndex — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} rows Paramètre rows.
+ * @param {unknown} maxRows Paramètre maxRows.
+ * @returns {UnknownRecord} Résultat de findVmiHeaderRowIndex.
  */
 export function findVmiHeaderRowIndex(rows, maxRows = 20) {
   if (!Array.isArray(rows)) return -1;
@@ -70,6 +104,11 @@ const HEADER_ALIASES = {
   outdoorTemp: ['tempext', 'temperature exterieure']
 };
 
+/**
+ * getColumnMapping — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {unknown} headerRow Paramètre headerRow.
+ * @returns {UnknownRecord} Résultat de getColumnMapping.
+ */
 export function getColumnMapping(headerRow) {
   const headers = Array.isArray(headerRow) ? headerRow.map(normalizeHeader) : [];
   const mapping = { ...FALLBACK_COLUMN };
@@ -91,6 +130,12 @@ export function getColumnMapping(headerRow) {
   return mapping;
 }
 
+/**
+ * parseCell — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {number} value Paramètre value.
+ * @param {unknown} spreadsheet Paramètre spreadsheet.
+ * @returns {UnknownRecord} Résultat de parseCell.
+ */
 export function parseCell(value, spreadsheet = globalThis.XLSX) {
   if (typeof value === 'number' && value > 30000 && spreadsheet) {
     const c = spreadsheet.SSF.parse_date_code(value);
@@ -118,6 +163,13 @@ export function parseCell(value, spreadsheet = globalThis.XLSX) {
   return null;
 }
 
+/**
+ * recFrom — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {unknown} row Paramètre row.
+ * @param {unknown} spreadsheet Paramètre spreadsheet.
+ * @param {unknown} mapping Paramètre mapping.
+ * @returns {UnknownRecord} Résultat de recFrom.
+ */
 export function recFrom(row, spreadsheet = globalThis.XLSX, mapping = null) {
   const columns = mapping || FALLBACK_COLUMN;
   const parsed = parseCell(row[columns.date ?? 0], spreadsheet);
@@ -165,6 +217,11 @@ export function recFrom(row, spreadsheet = globalThis.XLSX, mapping = null) {
   return Object.keys(record).some(key => !['t','rk','vit','boost','hol'].includes(key) && record[key] != null) ? record : null;
 }
 
+/**
+ * dayNumber — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {number} timestamp Paramètre timestamp.
+ * @returns {UnknownRecord} Résultat de dayNumber.
+ */
 export const dayNumber = timestamp => {
   const d = new Date(timestamp);
   return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / DAY);
@@ -172,6 +229,12 @@ export const dayNumber = timestamp => {
 
 
 /** Parse un CSV délimité en respectant les champs entre guillemets et les guillemets doublés. */
+/**
+ * parseCsvRows — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {unknown} text Paramètre text.
+ * @param {unknown} delimiter Paramètre delimiter.
+ * @returns {UnknownRecord} Résultat de parseCsvRows.
+ */
 export function parseCsvRows(text, delimiter = null) {
   const source=String(text??'').replace(/^\uFEFF/,'');
   if(!delimiter){
