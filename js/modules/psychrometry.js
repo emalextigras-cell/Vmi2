@@ -25,10 +25,9 @@ export function absoluteHumidity(temp,rh){if(!Number.isFinite(temp)||!Number.isF
  * @returns {NullableNumber} Résultat de dewPoint.
  */
 export function dewPoint(temp,rh){if(!Number.isFinite(temp)||!Number.isFinite(rh)||temp<=-80||temp>=80||rh<=0||rh>100)return null;const a=17.62,b=243.12,g=Math.log(rh/100)+(a*temp)/(b+temp);const result=b*g/(a-g);return Number.isFinite(result)?result:null}
-/**
- * psychro — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
- * @param {unknown} r Paramètre r.
- * @returns {NullableNumber} Résultat de psychro.
+/** Calcule les indicateurs psychrométriques des deux flux d'air.
+ * @param {Pick<VmiRecord, 'st'|'sh'|'te'|'he'>} record Températures et humidités mesurées.
+ * @returns {PsychrometricResult} Humidité absolue et point de rosée intérieur/entrant.
  */
 export function psychro(r){return {haIn:absoluteHumidity(r.st,r.sh),haOut:absoluteHumidity(r.te,r.he),dewIn:dewPoint(r.st,r.sh),dewOut:dewPoint(r.te,r.he)}}
 /**
