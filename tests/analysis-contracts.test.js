@@ -143,3 +143,35 @@ test('summarizeRawVmiSpeed résume les codes vitesse sans les convertir en modes
   assert.equal(result[1].minDebit, 120);
   assert.equal(result[1].maxDebit, 140);
 });
+
+
+test('compareOperatingPeriods ignore les horodatages numériques hors plage JavaScript',()=>{
+  const validTimestamp=at(12);
+  const rows=[
+    {t:validTimestamp,vmiModeRaw:1,debit:120},
+    {t:8.64e15+1,vmiModeRaw:1,debit:999}
+  ];
+
+  const result=compareOperatingPeriods(rows,{periodDays:7,minSamples:1,minDays:1});
+
+  assert.equal(result.periods.length,2);
+  assert.ok(result.periods.every(period=>
+    Number.isFinite(period.startMs)&&Number.isFinite(period.endMs)&&
+    !period.start.includes('NaN')&&!period.end.includes('NaN')
+  ));
+  assert.equal(result.periods[1].end,'2026-10-12');
+  assert.ok(result.comparisons.every(item=>
+    item.previous.sampleCount+item.current.sampleCount<=1
+  ));
+});
+
+test('compareOperatingPeriods retourne no-mode-data si toutes les dates sont invalides',()=>{
+  const result=compareOperatingPeriods([
+    {t:8.64e15+1,vmiModeRaw:1,debit:120},
+    {t:-8.64e15-1,vmiModeRaw:2,debit:140}
+  ]);
+
+  assert.equal(result.status,'no-mode-data');
+  assert.deepEqual(result.periods,[]);
+  assert.deepEqual(result.comparisons,[]);
+});
