@@ -6,6 +6,7 @@ on:
       - main
       - work/modularisation-phase-1
       - audit/bluetooth-hardening
+      - chore/jsdoc-strict-typing
   pull_request:
     branches:
       - main
