@@ -1,5 +1,4 @@
 /** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
-/** @typedef {import('../types/vmi-types.js').UnknownRecord} UnknownRecord */
 /** @typedef {import('../types/vmi-types.js').EnergyReading} EnergyReading */
 
 import { buildVmiAssistantSummary } from './assistant-summary.js';
