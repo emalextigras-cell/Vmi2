@@ -688,3 +688,15 @@ test('analyzeHygrometricPeriods accepte un intervalle exactement égal au maximu
  assert.equal(result.gapCount,1);
  assert.equal(result.observedDurationMs,2*3600000);
 });
+
+test('un potentiel hygrométrique favorable ne prouve pas une baisse de l’humidité intérieure',()=>{
+ const result=buildHygrometricDiagnosis(makeRows({
+  days:6,perDay:10,indoorRH:65,incomingRH:40,indoorTemp:20,incomingTemp:10
+ }));
+ const potential=result.observations.find(item=>item.code==='air-drying-potential');
+ assert.ok(potential);
+ assert.equal(result.trendChange,0);
+ assert.ok(!result.observations.some(item=>item.code==='indoor-moisture-falling'));
+ assert.match(potential.recommendation,/potentiel hygrométrique favorable/i);
+ assert.match(potential.recommendation,/ne mesure pas l’effet réel/i);
+});
