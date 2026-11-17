@@ -95,7 +95,11 @@ export function parseCell(value, spreadsheet = globalThis.XLSX) {
   if (typeof value === 'number' && value > 30000 && spreadsheet) {
     const c = spreadsheet.SSF.parse_date_code(value);
     if (!c) return null;
-    const swap = c.d <= 12, year = c.y, month = swap ? c.d : c.m, day = swap ? c.m : c.d, second = Math.round(c.S);
+    const year = c.y, month = c.m, day = c.d, second = Math.round(c.S);
+    if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day) ||
+        month < 1 || month > 12 || day < 1 || day > 31 || c.H > 23 || c.M > 59 || second > 59) return null;
+    const date = new Date(year, month - 1, day, c.H, c.M, second);
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
     return { t: new Date(year, month-1, day, c.H, c.M, second).getTime(),
       rk: `${pad(day)}/${pad(month)}/${year} ${pad(c.H)}:${pad(c.M)}:${pad(second)}` };
   }
