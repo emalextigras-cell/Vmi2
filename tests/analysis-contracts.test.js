@@ -275,3 +275,34 @@ test('summarizeOperatingReference conserve le minimum par défaut et accepte un 
   assert.equal(summarizeOperatingReference([]).minSamples, 10);
   assert.equal(summarizeOperatingReference([], { minSamples: 1 }).minSamples, 1);
 });
+
+
+test('summarizeTemperatureLimit rejette des seuils de couverture invalides', () => {
+  for (const options of [
+    { minimumGroupSamples: 0 },
+    { minimumGroupSamples: -1 },
+    { minimumGroupSamples: 1.5 },
+    { minimumGroupDays: 0 },
+    { minimumGroupDays: -1 },
+    { minimumGroupDays: 2.5 },
+    { minimumGroupDays: Infinity }
+  ]) {
+    assert.throws(
+      () => summarizeTemperatureLimit([], options),
+      RangeError
+    );
+  }
+});
+
+test('summarizeTemperatureLimit conserve ses seuils par défaut et accepte des entiers positifs', () => {
+  const defaults = summarizeTemperatureLimit([]);
+  assert.equal(defaults.minimumGroupSamples, 5);
+  assert.equal(defaults.minimumGroupDays, 2);
+
+  const custom = summarizeTemperatureLimit([], {
+    minimumGroupSamples: 1,
+    minimumGroupDays: 1
+  });
+  assert.equal(custom.minimumGroupSamples, 1);
+  assert.equal(custom.minimumGroupDays, 1);
+});
