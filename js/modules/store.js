@@ -37,7 +37,10 @@ export function createStore({ databaseName, storeName, onError = () => {} }) {
         tx.onerror = () => reject(tx.error);
         tx.onabort = () => reject(tx.error);
       });
-    } catch (error) { onError('IndexedDB écriture : ' + error.message); }
+    } catch (error) {
+      onError('IndexedDB écriture : ' + error.message);
+      throw error;
+    }
   }
   /**
    * Écrit plusieurs clés dans une seule transaction : soit toutes sont validées,
