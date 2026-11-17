@@ -1,9 +1,4 @@
-/** @typedef {Object} VmiRecord
- * @property {number} [t] Horodatage en millisecondes.
- * @property {number} [st] Température intérieure en °C.
- * @property {number} [sh] Humidité relative intérieure en %.
- */
-/** @typedef {Record<string, unknown>} UnknownRecord */
+/** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
 
 /** Migration des lignes historiques stockées par les anciennes versions. */
 
