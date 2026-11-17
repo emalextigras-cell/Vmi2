@@ -1368,12 +1368,19 @@ export function summarizeRawVmiMode(data) {
  */
 export function summarizeRawVmiSpeed(data) {
   const groups = new Map();
+  const uniqueTimedValues = new Map();
   for (const row of Array.isArray(data) ? data : []) {
     if (!Number.isFinite(row?.vmiSpeedRaw)) continue;
     const code = row.vmiSpeedRaw;
     if (!groups.has(code)) groups.set(code, []);
-    if (Number.isFinite(row.debit) && row.debit >= 0) groups.get(code).push(row.debit);
+    if (!Number.isFinite(row.debit) || row.debit < 0) continue;
+    if (Number.isFinite(row.t) && Number.isFinite(new Date(row.t).getTime())) {
+      uniqueTimedValues.set(`${code}:${row.t}`, { code, debit: row.debit });
+    } else {
+      groups.get(code).push(row.debit);
+    }
   }
+  for (const { code, debit } of uniqueTimedValues.values()) groups.get(code).push(debit);
   return [...groups.entries()].sort((a,b)=>a[0]-b[0]).map(([code, values]) => ({
     code,
     sampleCount: values.length,
