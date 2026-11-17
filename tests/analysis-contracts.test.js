@@ -598,3 +598,18 @@ test('summarizeOperatingReference résume un historique volumineux sans dépasse
   assert.equal(mode1.firstAt, timestamp);
   assert.equal(mode1.lastAt, timestamp);
 });
+
+
+test('summarizeRawVmiMode résume un historique volumineux sans dépassement de pile', () => {
+  const rows = Array.from({ length: 200000 }, () => ({
+    vmiModeRaw: 1,
+    debit: 100,
+    volumeRaw: 200
+  }));
+  const result = summarizeRawVmiMode(rows);
+  const mode1 = result.find(group => group.mode === 1);
+
+  assert.equal(mode1.sampleCount, 200000);
+  assert.equal(mode1.minDebit, 100);
+  assert.equal(mode1.maxDebit, 100);
+});
