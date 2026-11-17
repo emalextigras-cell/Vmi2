@@ -850,7 +850,7 @@ function assessHygrometricCoverage({
   const sufficient=acceptedSampleCount>=minSamples&&dayCount>=2&&observedHours>=3;
   return {
     dayCount,daysWithAtLeastThreeSamples,acceptedSampleShare,
-    coverageLevel,sufficient,coverageRatio
+    coverageLevel,sufficient
   };
 }
 
@@ -985,7 +985,7 @@ function prepareHygrometricRows(inputRows) {
       code:'coverage-limited',level:'info',
       basis:{validSamples:rows.length,requiredSamples:minSamples,distinctDays:dayCount,requiredDays:2,observedHours,requiredObservedHours:3},
       title:'Historique encore trop limité',
-      detail:`${rows.length} relevé(s) simultanés valides sur ${days.size} jour(s), avec ${fmtHours(observedHours)} de périodes exploitables. Il faut davantage de mesures réparties sur plusieurs jours pour produire un diagnostic fiable.`,
+      detail:`${rows.length} relevé(s) simultanés valides sur ${dayCount} jour(s), avec ${fmtHours(observedHours)} de périodes exploitables. Il faut davantage de mesures réparties sur plusieurs jours pour produire un diagnostic fiable.`,
       recommendation:'Importer un historique plus long et vérifier que les températures et humidités du salon et de l’air entrant sont présentes.'
     });
   } else if(periods.medianDelta!=null&&periods.medianDelta>dryDelta&&dryShare>=0.6){
