@@ -24,6 +24,12 @@ export function isRawDateEligible(record, minValid = MIN_VALID) {
   return true;
 }
 
+/** Filtre les relevés selon leur date brute et leur horodatage maximal.
+ * @param {VmiRecord[]} records Relevés à filtrer.
+ * @param {number} [minValid] Timestamp minimal accepté pour les dates corrigées.
+ * @param {number} [maxTimestamp] Timestamp maximal accepté.
+ * @returns {VmiRecord[]} Relevés temporellement admissibles.
+ */
 export function filterRawDateHistory(records, minValid = MIN_VALID, maxTimestamp = Date.now()) {
   return (Array.isArray(records) ? records : []).filter(record =>
     isRawDateEligible(record, minValid) && record.t <= maxTimestamp
