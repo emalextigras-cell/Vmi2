@@ -384,3 +384,19 @@ test('summarizeTemperatureLimit ignore les horodatages hors plage JavaScript', (
   assert.equal(result.eligibleSampleCount, 0);
   assert.equal(result.thresholds.length, 0);
 });
+
+
+test('analyzeSpeedLevels exclut les dates hors plage des indicateurs calendaires', () => {
+  const result = analyzeSpeedLevels([{
+    t: 8640000000000001,
+    vmiModeRaw: 1,
+    st: 20,
+    sh: 50
+  }], 1);
+  const mode1 = result.groups.find(group => group.v === 1);
+
+  assert.equal(mode1.n, 1);
+  assert.equal(mode1.daysCovered, 0);
+  assert.equal(mode1.firstAt, null);
+  assert.equal(mode1.lastAt, null);
+});
