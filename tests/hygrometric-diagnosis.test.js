@@ -723,3 +723,12 @@ test('un potentiel hygrométrique avec une couverture faible reste explicitement
  assert.equal(humidFinding.basis.coverageLevel,'faible');
  assert.match(humidFinding.title,/à confirmer/i);
 });
+
+
+test('les seuils de potentiel et de dominance sont explicitement documentés comme heuristiques',()=>{
+ const result=buildHygrometricDiagnosis(makeRows({days:3,perDay:10}));
+ assert.equal(result.methodology.dryDeltaThresholdKind,'heuristic');
+ assert.equal(result.methodology.dominantDurationShareKind,'heuristic');
+ assert.ok(result.limits.some(item=>/1 g\/m³.*heuristique.*pas.*norme/i.test(item)));
+ assert.ok(result.limits.some(item=>/60 %.*heuristique.*pas.*preuve/i.test(item)));
+});
