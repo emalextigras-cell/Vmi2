@@ -39,7 +39,7 @@ const shiftDate = (date,days) => new Date(date.getFullYear(),date.getMonth(),dat
 /** Compare deux fenêtres calendaires à partir des médianes journalières.
  * @param {VmiRecord[]} history Historique thermique et hygrométrique.
  * @param {{windowDays?: number, minSamplesPerDay?: number, minDaysPerWindow?: number, minEnergyDays?: number, maxGapHours?: number, changeThreshold?: number}} [options] Seuils et paramètres de comparaison.
- * @returns {Record<string, unknown>} Diagnostic hebdomadaire descriptif et niveaux de couverture.
+ * @returns {import('../types/vmi-types.js').WeeklyDiagnosticResult} Diagnostic hebdomadaire descriptif et niveaux de couverture.
  */
 export function summarizeWeeklyDiagnostic(history,{
   windowDays=7,
