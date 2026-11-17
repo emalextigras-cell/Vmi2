@@ -21,7 +21,11 @@
 /** @typedef {Record<string, unknown>} UnknownRecord */
 /** @typedef {{minSamples?: number, minDays?: number, maxGapMinutes?: number}} AnalysisOptions */
 
-/** Persistance locale IndexedDB. Le schéma et les clés restent identiques à la v13. */
+/**
+ * createStore — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {{databaseName: string, storeName: string, onError?: Function}} options Configuration du stockage IndexedDB.
+ * @returns {{get: Function, set: Function, setMany: Function}} Interface de persistance locale.
+ */
 import { filterRawDateHistory } from './history.js';
 export function createStore({ databaseName, storeName, onError = () => {} }) {
   function openDB() {
