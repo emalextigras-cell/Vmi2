@@ -584,8 +584,8 @@ test('analyzeSpeedLevels résume un historique volumineux sans dépassement de p
 
 test('summarizeOperatingReference résume un historique volumineux sans dépassement de pile', () => {
   const timestamp = Date.UTC(2026, 0, 1);
-  const rows = Array.from({ length: 200000 }, () => ({
-    t: timestamp,
+  const rows = Array.from({ length: 200000 }, (_, index) => ({
+    t: timestamp + index * 60000,
     vmiModeRaw: 1,
     debit: 100
   }));
