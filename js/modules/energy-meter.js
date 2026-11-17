@@ -1,3 +1,18 @@
+/**
+ * @typedef {Object} VmiRecord
+ * @property {number} [t] Horodatage Unix en millisecondes.
+ * @property {number} [st] Température intérieure en °C.
+ * @property {number} [sh] Humidité relative intérieure en %.
+ * @property {number} [te] Température de l'air entrant en °C.
+ * @property {number} [he] Humidité relative de l'air entrant en %.
+ * @property {number} [tExt] Température extérieure en °C.
+ * @property {number} [rpm] Régime moteur en tr/min.
+ * @property {number} [debit] Débit en m³/h.
+ * @property {number} [vmiModeRaw] Code brut du mode VMI.
+ */
+/** @typedef {Record<string, unknown>} UnknownRecord */
+/** @typedef {{minSamples?: number, minDays?: number}} AnalysisOptions */
+
 import { absoluteHumidity } from './psychrometry.js';
 
 /** Suivi des index kWh relevés sur des compteurs électriques externes. */
@@ -9,6 +24,11 @@ export const ENERGY_METER_LABELS = Object.freeze({
   total: 'Total VMI (compteur global)'
 });
 
+/**
+ * isValidEnergyReading — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {unknown} reading Paramètre reading.
+ * @returns {UnknownRecord} Résultat structuré du module.
+ */
 export function isValidEnergyReading(reading) {
   return !!reading &&
     typeof reading.id === 'string' && reading.id.length > 0 &&
@@ -19,6 +39,12 @@ export function isValidEnergyReading(reading) {
 }
 
 /** Ajoute ou corrige un index pour le même compteur au même instant. */
+/**
+ * upsertEnergyReading — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {unknown} readings Paramètre readings.
+ * @param {unknown} reading Paramètre reading.
+ * @returns {UnknownRecord} Résultat structuré du module.
+ */
 export function upsertEnergyReading(readings, reading) {
   if (!isValidEnergyReading(reading)) {
     throw new TypeError('Relevé invalide : compteur, date et index kWh sont obligatoires.');
@@ -30,6 +56,11 @@ export function upsertEnergyReading(readings, reading) {
 }
 
 /** Calcule uniquement les écarts entre deux index successifs d'un même compteur. */
+/**
+ * summarizeEnergyReadings — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {unknown} readings Paramètre readings.
+ * @returns {UnknownRecord} Résultat structuré du module.
+ */
 export function summarizeEnergyReadings(readings) {
   const valid = (Array.isArray(readings) ? readings : []).filter(isValidEnergyReading);
   const meters = ENERGY_METER_TYPES.map(meterType => {
@@ -88,6 +119,11 @@ export function summarizeEnergyReadings(readings) {
  * Regroupe les intervalles mesurés par mois civil.
  * Un intervalle qui traverse deux mois n'est jamais réparti artificiellement :
  * il est comptabilisé à part et exclu des totaux mensuels.
+ */
+/**
+ * summarizeMonthlyEnergyReadings — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {unknown} readings Paramètre readings.
+ * @returns {UnknownRecord} Résultat structuré du module.
  */
 export function summarizeMonthlyEnergyReadings(readings) {
   const summary = summarizeEnergyReadings(readings);
@@ -150,6 +186,13 @@ const assertValidEnergyClimateOptions = (maxGapHours, minCoveredHours, minCovera
  * Les segments d'historique sont intégrés par interpolation linéaire seulement
  * entre deux relevés espacés d'au plus maxGapHours. Aucun prolongement avant
  * le premier relevé, après le dernier, ni comblement des grands trous.
+ */
+/**
+ * summarizeEnergyClimateContext — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {unknown} readings Paramètre readings.
+ * @param {unknown} history Paramètre history.
+ * @param {unknown} options Paramètre options.
+ * @returns {UnknownRecord} Résultat structuré du module.
  */
 export function summarizeEnergyClimateContext(readings, history, options = {}) {
   const {
