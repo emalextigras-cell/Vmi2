@@ -1,4 +1,6 @@
 /** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
+/** @typedef {import('../types/vmi-types.js').TransientSpikeSummary} TransientSpikeSummary */
+/** @typedef {import('../types/vmi-types.js').DataQualitySummary} DataQualitySummary */
 /** @typedef {import('../types/vmi-types.js').UnknownRecord} UnknownRecord */
 /** @typedef {import('../types/vmi-types.js').AnalysisOptions} AnalysisOptions */
 
@@ -52,11 +54,10 @@ const TRANSIENT_SPIKE_FIELDS = [
  * Ce sont des événements à vérifier, jamais une preuve de panne de capteur.
  * Les deux intervalles voisins doivent être datés et <= maxGapMinutes.
  */
-/**
- * detectTransientSensorSpikes — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
- * @param {VmiRecord[]} records Paramètre records.
- * @param {AnalysisOptions} options Paramètre options.
- * @returns {UnknownRecord} Résultat de detectTransientSensorSpikes.
+/** Repère les pics isolés sur les sondes, sans conclure à une panne.
+ * @param {VmiRecord[]} records Historique horodaté.
+ * @param {{maxGapMinutes?: number}} [options] Écart maximal entre relevés voisins.
+ * @returns {TransientSpikeSummary} Pics détectés et seuils utilisés.
  */
 export function detectTransientSensorSpikes(records, options = {}) {
   const maxGapMinutes = options?.maxGapMinutes ?? 30;
@@ -114,10 +115,9 @@ const FIELDS = [
   { key: 'te', label: 'Température air entrant', type: 'temperature' }
 ];
 
-/**
- * summarizeDataQuality — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
- * @param {VmiRecord[]} records Paramètre records.
- * @returns {UnknownRecord} Résultat de summarizeDataQuality.
+/** Résume la complétude et la plausibilité des mesures reçues.
+ * @param {VmiRecord[]} records Relevés à contrôler.
+ * @returns {DataQualitySummary} Couverture, anomalies et pics transitoires.
  */
 export function summarizeDataQuality(records) {
   const rows = Array.isArray(records) ? records : [];
