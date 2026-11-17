@@ -78,3 +78,71 @@ export interface EnergyReading {
   kwh: number;
   note?: string;
 }
+
+export interface PsychrometricResult {
+  haIn: NullableNumber;
+  haOut: NullableNumber;
+  dewIn: NullableNumber;
+  dewOut: NullableNumber;
+}
+
+export interface SeasonalVentilationSummary {
+  status: 'available' | 'insufficient-data';
+  currentSeason: 'hiver' | 'été' | 'intersaison' | null;
+  latestAt: number | null;
+  seasons: Array<{
+    season: 'été' | 'hiver' | 'intersaison';
+    sampleCount: number;
+    dayCount: number;
+    thermalSampleCount: number;
+    medianOutdoorMinusIndoor: NullableNumber;
+    medianHumidityDelta: NullableNumber;
+    opportunityDayCount: number;
+    opportunityDays: string[];
+    enough: boolean;
+    codeCounts: Record<string, number>;
+  }>;
+  advice: string;
+  minSamples: number;
+  minDays: number;
+  temperatureMargin: number;
+  limits: string[];
+}
+
+export interface EnergySummary {
+  readingCount: number;
+  meters: Array<{
+    meterType: EnergyMeterType;
+    label: string;
+    readingCount: number;
+    firstAt: number | null;
+    lastAt: number | null;
+    measuredIntervalCount: number;
+    totalKwh: number;
+    intervals: Array<{
+      from: number;
+      to: number;
+      elapsedHours: number;
+      previousKwh: number;
+      currentKwh: number;
+      deltaKwh: NullableNumber;
+      averagePowerW: NullableNumber;
+      status: 'measured' | 'counter-decreased';
+    }>;
+  }>;
+  limits: string[];
+}
+
+export interface MonthlyEnergySummary {
+  meterType: EnergyMeterType;
+  label: string;
+  months: Array<{
+    month: string;
+    energyKwh: number;
+    intervalCount: number;
+    firstAt: number;
+    lastAt: number;
+  }>;
+  crossMonthIntervalCount: number;
+  crossMonthKwh: number;
+}
