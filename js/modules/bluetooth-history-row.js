@@ -9,7 +9,7 @@ export function validateBluetoothHistoryRow(line) {
   const fields = line.split(';');
   if (fields.length < 12) return { valid: false, reason: 'truncated' };
 
-  const match = fields[0].match(/^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2}):(\d{2})$/);
+  const match = fields[0].match(/^(\d{1,2})\/(\d{1,2})\/(\d{4}) (\d{1,2}):(\d{2}):(\d{2})$/);
   if (!match) return { valid: false, reason: 'date-format' };
   const [, dd, mm, yyyy, hh, min, ss] = match;
   const date = new Date(Number(yyyy), Number(mm) - 1, Number(dd), Number(hh), Number(min), Number(ss));

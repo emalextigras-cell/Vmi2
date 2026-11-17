@@ -505,8 +505,10 @@ function ingest(recs,label){
    pour interrompre le flux de la VMI (elle ne sait pas s'arrêter seule). */
 const sigOf=r=>r.rk+'|'+r.d;
 function parseDownloadLine(line){
- if(!download.on||!/^\d{1,2}\/\d{1,2}\/\d{4} \d{1,2}:\d{2}:\d{2};/.test(line))return;
- const f=line.split(';'),p=parseCell(f[0]);if(!p)return;
+ if(!download.on)return;
+ const validation=validateBluetoothHistoryRow(line);
+ if(!validation.valid){download.invalidRows=(download.invalidRows||0)+1;log('Ligne historique Bluetooth rejetée ('+validation.reason+').');return}
+ const f=validation.fields,p=parseCell(f[0]);if(!p)return;
  if(download.sigs.size&&download.sigs.has(p.rk+'|'+num(f[11]))){finishDownload(true);return}
  const rec=recFrom(f);if(rec)download.rows.push(rec);
 }
