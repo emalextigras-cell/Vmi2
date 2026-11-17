@@ -11,6 +11,7 @@ import {
   summarizeOperatingReference,
   summarizeRawVmiMode,
   summarizeRawVmiSpeed,
+  summarizeEnergyReadiness,
   summarizeDailyTrends
 } from '../js/modules/analysis.js';
 
@@ -548,4 +549,15 @@ test('summarizeTemperatureLimit ne compte pas deux fois un même mode et horodat
   assert.equal(threshold.aboveThresholdCount, 1);
   assert.equal(threshold.above.sampleCount, 1);
   assert.equal(threshold.above.medianOutdoorTemp, 24);
+});
+
+
+test('summarizeEnergyReadiness traite les historiques volumineux sans erreur de dépassement d arguments', () => {
+  const rows = Array.from({ length: 200000 }, () => ({ rpm: 1200 }));
+  const result = summarizeEnergyReadiness(rows);
+  const rpm = result.fields.find(field => field.key === 'rpm');
+
+  assert.equal(rpm.count, 200000);
+  assert.equal(rpm.min, 1200);
+  assert.equal(rpm.max, 1200);
 });
