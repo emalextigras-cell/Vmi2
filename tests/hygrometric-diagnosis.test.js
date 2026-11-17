@@ -487,3 +487,35 @@ test('durable trend evidence identifies both calendar windows and their medians'
  assert.match(finding.basis.recentDailyValues,/2026-11-07/);
  assert.match(finding.basis.recentDailyValues,/g\/m³/);
 });
+
+
+test('diagnostic keeps the last valid row for a duplicated timestamp',()=>{
+ const timestamp=new Date(2026,10,10,8,0,0).getTime();
+ const rows=[
+  {t:timestamp,st:20,sh:50,te:10,he:40},
+  {t:timestamp,st:20,sh:70,te:10,he:40}
+ ];
+ const before=JSON.stringify(rows);
+ const result=buildHygrometricDiagnosis(rows);
+
+ assert.equal(result.inputQuality.inputSampleCount,2);
+ assert.equal(result.inputQuality.acceptedSampleCount,1);
+ assert.equal(result.inputQuality.duplicateTimestampCount,1);
+ assert.equal(result.sampleCount,1);
+ assert.equal(result.medianIndoorRH,70);
+ assert.equal(JSON.stringify(rows),before);
+});
+
+test('an invalid duplicate timestamp does not replace an earlier valid row',()=>{
+ const timestamp=new Date(2026,10,10,8,0,0).getTime();
+ const rows=[
+  {t:timestamp,st:20,sh:55,te:10,he:40},
+  {t:timestamp,st:20,sh:150,te:10,he:40}
+ ];
+ const result=buildHygrometricDiagnosis(rows);
+
+ assert.equal(result.inputQuality.acceptedSampleCount,1);
+ assert.equal(result.inputQuality.implausibleSensorRecordCount,1);
+ assert.equal(result.inputQuality.duplicateTimestampCount,0);
+ assert.equal(result.medianIndoorRH,55);
+});
