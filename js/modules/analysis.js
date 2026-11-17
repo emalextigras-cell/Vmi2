@@ -91,6 +91,12 @@ export function analyzeSpeedLevels(data, minSamples = 10, targetRH = 50) {
  * @returns {import('../types/vmi-types.js').SpeedTimeContextResult} Groupes horaires et comparaisons descriptives.
  */
 export function analyzeSpeedTimeContext(data, { minSamples = 5, minDays = 2 } = {}) {
+  for (const [name, value] of Object.entries({ minSamples, minDays })) {
+    if (!Number.isInteger(value) || value <= 0) {
+      throw new RangeError(`${name} doit être un entier strictement positif.`);
+    }
+  }
+
   const rows=(Array.isArray(data)?data:[]).filter(r=>
     Number.isFinite(r?.t) && Number.isFinite(r?.vmiModeRaw) && [1,2,3].includes(r.vmiModeRaw) &&
     Number.isFinite(r.st) && isPlausibleTemperature(r.st) &&
