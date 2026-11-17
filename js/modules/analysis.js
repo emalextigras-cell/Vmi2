@@ -412,6 +412,12 @@ export function summarizeEnergyReadiness(data) {
 export function summarizeTemperatureLimit(data, {
   minimumGroupSamples = 5, minimumGroupDays = 2
 } = {}) {
+  for (const [name, value] of Object.entries({ minimumGroupSamples, minimumGroupDays })) {
+    if (!Number.isInteger(value) || value <= 0) {
+      throw new RangeError(`${name} doit être un entier strictement positif.`);
+    }
+  }
+
   const rows = Array.isArray(data) ? data : [];
   const eligible = rows.filter(row =>
     Number.isFinite(row?.consTmaxRaw) && isPlausibleTemperature(row.consTmaxRaw) &&
