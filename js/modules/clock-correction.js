@@ -1,3 +1,17 @@
+/**
+ * @typedef {Object} VmiRecord
+ * @property {number} [t] Horodatage Unix en millisecondes.
+ * @property {number} [st] Température intérieure en °C.
+ * @property {number} [sh] Humidité relative intérieure en %.
+ * @property {number} [te] Température de l'air entrant en °C.
+ * @property {number} [he] Humidité relative de l'air entrant en %.
+ * @property {number} [rpm] Régime moteur en tr/min.
+ * @property {number} [debit] Débit en m³/h.
+ * @property {number} [vmiModeRaw] Code brut du mode VMI.
+ */
+/** @typedef {Record<string, unknown>} UnknownRecord */
+/** @typedef {{minSamples?: number, minDays?: number}} AnalysisOptions */
+
 /** Correction des dates d'historique lorsque l'horloge interne de la VMI est erronée. */
 import { DAY, MIN_VALID } from './date-utils.js';
 import { filterRawDateHistory, isRawDateEligible } from './history.js';
@@ -28,6 +42,14 @@ const modeOf = values => {
  * considérées comme des données historiques invalides et ne sont jamais recalées.
  * Retourne { fixed, future, kept }.
  * Les règles de regroupement et le seuil horaire sont volontairement conservés.
+ */
+/**
+ * fixClock — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} records Paramètre records.
+ * @param {VmiRecord[]} history Paramètre history.
+ * @param {unknown} minValid Paramètre minValid.
+ * @param {unknown} maxTimestamp Paramètre maxTimestamp.
+ * @returns {UnknownRecord} Résultat structuré du module.
  */
 export function fixClock(records, history = [], minValid = MIN_VALID, maxTimestamp = Infinity) {
   // Les relevés entrants assez récents doivent rester disponibles pendant cette
