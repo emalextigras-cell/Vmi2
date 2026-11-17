@@ -47,7 +47,7 @@ const median = values => {
  * Construit une vue journalière croisant estimation du ventilateur et climat intérieur/entrant.
  * @param {VmiRecord[]} history Historique thermique et hygrométrique.
  * @param {{maxGapHours?: number, minFanHours?: number, minClimateSamples?: number, minDays?: number}} options Seuils de couverture et de regroupement.
- * @returns {UnknownRecord} Synthèse journalière descriptive avec limites de couverture.
+ * @returns {{status:string,days:Array<{date:string,paired:boolean,fanHours:number,fanIntervals:number,estimatedKwh:number|null,averagePowerW:number|null,climateSampleCount:number,medianIndoorRH:number|null,medianIndoorTemp:number|null,medianIndoorAbsHumidity:number|null,medianIncomingAbsHumidity:number|null,medianDeltaAbsHumidity:number|null}>,matchedDays:Array<{date:string,paired:boolean,fanHours:number,fanIntervals:number,estimatedKwh:number|null,averagePowerW:number|null,climateSampleCount:number,medianIndoorRH:number|null,medianIndoorTemp:number|null,medianIndoorAbsHumidity:number|null,medianIncomingAbsHumidity:number|null,medianDeltaAbsHumidity:number|null}>,matchedDayCount:number,duplicateTimestampCount:number,conflictingTimestampCount:number,maxGapHours:number,minFanHours:number,minClimateSamples:number,minDays:number,limits:string[]}} Synthèse journalière descriptive avec limites de couverture.
  */
 export function summarizeDailyEnergyClimateContext(history, {
   maxGapHours = 2, minFanHours = 3, minClimateSamples = 3, minDays = 3
