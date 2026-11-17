@@ -748,3 +748,19 @@ test('diagnostic exclut les horodatages hors plage JavaScript de la couverture',
  assert.equal(result.sampleCount,0);
  assert.equal(result.dayCount,0);
 });
+
+
+test('diagnostic rejects invalid trend and minimum-sample thresholds', () => {
+  for (const trendDelta of [0, -1, Infinity, NaN]) {
+    assert.throws(
+      () => buildHygrometricDiagnosis(makeRows(), { trendDelta }),
+      RangeError
+    );
+  }
+  for (const minSamples of [0, -1, 1.5, Infinity, NaN]) {
+    assert.throws(
+      () => buildHygrometricDiagnosis(makeRows(), { minSamples }),
+      RangeError
+    );
+  }
+});
