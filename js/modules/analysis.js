@@ -240,6 +240,7 @@ export function compareOperatingPeriods(data, {
 } = {}) {
   const rows = (Array.isArray(data) ? data : []).filter(row =>
     Number.isFinite(row?.t) &&
+    Number.isFinite(new Date(row.t).getTime()) &&
     Number.isFinite(row?.vmiModeRaw) && [1, 2, 3].includes(row.vmiModeRaw)
   );
   if (!rows.length) {
