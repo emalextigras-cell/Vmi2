@@ -696,7 +696,7 @@ export function detectRapidChanges(data, { maxGapHours = 2, rhJump = 15, absolut
   }
 
   const rows=(Array.isArray(data)?data:[])
-    .filter(validHygroRow)
+    .filter(r=>validHygroRow(r)&&Number.isFinite(new Date(r.t).getTime()))
     .map(r=>({t:r.t,rh:r.sh,ha:absoluteHumidity(r.st,r.sh)}))
     .sort((a,b)=>a.t-b.t);
   const events=[];
