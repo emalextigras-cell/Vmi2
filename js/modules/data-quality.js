@@ -95,7 +95,7 @@ export function detectTransientSensorSpikes(records, options = {}) {
       candidates.push({
         key: field.key, label: field.label, timestamp: current.t, value: b,
         previousValue: a, nextValue: c,
-        unit: field.type === 'humidity' ? '%' : '°C',
+        unit: /** @type {'%'|'°C'} */ (field.type === 'humidity' ? '%' : '°C'),
         deviation: spikeFromNeighbors,
         gapBeforeMinutes: gapBefore / 60000, gapAfterMinutes: gapAfter / 60000
       });
