@@ -408,12 +408,9 @@ export function summarizeEnergyReadiness(data) {
  */
 /**
  * summarizeTemperatureLimit — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
- * @param {VmiRecord[]} data Paramètre data.
- * @param {unknown} {
-  minimumGroupSamples Paramètre {
-  minimumGroupSamples.
- * @param {unknown} minimumGroupDays Paramètre minimumGroupDays.
- * @returns {UnknownRecord} Résultat de summarizeTemperatureLimit.
+ * @param {VmiRecord[]} data Historique des relevés VMI.
+ * @param {{minimumGroupSamples?: number, minimumGroupDays?: number}} options Seuils de couverture par groupe.
+ * @returns {UnknownRecord} Résumé descriptif de la consigne de température.
  */
 export function summarizeTemperatureLimit(data, {
   minimumGroupSamples = 5, minimumGroupDays = 2
@@ -527,10 +524,9 @@ export function summarizeTemperatureLimit(data, {
  */
 /**
  * analyzeHygrometricPeriods — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
- * @param {VmiRecord[]} data Paramètre data.
- * @param {unknown} { threshold Paramètre { threshold.
- * @param {unknown} maxGapHours Paramètre maxGapHours.
- * @returns {UnknownRecord} Résultat de analyzeHygrometricPeriods.
+ * @param {VmiRecord[]} data Historique des relevés hygrométriques.
+ * @param {{threshold?: number, maxGapHours?: number}} options Seuils de regroupement temporel.
+ * @returns {UnknownRecord} Périodes hygrométriques détectées.
  */
 export function analyzeHygrometricPeriods(data, { threshold = 1, maxGapHours = 2 } = {}) {
   const rows=(Array.isArray(data)?data:[])
@@ -666,11 +662,9 @@ export function analyzeHourlyPatterns(data, minSamples = 3) {
  */
 /**
  * detectRapidChanges — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
- * @param {VmiRecord[]} data Paramètre data.
- * @param {unknown} { maxGapHours Paramètre { maxGapHours.
- * @param {unknown} rhJump Paramètre rhJump.
- * @param {unknown} absoluteHumidityJump Paramètre absoluteHumidityJump.
- * @returns {UnknownRecord} Résultat de detectRapidChanges.
+ * @param {VmiRecord[]} data Historique des relevés horodatés.
+ * @param {{maxGapHours?: number, rhJump?: number, absoluteHumidityJump?: number}} options Seuils de détection des variations rapides.
+ * @returns {UnknownRecord} Événements de variation rapide.
  */
 export function detectRapidChanges(data, { maxGapHours = 2, rhJump = 15, absoluteHumidityJump = 3 } = {}) {
   const rows=(Array.isArray(data)?data:[])
@@ -705,14 +699,9 @@ export function detectRapidChanges(data, { maxGapHours = 2, rhJump = 15, absolut
  */
 /**
  * buildHygrometricDiagnosis — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
- * @param {VmiRecord[]} data Paramètre data.
- * @param {unknown} {
-  dryDelta Paramètre {
-  dryDelta.
- * @param {unknown} trendDelta Paramètre trendDelta.
- * @param {number} minSamples Paramètre minSamples.
- * @param {unknown} maxGapHours Paramètre maxGapHours.
- * @returns {UnknownRecord} Résultat de buildHygrometricDiagnosis.
+ * @param {VmiRecord[]} data Historique des relevés hygrométriques.
+ * @param {{dryDelta?: number, trendDelta?: number, minSamples?: number, maxGapHours?: number}} options Seuils et paramètres du diagnostic.
+ * @returns {UnknownRecord} Diagnostic hygrométrique explicable.
  */
 export function buildHygrometricDiagnosis(data, {
   dryDelta = 1,
@@ -1091,9 +1080,9 @@ export function buildHygrometricDiagnosis(data, {
  */
 /**
  * summarizeOperatingReference — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
- * @param {VmiRecord[]} data Paramètre data.
- * @param {unknown} { minSamples Paramètre { minSamples.
- * @returns {UnknownRecord} Résultat de summarizeOperatingReference.
+ * @param {VmiRecord[]} data Historique des relevés VMI.
+ * @param {{minSamples?: number}} options Effectif minimal par groupe.
+ * @returns {UnknownRecord} Référence descriptive de fonctionnement.
  */
 export function summarizeOperatingReference(data, { minSamples = 10 } = {}) {
   const rows = Array.isArray(data) ? data : [];
