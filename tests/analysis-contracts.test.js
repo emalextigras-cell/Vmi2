@@ -561,3 +561,21 @@ test('summarizeEnergyReadiness traite les historiques volumineux sans erreur de 
   assert.equal(rpm.min, 1200);
   assert.equal(rpm.max, 1200);
 });
+
+
+test('analyzeSpeedLevels résume un historique volumineux sans dépassement de pile', () => {
+  const start = Date.UTC(2020, 0, 1);
+  const rows = Array.from({ length: 200000 }, (_, index) => ({
+    t: start + index * 60000,
+    vmiModeRaw: 1,
+    st: 20,
+    sh: 50
+  }));
+  const result = analyzeSpeedLevels(rows, 1);
+  const mode1 = result.groups.find(group => group.v === 1);
+
+  assert.equal(mode1.n, 200000);
+  assert.equal(mode1.firstAt, start);
+  assert.equal(mode1.lastAt, start + 199999 * 60000);
+  assert.equal(mode1.spanHours, (199999 * 60000) / 3600000);
+});
