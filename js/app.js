@@ -11,6 +11,7 @@ import { decodeVmiNotification } from './modules/bluetooth-decoder.js';
 import { createBleWriteQueue } from './modules/bluetooth-write-queue.js';
 import { runBleSessionSequence } from './modules/bluetooth-session.js';
 import { acceptHistoryFragment, createHistoryStreamState, isHistorySyncBaseline, markHistoryRows, markHistoryStreamInvalid } from './modules/bluetooth-history-stream.js';
+import { validateBluetoothHistoryRow } from './modules/bluetooth-history-row.js';
 import { armDownloadTimeout } from './modules/sync.js';
 import { parseCell, recFrom, getColumnMapping, findVmiHeaderRowIndex, parseCsvRows, isCsvFile } from './modules/dataio.js';
 import { fixClock } from './modules/clock-correction.js';
