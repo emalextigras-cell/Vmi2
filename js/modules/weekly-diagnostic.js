@@ -1,7 +1,45 @@
+/** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
+import { absoluteHumidity } from './psychrometry.js';
+import { isPlausibleHumidity, isPlausibleTemperature } from './data-quality.js';
+import { summarizeDailyEnergyClimateContext } from './energy-climate.js';
+
+const assertPositiveInteger = (name,value) => {
+  if(!Number.isSafeInteger(value)||value<1) {
+    throw new RangeError(name+' doit être un entier supérieur ou égal à 1.');
+  }
+};
+const assertPositiveFinite = (name,value) => {
+  if(!Number.isFinite(value)||value<=0) {
+    throw new RangeError(name+' doit être un nombre fini strictement positif.');
+  }
+};
+const assertNonNegativeFinite = (name,value) => {
+  if(!Number.isFinite(value)||value<0) {
+    throw new RangeError(name+' doit être un nombre fini positif ou nul.');
+  }
+};
+const median = values => {
+  const sorted = values.filter(Number.isFinite).sort((a,b)=>a-b);
+  if (!sorted.length) return null;
+  const middle = Math.floor(sorted.length/2);
+  return sorted.length%2 ? sorted[middle] : (sorted[middle-1]+sorted[middle])/2;
+};
+const dayKey = timestamp => {
+  const date = new Date(timestamp);
+  return [date.getFullYear(),String(date.getMonth()+1).padStart(2,'0'),String(date.getDate()).padStart(2,'0')].join('-');
+};
+const dateKey = date => [date.getFullYear(),String(date.getMonth()+1).padStart(2,'0'),String(date.getDate()).padStart(2,'0')].join('-');
+const shiftDate = (date,days) => new Date(date.getFullYear(),date.getMonth(),date.getDate()+days);
+
+/**
+ * Compare deux fenêtres calendaires hebdomadaires à partir des médianes
+ * journalières. Les jours ont le même poids ; les données hors fenêtre ne
+ * peuvent pas relier des historiques éloignés. L'énergie reste estimée.
+ */
 /** Compare deux fenêtres calendaires à partir des médianes journalières.
  * @param {VmiRecord[]} history Historique thermique et hygrométrique.
  * @param {{windowDays?: number, minSamplesPerDay?: number, minDaysPerWindow?: number, minEnergyDays?: number, maxGapHours?: number, changeThreshold?: number}} [options] Seuils et paramètres de comparaison.
- * @returns {UnknownRecord} Diagnostic hebdomadaire descriptif et niveaux de couverture.
+ * @returns {Record<string, unknown>} Diagnostic hebdomadaire descriptif et niveaux de couverture.
  */
 export function summarizeWeeklyDiagnostic(history,{
   windowDays=7,
