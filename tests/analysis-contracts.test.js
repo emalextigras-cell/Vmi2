@@ -597,7 +597,7 @@ test('summarizeOperatingReference résume un historique volumineux sans dépasse
   assert.equal(debit.min, 100);
   assert.equal(debit.max, 100);
   assert.equal(mode1.firstAt, timestamp);
-  assert.equal(mode1.lastAt, timestamp);
+  assert.equal(mode1.lastAt, timestamp + 199999 * 60000);
 });
 
 
