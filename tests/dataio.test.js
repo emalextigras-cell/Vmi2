@@ -326,13 +326,13 @@ import { fixClock } from '../js/modules/clock-correction.js';
 import { mergeBackupData } from '../js/modules/backup.js';
 import { MIN_VALID } from '../js/modules/date-utils.js';
 
-test('conserve une date brute ancienne uniquement après correction validée', () => {
+test('écarte les dates brutes anciennes même après correction calculée', () => {
   const corrected = { t: new Date(2026, 9, 10, 12).getTime(), rk: '09/04/2018 12:00:00', fixed: true, sh: 50 };
   const uncorrected = { t: new Date(2018, 3, 9, 12).getTime(), rk: '09/04/2018 12:00:00', sh: 49 };
   const recent = { t: new Date(2026, 9, 18, 12, 5).getTime(), rk: '18/10/2026 12:05:00', sh: 51 };
-  assert.equal(isRawDateEligible(corrected), true);
+  assert.equal(isRawDateEligible(corrected), false);
   assert.equal(isRawDateEligible(uncorrected), false);
-  assert.deepEqual(filterRawDateHistory([corrected, uncorrected, recent]), [corrected, recent]);
+  assert.deepEqual(filterRawDateHistory([corrected, uncorrected, recent]), [recent]);
 });
 
 test('le filtre d’historique écarte une date future', () => {
@@ -340,26 +340,24 @@ test('le filtre d’historique écarte une date future', () => {
   assert.deepEqual(filterRawDateHistory([{ t: now - 1 }, { t: now + 1 }], MIN_VALID, now).map(row => row.t), [now - 1]);
 });
 
-test('la fusion des imports conserve les anciennes dates déjà corrigées et rejette les dates non corrigées', () => {
+test('la fusion des imports rejette toutes les dates brutes anciennes', () => {
   const corrected = { t: new Date(2026, 9, 10).getTime(), rk: '09/04/2018 12:00:00', fixed: true, sh: 50 };
   const uncorrected = { t: new Date(2018, 3, 9).getTime(), rk: '09/04/2018 12:00:00', sh: 49 };
   const recent = { t: new Date(2026, 9, 11).getTime(), rk: '11/10/2026 12:00:00', sh: 51 };
-  assert.deepEqual(mergeImportedHistory([uncorrected], [uncorrected, corrected, recent]), [corrected, recent]);
+  assert.deepEqual(mergeImportedHistory([uncorrected], [uncorrected, corrected, recent]), [recent]);
 });
 
-test('fixClock reconstruit une date brute de 2018 grâce au compteur de jours', () => {
+test('fixClock rejette une date brute de 2018 au lieu de la reconstruire', () => {
   const old = { t: new Date(2018, 3, 9, 12).getTime(), rk: '09/04/2018 12:00:00', d: 155, sh: 50 };
   const recent = { t: new Date(2026, 9, 18, 12).getTime(), rk: '18/10/2026 12:00:00', d: 163, sh: 51 };
   const result = fixClock([old, recent], []);
-  assert.equal(result.fixed, 1);
-  assert.equal(new Date(old.t).getFullYear(), 2026);
-  assert.equal(new Date(old.t).getMonth(), 9);
-  assert.equal(new Date(old.t).getDate(), 10);
-  assert.equal(old.fixed, true);
-  assert.deepEqual(result.kept, [old, recent]);
+  assert.equal(result.fixed, 0);
+  assert.equal(new Date(old.t).getFullYear(), 2018);
+  assert.equal(old.fixed, undefined);
+  assert.deepEqual(result.kept, [recent]);
 });
 
-test('la restauration conserve les dates anciennes déjà corrigées mais ignore celles sans correction', () => {
+test('la restauration ignore toutes les dates brutes anciennes', () => {
   const corrected = { t: MIN_VALID + 1000, rk: '10/04/2018 12:00:00', fixed: true, sh: 50 };
   const uncorrected = { t: new Date(2018, 3, 10, 12).getTime(), rk: '10/04/2018 12:00:00', sh: 49 };
   const recent = { t: MIN_VALID + 2000, rk: '10/11/2026 12:00:00', sh: 51 };
@@ -367,6 +365,6 @@ test('la restauration conserve les dates anciennes déjà corrigées mais ignore
     backup: { app: 'vmi-purevent', hist: [corrected, uncorrected, recent] },
     currentHist: [corrected, uncorrected], minValid: MIN_VALID
   });
-  assert.deepEqual(result.hist, [corrected, recent]);
+  assert.deepEqual(result.hist, [recent]);
   assert.equal(result.addedHistory, 1);
 });
