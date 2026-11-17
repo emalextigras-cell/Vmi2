@@ -1184,6 +1184,10 @@ function prepareHygrometricRows(inputRows) {
  * @returns {import('../types/vmi-types.js').OperatingReferenceResult} Référence descriptive de fonctionnement.
  */
 export function summarizeOperatingReference(data, { minSamples = 10 } = {}) {
+  if (!Number.isInteger(minSamples) || minSamples <= 0) {
+    throw new RangeError('minSamples doit être un entier strictement positif.');
+  }
+
   const rows = Array.isArray(data) ? data : [];
   const modes = new Map();
   for (const row of rows) {
