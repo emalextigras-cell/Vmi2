@@ -30,9 +30,12 @@ export function fixClock(records, history = [], minValid = MIN_VALID, maxTimesta
   // Les relevés entrants anciens doivent rester disponibles pendant cette
   // fonction : leur compteur de jours peut permettre de reconstruire leur date.
   // L'historique déjà stocké, lui, reste filtré pour ne servir que de référence fiable.
-  history = filterRawDateHistory(history, minValid);
+  history = filterRawDateHistory(history, minValid).filter(record =>
+    !Number.isFinite(maxTimestamp) || record.t <= maxTimestamp
+  );
   const known = history.concat(records).filter(record =>
     isRawDateEligible(record, minValid) && record.t >= minValid &&
+    (!Number.isFinite(maxTimestamp) || record.t <= maxTimestamp) &&
     Number.isFinite(record.d) &&
     new Date(record.t).getHours() >= 10
   );
