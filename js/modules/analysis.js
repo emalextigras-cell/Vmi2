@@ -953,6 +953,12 @@ export function buildHygrometricDiagnosis(data, {
   minSamples = 12,
   maxGapHours = 2
 } = {}) {
+  if (!Number.isFinite(trendDelta) || trendDelta <= 0) {
+    throw new RangeError('trendDelta doit être un nombre fini strictement positif.');
+  }
+  if (!Number.isInteger(minSamples) || minSamples <= 0) {
+    throw new RangeError('minSamples doit être un entier strictement positif.');
+  }
 /**
  * Prépare les relevés hygrométriques valides et mesure la qualité des entrées.
  * Les doublons valides gardent la dernière occurrence rencontrée, comme auparavant.
