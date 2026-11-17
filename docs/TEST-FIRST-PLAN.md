@@ -36,6 +36,14 @@ Cette matrice est un point de départ fondé sur les fichiers de tests présents
 7. Vérifier la syntaxe et les contrôles CI. Ne poursuivre que si tout est vert.
 8. Conserver une modification isolée et explicable ; en cas d'échec, corriger ou revenir en arrière avant toute étape suivante.
 
+## Interprétation des seuils hygrométriques
+
+- Le seuil par défaut de 1 g/m³ pour l'écart d'humidité absolue salon − air entrant est un paramètre heuristique de classement. Il ne constitue ni une norme, ni une limite physique validée pour les capteurs installés.
+- La règle de dominance à 60 % sert uniquement à classer une situation comme majoritaire dans les intervalles observés. Elle ne représente pas une durée minimale d'assèchement et ne prouve pas l'efficacité réelle du renouvellement d'air.
+- Ces paramètres ne doivent pas être recalibrés à partir d'un seul export discontinu. Une calibration pertinente exige des capteurs identifiés avec leur précision, des mesures simultanées contrôlées et un historique représentatif de plusieurs saisons.
+- Les analyses de sensibilité doivent montrer comment le résultat évolue lorsque le seuil varie, sans présenter le seuil qui produit le résultat le plus favorable comme le meilleur seuil physique.
+- Le potentiel hygrométrique doit rester distinct de l'évolution réellement mesurée de l'humidité absolue intérieure. Le débit réellement renouvelé et les échanges avec les parois ne sont pas déduits de ces seuls capteurs.
+
 ## Garde-fous VMI
 
 - Les vitesses 1, 2 et 3 restent des réglages manuels ; aucune automatisation de commande n'est introduite par cette refactorisation.
