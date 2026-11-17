@@ -2,21 +2,16 @@
 import { MIN_VALID } from './date-utils.js';
 
 /**
- * La date brute rk fait foi : certains anciens relevés ont reçu une date t
- * artificielle lors d'une correction d'horloge. Les années brutes antérieures
- * à 2025 ne doivent jamais entrer dans l'historique exploité.
+ * La date brute rk fait foi : les anciens relevés datés avant 2025 ne doivent
+ * jamais entrer dans l'historique exploité, même après une correction calculée.
  */
 export function isRawDateEligible(record, minValid = MIN_VALID) {
   if (!record || !Number.isFinite(record.t)) return false;
-  // Une date brute ancienne reste exploitable si fixClock l'a reconstruite
-  // à partir du compteur de jours et que l'horodatage corrigé est valide.
-  if (record.fixed === true) return record.t >= minValid;
   if (typeof record.rk === 'string' && record.rk.trim()) {
     const match = record.rk.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s/);
     if (match) return Number(match[3]) >= 2025;
   }
-  // Sans date brute, conserver le relevé : fixClock doit pouvoir recaler
-  // les anciens horodatages à partir du compteur de jours.
+  // Sans date brute, conserver le relevé : l’horodatage peut rester vérifiable.
   return true;
 }
 

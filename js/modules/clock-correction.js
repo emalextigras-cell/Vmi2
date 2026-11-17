@@ -6,6 +6,7 @@ const dayNumber = timestamp => {
   const d = new Date(timestamp);
   return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / DAY);
 };
+const MIN_RECONSTRUCTABLE_RAW = Date.UTC(2020, 0, 1);
 
 const modeOf = values => {
   const counts = new Map();
@@ -23,11 +24,13 @@ const modeOf = values => {
 
 /**
  * Corrige en place les relevés antérieurs à MIN_VALID à partir du compteur
- * « jours de fonctionnement ». Retourne { fixed, future, kept }.
+ * « jours de fonctionnement ». Les dates brutes antérieures à 2020 sont
+ * considérées comme des données historiques invalides et ne sont jamais recalées.
+ * Retourne { fixed, future, kept }.
  * Les règles de regroupement et le seuil horaire sont volontairement conservés.
  */
 export function fixClock(records, history = [], minValid = MIN_VALID, maxTimestamp = Infinity) {
-  // Les relevés entrants anciens doivent rester disponibles pendant cette
+  // Les relevés entrants assez récents doivent rester disponibles pendant cette
   // fonction : leur compteur de jours peut permettre de reconstruire leur date.
   // L'historique déjà stocké, lui, reste filtré pour ne servir que de référence fiable.
   history = filterRawDateHistory(history, minValid).filter(record =>
@@ -40,7 +43,8 @@ export function fixClock(records, history = [], minValid = MIN_VALID, maxTimesta
     new Date(record.t).getHours() >= 10
   );
   const epochOffset = modeOf(known.map(record => dayNumber(record.t) - record.d));
-  const bad = records.filter(record => record.t < minValid).sort((a, b) => a.t - b.t);
+  const bad = records.filter(record => record.t < minValid && record.t >= MIN_RECONSTRUCTABLE_RAW)
+    .sort((a, b) => a.t - b.t);
   let fixed = 0;
   const futureRecords = new Set();
   const futureDetails = [];
