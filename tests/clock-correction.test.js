@@ -71,3 +71,47 @@ test('fixClock recale les dates 2018 avec un repère réel de novembre 2026', ()
   assert.equal(morning.t, new Date(2018, 3, 12 + offset, 7, 24, 2).getTime());
   assert.equal(daytime.t, new Date(2018, 3, 12 + offset, 11, 30, 0).getTime());
 });
+
+
+test('fixClock écarte les dates reconstruites après la fin de la synchronisation', () => {
+  const referenceDate = Date.UTC(2026, 10, 16, 10, 7, 9);
+  const syncFinishedAt = Date.UTC(2026, 10, 17, 8, 7, 53);
+  const history = [{ t: referenceDate, d: 185 }];
+  const first = { t: new Date(2018, 4, 16, 11, 15, 45).getTime(), d: 186 };
+  const second = { t: new Date(2018, 4, 16, 11, 19, 35).getTime(), d: 186 };
+
+  const result = fixClock([first, second], history, MIN_VALID, syncFinishedAt);
+
+  assert.equal(result.fixed, 0);
+  assert.equal(result.future, 2);
+  assert.deepEqual(result.kept, []);
+  assert.equal(first.t, new Date(2018, 4, 16, 11, 15, 45).getTime());
+  assert.equal(second.t, new Date(2018, 4, 16, 11, 19, 35).getTime());
+  assert.equal(first.fixed, undefined);
+  assert.equal(second.fixed, undefined);
+});
+
+test('fixClock conserve une date reconstruite antérieure à la fin de synchronisation', () => {
+  const referenceDate = new Date(2026, 10, 16, 11, 7, 9).getTime();
+  const syncFinishedAt = new Date(2026, 10, 17, 12, 0, 0).getTime();
+  const history = [{ t: referenceDate, d: 185 }];
+  const oldRecord = { t: new Date(2018, 4, 16, 11, 15, 45).getTime(), d: 186 };
+
+  const result = fixClock([oldRecord], history, MIN_VALID, syncFinishedAt);
+
+  assert.equal(result.fixed, 1);
+  assert.equal(result.future, 0);
+  assert.equal(result.kept.length, 1);
+  assert.equal(oldRecord.fixed, true);
+  assert.ok(oldRecord.t <= syncFinishedAt);
+});
+
+test('fixClock écarte aussi un relevé déjà daté après la fin de synchronisation', () => {
+  const syncFinishedAt = new Date(2026, 10, 17, 12, 0, 0).getTime();
+  const futureRecord = { t: syncFinishedAt + 60_000, d: 200 };
+
+  const result = fixClock([futureRecord], [], MIN_VALID, syncFinishedAt);
+
+  assert.equal(result.future, 1);
+  assert.deepEqual(result.kept, []);
+});
