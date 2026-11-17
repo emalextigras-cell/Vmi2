@@ -37,6 +37,7 @@ export function mergeBackupData({
   if (!backup || backup.app !== 'vmi-purevent' || !Array.isArray(backup.hist)) {
     throw new Error('Fichier de sauvegarde non reconnu.');
   }
+  const source = /** @type {UnknownRecord & {hist:VmiRecord[], live?:VmiRecord[], meta?:{lastSync?:string}, energyReadings?:EnergyReading[]}} */ (backup);
   if (!Number.isFinite(minValid) || minValid <= 0) {
     throw new RangeError('minValid doit être un horodatage fini strictement positif.');
   }
@@ -50,7 +51,7 @@ export function mergeBackupData({
     record.t >= minValid && record.t <= maxTimestamp;
   const history = new Map(currentHist.filter(isUsableHistory).map(r => [r.t, r]));
   let addedHistory = 0, enrichedHistory = 0;
-  for (const record of backup.hist) {
+  for (const record of source.hist) {
     if (!isUsableHistory(record)) continue;
     if (!history.has(record.t)) { history.set(record.t, record); addedHistory++; }
     else {
@@ -61,9 +62,9 @@ export function mergeBackupData({
   }
   const hist = [...history.values()].sort((a,b) => a.t-b.t);
   let live = [...currentLive], addedLive = 0;
-  if (Array.isArray(backup.live)) {
+  if (Array.isArray(source.live)) {
     const byTime = new Map(live.filter(r => r && Number.isFinite(r.t)).map(r => [r.t,r]));
-    for (const record of backup.live) {
+    for (const record of source.live) {
       if (!record || !Number.isFinite(record.t)) continue;
       if (!byTime.has(record.t)) { byTime.set(record.t,record); addedLive++; }
       else byTime.set(record.t,mergeRecordFields(byTime.get(record.t),record));
@@ -73,14 +74,14 @@ export function mergeBackupData({
     else if(live.length>maxLive) live=live.slice(-maxLive);
   }
   const meta={...(currentMeta||{})};
-  if(backup.meta&&backup.meta.lastSync&&(!meta.lastSync||backup.meta.lastSync>meta.lastSync)) meta.lastSync=backup.meta.lastSync;
+  if(source.meta?.lastSync&&(!meta.lastSync||source.meta.lastSync>String(meta.lastSync))) meta.lastSync=source.meta.lastSync;
 
   let energyReadings = Array.isArray(currentEnergyReadings)
     ? currentEnergyReadings.filter(isValidEnergyReading) : [];
   let addedEnergyReadings = 0;
-  if (Array.isArray(backup.energyReadings)) {
+  if (Array.isArray(source.energyReadings)) {
     const byId = new Map(energyReadings.map(reading => [reading.id, reading]));
-    for (const reading of backup.energyReadings.filter(isValidEnergyReading)) {
+    for (const reading of source.energyReadings.filter(isValidEnergyReading)) {
       if (!byId.has(reading.id)) {
         byId.set(reading.id, reading);
         addedEnergyReadings++;
