@@ -8,11 +8,10 @@ import { MIN_VALID } from './date-utils.js';
  * La date brute rk fait foi pour les nouveaux relevés : les anciens relevés
  * déjà validés par une correction d'horloge restent conservés.
  */
-/**
- * isRawDateEligible — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
- * @param {unknown} record Paramètre record.
- * @param {unknown} minValid Paramètre minValid.
- * @returns {UnknownRecord} Résultat structuré du module.
+/** Vérifie l'éligibilité temporelle d'un relevé sans modifier sa date.
+ * @param {Partial<VmiRecord> & {rk?: string}} record Relevé à vérifier.
+ * @param {number} [minValid] Timestamp minimal accepté pour les dates corrigées.
+ * @returns {boolean} true si le relevé peut être conservé.
  */
 export function isRawDateEligible(record, minValid = MIN_VALID) {
   if (!record || !Number.isFinite(record.t)) return false;
@@ -30,11 +29,10 @@ export function filterRawDateHistory(records, minValid = MIN_VALID, maxTimestamp
     isRawDateEligible(record, minValid) && record.t <= maxTimestamp
   );
 }
-/**
- * pruneHistory — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
- * @param {VmiRecord[]} records Paramètre records.
- * @param {unknown} maxRecords Paramètre maxRecords.
- * @returns {UnknownRecord} Résultat structuré du module.
+/** Filtre les relevés vides puis limite la taille de l'historique.
+ * @param {VmiRecord[]} records Relevés à conserver.
+ * @param {number} maxRecords Nombre maximal de relevés.
+ * @returns {{records: VmiRecord[], removed: number}} Historique conservé et nombre retiré.
  */
 export function pruneHistory(records, maxRecords) {
   const valid = (Array.isArray(records) ? records : []).filter(record =>
@@ -53,11 +51,10 @@ export function pruneHistory(records, maxRecords) {
  * Complète un relevé existant avec les valeurs non nulles d'une nouvelle source.
  * Les champs déjà renseignés sont conservés si la nouvelle source ne les fournit pas.
  */
-/**
- * mergeRecordFields — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
- * @param {unknown} existing Paramètre existing.
- * @param {unknown} incoming Paramètre incoming.
- * @returns {UnknownRecord} Résultat structuré du module.
+/** Fusionne deux relevés en conservant les valeurs connues en cas de transfert partiel.
+ * @param {Partial<VmiRecord>|null|undefined} existing Relevé déjà stocké.
+ * @param {Partial<VmiRecord>|null|undefined} incoming Relevé entrant.
+ * @returns {Partial<VmiRecord>|null|undefined} Relevé fusionné.
  */
 export function mergeRecordFields(existing, incoming) {
   if (!existing) return incoming;
