@@ -238,6 +238,12 @@ export function analyzeSpeedTimeContext(data, { minSamples = 5, minDays = 2 } = 
 export function compareOperatingPeriods(data, {
   periodDays = 7, minSamples = 12, minDays = 3
 } = {}) {
+  for (const [name, value] of Object.entries({ periodDays, minSamples, minDays })) {
+    if (!Number.isInteger(value) || value <= 0) {
+      throw new RangeError(`${name} doit être un entier strictement positif.`);
+    }
+  }
+
   const rows = (Array.isArray(data) ? data : []).filter(row =>
     Number.isFinite(row?.t) &&
     Number.isFinite(new Date(row.t).getTime()) &&
