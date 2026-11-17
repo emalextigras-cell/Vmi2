@@ -43,6 +43,7 @@ export function fixClock(records, history = [], minValid = MIN_VALID, maxTimesta
   const bad = records.filter(record => record.t < minValid).sort((a, b) => a.t - b.t);
   let fixed = 0;
   const futureRecords = new Set();
+  const futureDetails = [];
 
   if (epochOffset !== undefined && bad.length) {
     const episodes = [];
@@ -70,6 +71,7 @@ export function fixClock(records, history = [], minValid = MIN_VALID, maxTimesta
         ).getTime();
         if (Number.isFinite(maxTimestamp) && correctedTimestamp > maxTimestamp) {
           futureRecords.add(record);
+          futureDetails.push({ record, correctedTimestamp });
           continue;
         }
         record.t = correctedTimestamp;
@@ -83,9 +85,10 @@ export function fixClock(records, history = [], minValid = MIN_VALID, maxTimesta
     if (!isRawDateEligible(record, minValid) || record.t < minValid) return false;
     if (Number.isFinite(maxTimestamp) && record.t > maxTimestamp) {
       futureRecords.add(record);
+      futureDetails.push({ record, correctedTimestamp: record.t });
       return false;
     }
     return true;
   });
-  return { fixed, future: futureRecords.size, kept };
+  return { fixed, future: futureRecords.size, futureDetails, kept };
 }

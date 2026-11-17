@@ -499,7 +499,8 @@ $('clk').onclick=setClock;
 function ingest(recs,label,maxTimestamp=Date.now()){
  const future=recs.filter(record=>Number.isFinite(record.t)&&record.t>maxTimestamp);
  if(future.length)log(`${label} : dates futures reçues (${future.map(record=>record.rk+' · +'+Math.round((record.t-maxTimestamp)/1000)+' s').join(' ; ')})`);
- const {fixed,kept}=fixClock(recs,hist,MIN_VALID,maxTimestamp);
+ const {fixed,kept,futureDetails}=fixClock(recs,hist,MIN_VALID,maxTimestamp);
+ if(futureDetails.length)log(`${label} : dates futures après correction (${futureDetails.map(({record,correctedTimestamp})=>record.rk+' · d='+record.d+' · '+new Date(correctedTimestamp).toLocaleString('fr-FR')).join(' ; ')})`);
  hist=mergeImportedHistory(hist,kept,maxTimestamp);
  pruneHist();void persist('hist',hist,'Sauvegarde de l’historique').catch(()=>{});source='hist';
  // Conserver le jour choisi : une synchronisation en arrière-plan ne doit pas réinitialiser les graphiques.
