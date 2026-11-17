@@ -420,6 +420,7 @@ export function summarizeTemperatureLimit(data, {
 
   const rows = Array.isArray(data) ? data : [];
   const eligible = rows.filter(row =>
+    Number.isFinite(row?.t) && Number.isFinite(new Date(row.t).getTime()) &&
     Number.isFinite(row?.consTmaxRaw) && isPlausibleTemperature(row.consTmaxRaw) &&
     Number.isFinite(row?.tExt) && isPlausibleTemperature(row.tExt)
   );
