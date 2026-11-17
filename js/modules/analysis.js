@@ -6,10 +6,9 @@
 import { absoluteHumidity, dewPoint } from './psychrometry.js';
 import { isPlausibleHumidity, isPlausibleTemperature } from './data-quality.js';
 
-/**
- * median — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
- * @param {unknown} values Paramètre values.
- * @returns {UnknownRecord} Résultat de median.
+/** Médiane d'une liste de valeurs numériques finies.
+ * @param {number[]} values Valeurs à résumer.
+ * @returns {number|null} Médiane, ou null si aucune valeur numérique finie.
  */
 export function median(values) {
   const sorted = values.filter(Number.isFinite).sort((a,b)=>a-b);
