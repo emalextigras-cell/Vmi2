@@ -1,4 +1,19 @@
 /**
+ * @typedef {Object} VmiRecord
+ * @property {number} [t] Horodatage Unix en millisecondes.
+ * @property {number} [st] Température intérieure en °C.
+ * @property {number} [sh] Humidité relative intérieure en %.
+ * @property {number} [te] Température de l'air entrant en °C.
+ * @property {number} [he] Humidité relative de l'air entrant en %.
+ * @property {number} [tExt] Température extérieure en °C.
+ * @property {number} [rpm] Régime moteur en tr/min.
+ * @property {number} [debit] Débit en m³/h.
+ * @property {number} [vmiModeRaw] Code brut du mode VMI.
+ */
+/** @typedef {Record<string, unknown>} UnknownRecord */
+/** @typedef {{minSamples?: number, minDays?: number}} AnalysisOptions */
+
+/**
  * Assistant VMI local : synthèse pédagogique des analyses existantes.
  * Ce module ne pilote pas la VMI et ne remplace aucun calcul métier :
  * il réutilise les résultats des modules d'analyse déjà présents.
@@ -58,6 +73,12 @@ const recommendation = (priority, title, text, reason) => ({
 /**
  * Produit une synthèse pour débutant à partir du même historique que les
  * panneaux d'analyse. Les résultats restent descriptifs et explicables.
+ */
+/**
+ * buildVmiAssistantSummary — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} data Paramètre data.
+ * @param {unknown} options Paramètre options.
+ * @returns {UnknownRecord} Résultat structuré du module.
  */
 export function buildVmiAssistantSummary(data, options = {}) {
   const rows = Array.isArray(data) ? data : [];
