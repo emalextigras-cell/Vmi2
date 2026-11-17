@@ -4,6 +4,7 @@ import {
   median,
   compareOperatingPeriods,
   analyzeSpeedTimeContext,
+  analyzeSpeedLevels,
   summarizeTemperatureLimit,
   summarizeOperatingReference,
   summarizeRawVmiMode,
@@ -239,4 +240,23 @@ test('analyzeSpeedTimeContext conserve ses seuils par défaut et accepte des ent
   const custom = analyzeSpeedTimeContext([], { minSamples: 1, minDays: 1 });
   assert.equal(custom.minSamples, 1);
   assert.equal(custom.minDays, 1);
+});
+
+
+test('analyzeSpeedLevels rejette un minimum de mesures invalide', () => {
+  for (const minSamples of [0, -1, 1.5, Infinity, NaN]) {
+    assert.throws(
+      () => analyzeSpeedLevels([], minSamples),
+      RangeError
+    );
+  }
+});
+
+test('analyzeSpeedLevels conserve son seuil par défaut et accepte un entier positif', () => {
+  const defaults = analyzeSpeedLevels([]);
+  assert.equal(defaults.minSamples, 10);
+
+  const custom = analyzeSpeedLevels([], 1);
+  assert.equal(custom.minSamples, 1);
+  assert.equal(custom.status, 'no-speed-data');
 });
