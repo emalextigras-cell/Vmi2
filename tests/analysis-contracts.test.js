@@ -691,3 +691,18 @@ test('summarizeOperatingReference ne pondère pas deux fois un même mode et hor
   assert.equal(debit.median, 205);
   assert.equal(mode1.ready, true);
 });
+
+
+test('summarizeRawVmiMode ne compte pas deux fois un même mode et horodatage', () => {
+  const timestamp = at(19, 8);
+  const result = summarizeRawVmiMode([
+    { t: timestamp, vmiModeRaw: 1, debit: 100, volumeRaw: 200 },
+    { t: timestamp, vmiModeRaw: 1, debit: 300, volumeRaw: 300 },
+    { t: at(20, 8), vmiModeRaw: 1, debit: 120, volumeRaw: 240 }
+  ]);
+  const mode1 = result.find(group => group.mode === 1);
+
+  assert.equal(mode1.sampleCount, 2);
+  assert.equal(mode1.medianDebit, 210);
+  assert.equal(mode1.medianRenewalRate, 0.75);
+});
