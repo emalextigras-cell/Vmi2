@@ -533,3 +533,19 @@ test('analyzeHourlyPatterns ne compte qu une observation par horodatage', () => 
   assert.equal(morning.medianRH, null);
   assert.equal(morning.medianDelta, null);
 });
+
+
+test('summarizeTemperatureLimit ne compte pas deux fois un même mode et horodatage', () => {
+  const timestamp = at(12);
+  const result = summarizeTemperatureLimit([
+    { t: timestamp, vmiModeRaw: 1, consTmaxRaw: 20, tExt: 22, debit: 100 },
+    { t: timestamp, vmiModeRaw: 1, consTmaxRaw: 20, tExt: 23, debit: 110 },
+    { t: timestamp, vmiModeRaw: 1, consTmaxRaw: 20, tExt: 24, debit: 120 }
+  ], { minimumGroupSamples: 1, minimumGroupDays: 1 });
+  const threshold = result.thresholds.find(item => item.threshold === 20);
+
+  assert.equal(result.eligibleSampleCount, 1);
+  assert.equal(threshold.aboveThresholdCount, 1);
+  assert.equal(threshold.above.sampleCount, 1);
+  assert.equal(threshold.above.medianOutdoorTemp, 24);
+});
