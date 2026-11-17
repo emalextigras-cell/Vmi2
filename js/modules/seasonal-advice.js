@@ -1,3 +1,18 @@
+/**
+ * @typedef {Object} VmiRecord
+ * @property {number} [t] Horodatage Unix en millisecondes.
+ * @property {number} [st] Température intérieure en °C.
+ * @property {number} [sh] Humidité relative intérieure en %.
+ * @property {number} [te] Température de l'air entrant en °C.
+ * @property {number} [he] Humidité relative de l'air entrant en %.
+ * @property {number} [tExt] Température extérieure en °C.
+ * @property {number} [rpm] Régime moteur en tr/min.
+ * @property {number} [debit] Débit en m³/h.
+ * @property {number} [vmiModeRaw] Code brut du mode VMI.
+ */
+/** @typedef {Record<string, unknown>} UnknownRecord */
+/** @typedef {{minSamples?: number, minDays?: number}} AnalysisOptions */
+
 /** Analyse saisonnière et opportunités de surventilation.
  * La saison calendaire est dérivée de l'horodatage ; le code Saison VMI+ reste
  * conservé séparément tant que sa table de correspondance n'est pas prouvée.
@@ -7,6 +22,11 @@ import { median } from './analysis.js';
 import { absoluteHumidity } from './psychrometry.js';
 import { isPlausibleTemperature, isPlausibleHumidity } from './data-quality.js';
 
+/**
+ * calendarSeason — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {unknown} timestamp Paramètre timestamp.
+ * @returns {UnknownRecord} Résultat structuré du module.
+ */
 export function calendarSeason(timestamp) {
   if (!Number.isFinite(timestamp)) return null;
   const month = new Date(timestamp).getMonth() + 1;
@@ -29,6 +49,14 @@ function localDay(timestamp) {
  * Les médianes sont calculées par jour puis chaque jour a le même poids.
  * Une opportunité thermique est seulement un contexte favorable observé,
  * pas une preuve de refroidissement/réchauffement réel du logement.
+ */
+/**
+ * analyzeSeasonalVentilation — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} data Paramètre data.
+ * @param {AnalysisOptions} options Options de calcul.
+ * @param {unknown} minDays Paramètre minDays.
+ * @param {unknown} temperatureMargin Paramètre temperatureMargin.
+ * @returns {UnknownRecord} Résultat structuré du module.
  */
 export function analyzeSeasonalVentilation(data, { minSamples = 6, minDays = 2, temperatureMargin = 2 } = {}) {
   const rows = (Array.isArray(data) ? data : []).filter(row =>
