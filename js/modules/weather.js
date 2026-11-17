@@ -1,10 +1,4 @@
-/**
- * @typedef {Object} VmiRecord
- * @property {number} [t] Horodatage Unix en millisecondes.
- * @property {number} [st] Température intérieure en °C.
- * @property {number} [sh] Humidité relative intérieure en %.
- */
-/** @typedef {Record<string, unknown>} UnknownRecord */
+
 
 /** Compatibilité avec une ancienne version en cache : la météo a été retirée de l’interface. */
 export function setupWeather({ button, status, output } = {}) {
