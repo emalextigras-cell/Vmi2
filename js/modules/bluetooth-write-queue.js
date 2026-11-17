@@ -23,13 +23,13 @@ export function createBleWriteQueue({
       const ensureSession = () => {
         if (getConnectionToken() !== connectionToken || !isConnected()) {
           const error = new Error('Commande annulée : la connexion Bluetooth a changé ou a été interrompue.');
-          error.code = 'BLE_SESSION_CHANGED';
+          /** @type {Error & {code: string}} */ (error).code = 'BLE_SESSION_CHANGED';
           throw error;
         }
       };
       if (getConnectionToken() !== connectionToken) {
         const error = new Error('Commande annulée : la session Bluetooth a changé.');
-        error.code = 'BLE_SESSION_CHANGED';
+        /** @type {Error & {code: string}} */ (error).code = 'BLE_SESSION_CHANGED';
         throw error;
       }
       if (!isConnected()) throw new Error('VMI non connectée');
