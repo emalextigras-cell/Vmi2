@@ -1,5 +1,5 @@
 /** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
-/** @typedef {import('../types/vmi-types.js').UnknownRecord} UnknownRecord */
+/** @typedef {{sequence: number|null, expectedChunk: number, skippedSequence: number|null, fragments: Map<string,string>, gapCount: number}} HistoryStreamState */
 
 /**
  * Contrôle l'ordre des fragments d'historique observés dans les notifications VMI.
@@ -10,7 +10,7 @@
  */
 /**
  * createHistoryStreamState — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
- * @returns {{sequence: number|null, expectedChunk: number, skippedSequence: number|null, fragments: Map<string,string>, gapCount: number}} État du flux initialisé.
+ * @returns {HistoryStreamState} État du flux initialisé.
  */
 export function createHistoryStreamState() {
   return {
@@ -24,14 +24,16 @@ export function createHistoryStreamState() {
 
 /**
  * acceptHistoryFragment — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
- * @param {unknown} state Paramètre state.
- * @param {unknown} fragment Paramètre fragment.
+ * @param {HistoryStreamState} state État du flux à mettre à jour.
+ * @param {unknown} fragment Fragment reçu, validé avant acceptation.
  * @returns {{accepted: boolean, duplicate: boolean, gap: boolean, resetBuffer: boolean}} Décision de réception du fragment.
  */
 export function acceptHistoryFragment(state, fragment) {
-  const sequence = Number(fragment?.sequence);
-  const chunkIndex = Number(fragment?.chunkIndex);
-  const payload = String(fragment?.payload ?? '');
+  const data = fragment && typeof fragment === 'object'
+    ? /** @type {Record<string, unknown>} */ (fragment) : {};
+  const sequence = Number(data.sequence);
+  const chunkIndex = Number(data.chunkIndex);
+  const payload = String(data.payload ?? '');
   if (!Number.isInteger(sequence) || sequence < 0 ||
       !Number.isInteger(chunkIndex) || chunkIndex < 0 || chunkIndex % 10 !== 0) {
     state.gapCount++;
@@ -121,7 +123,7 @@ export function markHistoryRows(records, complete) {
 /** Signale une notification d'historique tronquée dont les index ne sont pas lisibles. */
 /**
  * markHistoryStreamInvalid — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
- * @param {unknown} state Paramètre state.
+ * @param {HistoryStreamState} state État du flux à invalider.
  * @returns {{accepted: false, duplicate: false, gap: true, resetBuffer: true}} Signal de flux invalide.
  */
 export function markHistoryStreamInvalid(state) {
