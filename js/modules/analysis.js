@@ -37,11 +37,24 @@ export function analyzeSpeedLevels(data, minSamples = 10, targetRH = 50) {
     throw new RangeError('minSamples doit être un entier strictement positif.');
   }
 
-  const rows = (Array.isArray(data) ? data : []).filter(r =>
+  const eligibleRows = (Array.isArray(data) ? data : []).filter(r =>
     Number.isFinite(r?.vmiModeRaw) && [1,2,3].includes(r.vmiModeRaw) &&
     Number.isFinite(r.sh) && isPlausibleHumidity(r.sh) &&
     Number.isFinite(r.st) && isPlausibleTemperature(r.st)
   );
+  // Un même mode et horodatage ne représentent qu'une observation ;
+  // la dernière ligne valide rencontrée prévaut. Les imports sans date
+  // ou avec une date hors plage restent conservés pour compatibilité.
+  const uniqueRows = new Map();
+  const untimedRows = [];
+  for (const row of eligibleRows) {
+    if (Number.isFinite(row.t) && Number.isFinite(new Date(row.t).getTime())) {
+      uniqueRows.set(`${row.vmiModeRaw}:${row.t}`, row);
+    } else {
+      untimedRows.push(row);
+    }
+  }
+  const rows = [...untimedRows, ...uniqueRows.values()];
   const groups = [1,2,3].map(v => {
     const samples = rows.filter(r => r.vmiModeRaw === v).sort((a,b)=>a.t-b.t);
     const deltas = samples.map(r => {
