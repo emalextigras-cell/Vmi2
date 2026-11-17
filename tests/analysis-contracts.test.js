@@ -446,3 +446,17 @@ test('detectRapidChanges ignore les horodatages hors plage JavaScript', () => {
 test('median conserve une médiane finie pour des valeurs finies proches de Number.MAX_VALUE', () => {
   assert.equal(median([Number.MAX_VALUE, Number.MAX_VALUE]), Number.MAX_VALUE);
 });
+
+
+test('summarizeRawVmiSpeed exclut les débits négatifs comme summarizeRawVmiMode', () => {
+  const result = summarizeRawVmiSpeed([
+    { vmiSpeedRaw: 2, debit: 120 },
+    { vmiSpeedRaw: 2, debit: -50 },
+    { vmiSpeedRaw: 2, debit: 140 }
+  ]);
+
+  assert.equal(result[0].sampleCount, 2);
+  assert.equal(result[0].medianDebit, 130);
+  assert.equal(result[0].minDebit, 120);
+  assert.equal(result[0].maxDebit, 140);
+});
