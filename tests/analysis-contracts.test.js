@@ -260,3 +260,18 @@ test('analyzeSpeedLevels conserve son seuil par défaut et accepte un entier pos
   assert.equal(custom.minSamples, 1);
   assert.equal(custom.status, 'no-speed-data');
 });
+
+
+test('summarizeOperatingReference rejette un minimum de mesures invalide', () => {
+  for (const minSamples of [0, -1, 1.5, Infinity, NaN]) {
+    assert.throws(
+      () => summarizeOperatingReference([], { minSamples }),
+      RangeError
+    );
+  }
+});
+
+test('summarizeOperatingReference conserve le minimum par défaut et accepte un entier positif', () => {
+  assert.equal(summarizeOperatingReference([]).minSamples, 10);
+  assert.equal(summarizeOperatingReference([], { minSamples: 1 }).minSamples, 1);
+});
