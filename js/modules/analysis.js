@@ -1313,8 +1313,8 @@ export function summarizeRawVmiMode(data) {
   return [...groups.entries()].sort((a,b)=>a[0]-b[0]).map(([mode, rows]) => ({
     mode, sampleCount: rows.length,
     medianDebit: median(rows.map(r=>r.debit)),
-    minDebit: rows.length ? Math.min(...rows.map(r=>r.debit)) : null,
-    maxDebit: rows.length ? Math.max(...rows.map(r=>r.debit)) : null,
+    minDebit: rows.length ? rows.reduce((minimum, row) => Math.min(minimum, row.debit), Infinity) : null,
+    maxDebit: rows.length ? rows.reduce((maximum, row) => Math.max(maximum, row.debit), -Infinity) : null,
     medianRenewalRate: median(rows.map(r=>r.renewalRate).filter(Number.isFinite)),
     referenceDebit: mode === 3 ? 184 : null,
     referenceRenewalRate: mode === 3 ? 184 / 337 : null
