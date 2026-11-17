@@ -287,14 +287,14 @@ export interface WeeklyDiagnosticResult {
     medianRH:number|null;medianTemperature:number|null;energyCoveredDays:number;
     estimatedFanKwh:number|null;fanHours:number|null}>;
   comparison:{indoorHA:number|null;incomingHA:number|null;deltaHA:number|null;relativeHumidity:number|null;temperature:number|null}|null;
-  findings:Array<{type:string;title:string;text:string}>;
-  windowDays:number;minSamplesPerDay:number;minDaysPerWindow:number;minEnergyDays:number;
-  maxGapHours:number;changeThreshold:number;duplicateTimestampCount:number;conflictingTimestampCount:number;limits:string[];
+  findings?:Array<{type:string;title:string;text:string}>;
+  windowDays:number;minSamplesPerDay:number;minDaysPerWindow:number;minEnergyDays?:number;
+  maxGapHours?:number;changeThreshold?:number;duplicateTimestampCount:number;conflictingTimestampCount:number;limits?:string[];
 }
 export interface EnergyClimateMeterContextResult {
   meters:Array<{meterType:EnergyMeterType;label:string;intervals:Array<{
     from:number;to:number;elapsedHours:number;previousKwh:number;currentKwh:number;
-    deltaKwh:number|null;averagePowerW:number|null;status:'measured';context:{
+    deltaKwh:number|null;averagePowerW:number|null;status:'measured'|'counter-decreased';context:{
       indoorTemp:number|null;outdoorTemp:number|null;indoorRH:number|null;incomingTemp:number|null;
       incomingRH:number|null;indoorAbsHumidity:number|null;incomingAbsHumidity:number|null;
       deltaAbsHumidity:number|null;coverageHours:number;coveragePercent:number;coveredMs:number;
