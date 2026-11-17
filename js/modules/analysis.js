@@ -157,7 +157,7 @@ export function analyzeSpeedTimeContext(data, { minSamples = 5, minDays = 2 } = 
       const firstStats=ready?summarize(firstDaySamples):null;
       const secondStats=ready?summarize(secondDaySamples):null;
       const comparison={
-        bucket,label:buckets[bucket],speeds:pair,
+        bucket,label:buckets[bucket],speeds: /** @type {[number,number]} */ (pair),
         sharedDayCount:sharedDayKeys.length,
         sampleCountFirst:firstSamples.length,
         sampleCountSecond:secondSamples.length,
