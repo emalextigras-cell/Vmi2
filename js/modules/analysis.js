@@ -258,11 +258,14 @@ export function compareOperatingPeriods(data, {
     }
   }
 
-  const rows = (Array.isArray(data) ? data : []).filter(row =>
-    Number.isFinite(row?.t) &&
-    Number.isFinite(new Date(row.t).getTime()) &&
-    Number.isFinite(row?.vmiModeRaw) && [1, 2, 3].includes(row.vmiModeRaw)
-  );
+  const uniqueRows = new Map();
+  for (const row of Array.isArray(data) ? data : []) {
+    if (!Number.isFinite(row?.t) ||
+        !Number.isFinite(new Date(row.t).getTime()) ||
+        !Number.isFinite(row?.vmiModeRaw) || ![1, 2, 3].includes(row.vmiModeRaw)) continue;
+    uniqueRows.set(`${row.vmiModeRaw}:${row.t}`, row);
+  }
+  const rows = [...uniqueRows.values()];
   if (!rows.length) {
     return { status: 'no-mode-data', periodDays, minSamples, minDays, periods: [], comparisons: [] };
   }
