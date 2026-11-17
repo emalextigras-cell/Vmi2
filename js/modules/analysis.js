@@ -1338,8 +1338,8 @@ export function summarizeRawVmiSpeed(data) {
     code,
     sampleCount: values.length,
     medianDebit: median(values),
-    minDebit: values.length ? Math.min(...values) : null,
-    maxDebit: values.length ? Math.max(...values) : null
+    minDebit: values.length ? values.reduce((minimum, value) => Math.min(minimum, value), Infinity) : null,
+    maxDebit: values.length ? values.reduce((maximum, value) => Math.max(maximum, value), -Infinity) : null
   }));
 }
 
