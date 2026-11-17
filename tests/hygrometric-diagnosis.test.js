@@ -580,3 +580,45 @@ test('trend can be confirmed with exactly two recent days above the baseline med
  assert.equal(finding.basis.risingDays,2);
  assert.equal(finding.basis.minimumDirectionalDays,2);
 });
+
+
+test('couverture distingue les niveaux faible, modéré et élevé selon les seuils documentés',()=>{
+ const low=buildHygrometricDiagnosis([
+  ...makeRows({days:2,perDay:6}),
+  ...Array.from({length:10},(_,i)=>({t:Date.now()+i,st:20,sh:150,te:10,he:40}))
+ ]);
+ assert.equal(low.coverageLevel,'faible');
+ assert.ok(low.confidenceBasis.acceptedSampleShare<0.7);
+
+ const moderate=buildHygrometricDiagnosis(makeRows({days:3,perDay:10}));
+ assert.equal(moderate.coverageLevel,'modérée');
+ assert.ok(moderate.confidenceBasis.acceptedSampleShare>=0.7);
+ assert.ok(moderate.confidenceBasis.observedCoveragePercent>=20);
+
+ const start=new Date(2026,10,10,0,0,0).getTime();
+ const dense=Array.from({length:241},(_,i)=>({
+  t:start+i*30*60*1000,st:20,sh:60,te:10,he:40
+ }));
+ const high=buildHygrometricDiagnosis(dense);
+ assert.equal(high.coverageLevel,'élevée');
+ assert.ok(high.confidenceBasis.acceptedSampleShare>=0.9);
+ assert.ok(high.confidenceBasis.observedCoveragePercent>=50);
+});
+
+test('couverture insuffisante reste distincte du niveau de confiance',()=>{
+ const sparse=buildHygrometricDiagnosis(makeRows({days:1,perDay:4}));
+ assert.equal(sparse.status,'insufficient-data');
+ assert.equal(sparse.coverageLevel,'faible');
+ assert.equal(sparse.confidenceBasis.daysWithAtLeastThreeSamples,1);
+ assert.equal(sparse.dayCount,1);
+});
+
+test('la part acceptée tient compte des lignes sans horodatage et des doublons',()=>{
+ const valid=makeRows({days:3,perDay:10});
+ const rows=[...valid,{st:20,sh:60,te:10,he:40},valid[0]];
+ const result=buildHygrometricDiagnosis(rows);
+ assert.equal(result.inputQuality.missingTimestampCount,1);
+ assert.equal(result.inputQuality.duplicateTimestampCount,1);
+ assert.equal(result.inputQuality.acceptedSampleCount,valid.length);
+ assert.equal(result.confidenceBasis.acceptedSampleShare,valid.length/rows.length);
+});
