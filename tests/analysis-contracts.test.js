@@ -353,3 +353,19 @@ test('detectRapidChanges conserve ses seuils par défaut et accepte des seuils p
     absoluteHumidityJump: 1
   }), []);
 });
+
+
+test('analyzeHourlyPatterns ignore les horodatages hors plage JavaScript', () => {
+  const invalidTimestamp = {
+    t: 8640000000000001,
+    st: 20,
+    sh: 50,
+    te: 10,
+    he: 60
+  };
+
+  const result = analyzeHourlyPatterns([invalidTimestamp]);
+
+  assert.equal(result.buckets.reduce((sum, bucket) => sum + bucket.sampleCount, 0), 0);
+  assert.ok(result.buckets.every(bucket => bucket.medianRH === null && bucket.medianDelta === null));
+});
