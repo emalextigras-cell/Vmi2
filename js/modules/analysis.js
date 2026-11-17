@@ -347,7 +347,7 @@ export function compareOperatingPeriods(data, {
  */
 export function summarizeEnergyReadiness(data) {
   const rows=Array.isArray(data)?data:[];
-  const fields=[
+  const fields = /** @type {Array<{key:'rpm'|'debit'|'vmiSpeedRaw'|'vmiPwmRaw'|'consDpRaw'|'consResRaw'|'consHydroRRaw'|'consTmaxRaw'|'kmoteurRaw'|'jmoteurRaw'|'kreseauRaw'|'jreseauRaw'|'motorPressureRaw'|'offsetPressureRaw'|'operatingPctRaw'|'operatingPct2Raw'|'dcintRaw',label:string,unit:string,verified:boolean}>} */ ([
     {key:'rpm',label:'Régime moteur',unit:'tr/min (confirmé)',verified:true},
     {key:'debit',label:'Débit',unit:'m³/h',verified:true},
     {key:'vmiSpeedRaw',label:'Code vitesse VMI+',unit:'code brut',verified:false},
@@ -365,7 +365,7 @@ export function summarizeEnergyReadiness(data) {
     {key:'operatingPctRaw',label:'% fonct',unit:'échelle à confirmer',verified:false},
     {key:'operatingPct2Raw',label:'% fonct.1',unit:'échelle à confirmer',verified:false},
     {key:'dcintRaw',label:'Dcint',unit:'signification et unité à confirmer',verified:false}
-  ].map(field=>{
+  ]).map(field=>{
     const values=rows.map(r=>r?.[field.key]).filter((value) => typeof value === 'number' && Number.isFinite(value));
     return {...field,count:values.length,
       zeroCount:values.filter(value=>value===0).length,
@@ -506,7 +506,7 @@ export function summarizeTemperatureLimit(data, {
  * analyzeHygrometricPeriods — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
  * @param {VmiRecord[]} data Historique des relevés hygrométriques.
  * @param {{threshold?: number, maxGapHours?: number}} options Seuils de regroupement temporel.
- * @returns {UnknownRecord} Périodes hygrométriques détectées.
+ * @returns {import('../types/vmi-types.js').HygrometricPeriodsResult} Périodes hygrométriques détectées.
  */
 export function analyzeHygrometricPeriods(data, { threshold = 1, maxGapHours = 2 } = {}) {
   const rows=(Array.isArray(data)?data:[])
@@ -571,7 +571,7 @@ function validHygroRow(r) {
 /**
  * summarizeDailyTrends — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
  * @param {VmiRecord[]} data Paramètre data.
- * @returns {UnknownRecord} Résultat de summarizeDailyTrends.
+ * @returns {import('../types/vmi-types.js').DailyTrendsResult} Médianes journalières et évolutions.
  */
 export function summarizeDailyTrends(data) {
   const days = new Map();
@@ -607,7 +607,7 @@ export function summarizeDailyTrends(data) {
  * analyzeHourlyPatterns — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
  * @param {VmiRecord[]} data Paramètre data.
  * @param {number} minSamples Paramètre minSamples.
- * @returns {UnknownRecord} Résultat de analyzeHourlyPatterns.
+ * @returns {import('../types/vmi-types.js').HourlyPatternsResult} Répartition horaire des mesures.
  */
 export function analyzeHourlyPatterns(data, minSamples = 3) {
   const buckets = Array.from({length:4}, (_,i) => ({
@@ -681,7 +681,7 @@ export function detectRapidChanges(data, { maxGapHours = 2, rhJump = 15, absolut
  * buildHygrometricDiagnosis — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
  * @param {VmiRecord[]} data Historique des relevés hygrométriques.
  * @param {{dryDelta?: number, trendDelta?: number, minSamples?: number, maxGapHours?: number}} options Seuils et paramètres du diagnostic.
- * @returns {UnknownRecord} Diagnostic hygrométrique explicable.
+ * @returns {import('../types/vmi-types.js').HygrometricDiagnosisResult} Diagnostic hygrométrique explicable.
  */
 export function buildHygrometricDiagnosis(data, {
   dryDelta = 1,
