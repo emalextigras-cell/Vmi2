@@ -430,3 +430,14 @@ test('summarizeOperatingReference ignore les dates hors plage dans ses indicateu
   assert.equal(group.lastAt, null);
   assert.equal(group.ready, false);
 });
+
+
+test('detectRapidChanges ignore les horodatages hors plage JavaScript', () => {
+  const boundaryTimestamp = 8640000000000000;
+  const result = detectRapidChanges([
+    { t: boundaryTimestamp, st: 20, sh: 40 },
+    { t: boundaryTimestamp + 1, st: 20, sh: 60 }
+  ]);
+
+  assert.deepEqual(result, []);
+});
