@@ -88,7 +88,7 @@ const HEADER_ALIASES = {
  */
 export function getColumnMapping(headerRow) {
   const headers = Array.isArray(headerRow) ? headerRow.map(normalizeHeader) : [];
-  const mapping = { ...FALLBACK_COLUMN };
+  const mapping = /** @type {Record<string, number>} */ ({ ...FALLBACK_COLUMN });
   for (const [key, aliases] of Object.entries(HEADER_ALIASES)) {
     const index = headers.findIndex(header => aliases.includes(header));
     if (index >= 0) mapping[key] = index;
