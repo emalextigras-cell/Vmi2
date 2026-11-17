@@ -17,5 +17,5 @@ test('la page, son script et son style sont préchargés par le service worker',
   assert.ok(sw.includes("'./tests/validation-pr118.html'"));
   assert.ok(sw.includes("'./tests/validation-pr118.js'"));
   assert.ok(sw.includes("'./tests/test-environment.css'"));
-  assert.match(sw, /vmi-test-v14-cache-40/);
+  assert.match(sw, /vmi-test-v14-cache-41/);
 });
