@@ -416,3 +416,17 @@ test('summarizeDailyTrends ignore les horodatages hors plage JavaScript', () => 
   assert.equal(result.days[0].sampleCount, 3);
   assert.equal(result.sampledDays, 1);
 });
+
+
+test('summarizeOperatingReference ignore les dates hors plage dans ses indicateurs calendaires', () => {
+  const result = summarizeOperatingReference([
+    { t: 8640000000000001, vmiModeRaw: 1, debit: 100 }
+  ]);
+  const group = result.groups.find(item => item.mode === 1);
+
+  assert.equal(group.sampleCount, 1);
+  assert.equal(group.dayCount, 0);
+  assert.equal(group.firstAt, null);
+  assert.equal(group.lastAt, null);
+  assert.equal(group.ready, false);
+});
