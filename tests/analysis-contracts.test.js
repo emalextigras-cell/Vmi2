@@ -735,3 +735,21 @@ test('summarizeOperatingReference ne déclare pas une référence disponible san
   assert.equal(mode1.ready, false);
   assert.equal(result.status, 'provisional');
 });
+
+
+test('summarizeTemperatureLimit ne déclare pas comparable un groupe sans métrique de fonctionnement', () => {
+  const result = summarizeTemperatureLimit([
+    { t: at(25, 8), vmiModeRaw: 1, consTmaxRaw: 10, tExt: 15 },
+    { t: at(25, 9), vmiModeRaw: 1, consTmaxRaw: 10, tExt: 5 },
+    { t: at(26, 8), vmiModeRaw: 1, consTmaxRaw: 10, tExt: 15 },
+    { t: at(26, 9), vmiModeRaw: 1, consTmaxRaw: 10, tExt: 5 }
+  ], { minimumGroupSamples: 2, minimumGroupDays: 2 });
+  const mode1 = result.thresholds[0].modes.find(group => group.mode === 1);
+
+  assert.equal(mode1.sharedDayCount, 2);
+  assert.equal(mode1.pairedAbove.sampleCount, 2);
+  assert.equal(mode1.pairedAtOrBelow.sampleCount, 2);
+  assert.equal(mode1.pairedAbove.medianDebit, null);
+  assert.equal(mode1.pairedAbove.medianRPM, null);
+  assert.equal(mode1.comparable, false);
+});
