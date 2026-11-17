@@ -225,8 +225,8 @@ test('analyzeSpeedTimeContext rejette les paramètres de comparaison invalides',
   }
 });
 
-test('analyzeSpeedTimeContext ne déclare pas comparables des groupes vides', () => {
-  const result = analyzeSpeedTimeContext([], { minSamples: 0, minDays: 0 });
+test('analyzeSpeedTimeContext ne déclare pas comparables des groupes vides avec les seuils par défaut', () => {
+  const result = analyzeSpeedTimeContext([]);
 
   assert.equal(result.comparisons.some(comparison => comparison.ready), false);
 });
