@@ -12,7 +12,8 @@ import {
   summarizeRawVmiMode,
   summarizeRawVmiSpeed,
   summarizeEnergyReadiness,
-  summarizeDailyTrends
+  summarizeDailyTrends,
+  buildHygrometricDiagnosis
 } from '../js/modules/analysis.js';
 
 const at = (day, hour = 8) => new Date(2026, 9, day, hour, 0, 0).getTime();
@@ -626,4 +627,20 @@ test('summarizeRawVmiSpeed résume un historique volumineux sans dépassement de
   assert.equal(speed1.sampleCount, 200000);
   assert.equal(speed1.minDebit, 100);
   assert.equal(speed1.maxDebit, 100);
+});
+
+
+test('buildHygrometricDiagnosis résume de nombreux intervalles exclus sans dépassement de pile', () => {
+  const start = Date.UTC(2026, 0, 1);
+  const rows = Array.from({ length: 130000 }, (_, index) => ({
+    t: start + index * 60000,
+    st: 20,
+    sh: 50,
+    te: 10,
+    he: 60
+  }));
+  const result = buildHygrometricDiagnosis(rows, { minSamples: 1, maxGapHours: 0.0001 });
+
+  assert.equal(result.excludedGapCount, 129999);
+  assert.equal(result.largestExcludedGapHours, 1 / 60);
 });
