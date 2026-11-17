@@ -490,13 +490,13 @@ const setCommandsDisabled=dis=>document.querySelectorAll('[data-r]').forEach(x=>
 $('clk').onclick=setClock;
 
 /* Correction des dates historiques isolée dans clock-correction.js. */
-function ingest(recs,label){
- const {fixed,kept}=fixClock(recs,hist);
+function ingest(recs,label,maxTimestamp=Infinity){
+ const {fixed,kept}=fixClock(recs,hist,MIN_VALID,maxTimestamp);
  hist=mergeImportedHistory(hist,kept);
  pruneHist();dbSet('hist',hist);source='hist';
  // Conserver le jour choisi : une synchronisation en arrière-plan ne doit pas réinitialiser les graphiques.
  const lost=recs.length-kept.length;
- $('importInfo').textContent=`${label} : ${recs.length} relevés lus${fixed?`, dont ${fixed} dont la date a été corrigée (horloge de la VMI fausse)`:''}${lost?`, ${lost} ignorés (date invalide impossible à corriger)`:''}.`;
+ $('importInfo').textContent=`${label} : ${recs.length} relevés lus${fixed?`, dont ${fixed} dont la date a été corrigée (horloge de la VMI fausse)`:''}${lost?`, ${lost} écartés (date invalide ou postérieure à la synchronisation)`:''}.`;
  log($('importInfo').textContent);
  render();
 }
@@ -518,7 +518,7 @@ function finishDownload(reachedCut,timeout=false,interrupted=false){
  download.on=false;clearTimeout(download.timeout);
  const count=download.rows.length;
  const complete=!timeout&&!interrupted&&!download.integrityGap&&(reachedCut||download.finalSeen===true);
- if(count)ingest(markHistoryRows(download.rows,complete),'Téléchargement');
+ if(count)ingest(markHistoryRows(download.rows,complete),'Téléchargement',Date.now());
  if(complete){meta.lastSync=Date.now();dbSet('meta',meta);renderFreshness()}
  $('dlh').disabled=false;setCommandsDisabled(false);
  $('dlp').textContent=`Terminé : ${count} nouvelles lignes${download.integrityGap?' · lacune détectée : synchronisation non certifiée, relance nécessaire':interrupted?(download.got?' · transfert interrompu, données partielles conservées ; relance la synchronisation':' · transfert interrompu avant réception') :reachedCut?' · historique à jour':timeout?(download.got?' · arrêt après une pause de 20 s':' · aucune réponse de la VMI'):(download.sigs.size?' · attention : trou possible avant la dernière ligne mémorisée':' · historique complet')}`;
