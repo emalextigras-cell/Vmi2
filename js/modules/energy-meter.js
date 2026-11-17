@@ -7,7 +7,7 @@
 import { absoluteHumidity } from './psychrometry.js';
 
 /** Suivi des index kWh relevés sur des compteurs électriques externes. */
-export const ENERGY_METER_TYPES = Object.freeze(['ventilation', 'preheating', 'total']);
+export const ENERGY_METER_TYPES = /** @type {readonly import('../types/vmi-types.js').EnergyMeterType[]} */ (Object.freeze(['ventilation', 'preheating', 'total']));
 
 export const ENERGY_METER_LABELS = Object.freeze({
   ventilation: 'Ventilation (compteur dédié)',
@@ -52,7 +52,7 @@ export function upsertEnergyReading(readings, reading) {
  */
 export function summarizeEnergyReadings(readings) {
   const valid = (Array.isArray(readings) ? readings : []).filter(isValidEnergyReading);
-  const meters = ENERGY_METER_TYPES.map(meterType => {
+  const meters = /** @type {EnergySummary['meters']} */ (ENERGY_METER_TYPES.map(meterType => {
     const byTimestamp = new Map();
     for (const reading of valid.filter(item => item.meterType === meterType).sort((a, b) => a.t - b.t)) {
       // En cas de doublon issu d'une sauvegarde, le dernier relevé de la liste prévaut.
@@ -90,7 +90,7 @@ export function summarizeEnergyReadings(readings) {
       totalKwh: measured.reduce((sum, interval) => sum + interval.deltaKwh, 0),
       intervals
     };
-  }).filter(meter => meter.readingCount > 0);
+  }).filter(meter => meter.readingCount > 0));
   return {
     readingCount: valid.length,
     meters,
