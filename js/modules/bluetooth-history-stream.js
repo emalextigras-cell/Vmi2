@@ -10,7 +10,7 @@
  */
 /**
  * createHistoryStreamState — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
- * @returns {VmiRecord[]} Relevés annotés avec leur état de synchronisation.
+ * @returns {{sequence: number|null, expectedChunk: number, skippedSequence: number|null, fragments: Map<string,string>, gapCount: number}} État du flux initialisé.
  */
 export function createHistoryStreamState() {
   return {
@@ -26,7 +26,7 @@ export function createHistoryStreamState() {
  * acceptHistoryFragment — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
  * @param {unknown} state Paramètre state.
  * @param {unknown} fragment Paramètre fragment.
- * @returns {UnknownRecord} Résultat structuré du module.
+ * @returns {{accepted: boolean, duplicate: boolean, gap: boolean, resetBuffer: boolean}} Décision de réception du fragment.
  */
 export function acceptHistoryFragment(state, fragment) {
   const sequence = Number(fragment?.sequence);
@@ -109,7 +109,7 @@ export function isHistorySyncBaseline(record) {
  * markHistoryRows — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
  * @param {VmiRecord[]} records Paramètre records.
  * @param {boolean} complete Indique si le flux reçu est complet.
- * @returns {UnknownRecord} Résultat structuré du module.
+ * @returns {VmiRecord[]} Relevés annotés avec leur état de synchronisation.
  */
 export function markHistoryRows(records, complete) {
   return (Array.isArray(records) ? records : []).map(record => ({
@@ -122,7 +122,7 @@ export function markHistoryRows(records, complete) {
 /**
  * markHistoryStreamInvalid — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
  * @param {unknown} state Paramètre state.
- * @returns {UnknownRecord} Résultat structuré du module.
+ * @returns {{accepted: false, duplicate: false, gap: true, resetBuffer: true}} Signal de flux invalide.
  */
 export function markHistoryStreamInvalid(state) {
   state.gapCount++;
