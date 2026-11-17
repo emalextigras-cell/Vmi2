@@ -23,7 +23,7 @@ const modeOf = values => {
 
 /**
  * Corrige en place les relevés antérieurs à MIN_VALID à partir du compteur
- * « jours de fonctionnement ». Retourne { fixed, kept }, comme la v13.
+ * « jours de fonctionnement ». Retourne { fixed, future, kept }.
  * Les règles de regroupement et le seuil horaire sont volontairement conservés.
  */
 export function fixClock(records, history = [], minValid = MIN_VALID, maxTimestamp = Infinity) {
