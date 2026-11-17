@@ -106,10 +106,9 @@ export function analyzeSpeedLevels(data, minSamples = 10, targetRH = 50) {
  */
 /**
  * analyzeSpeedTimeContext — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
- * @param {VmiRecord[]} data Paramètre data.
- * @param {unknown} { minSamples Paramètre { minSamples.
- * @param {number} minDays Paramètre minDays.
- * @returns {UnknownRecord} Résultat de analyzeSpeedTimeContext.
+ * @param {VmiRecord[]} data Relevés hygrométriques et modes manuels.
+ * @param {AnalysisOptions} options Seuils minimaux de comparaison.
+ * @returns {UnknownRecord} Groupes horaires et comparaisons descriptives.
  */
 export function analyzeSpeedTimeContext(data, { minSamples = 5, minDays = 2 } = {}) {
   const rows=(Array.isArray(data)?data:[]).filter(r=>
@@ -252,13 +251,9 @@ export function analyzeSpeedTimeContext(data, { minSamples = 5, minDays = 2 } = 
  */
 /**
  * compareOperatingPeriods — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
- * @param {VmiRecord[]} data Paramètre data.
- * @param {unknown} {
-  periodDays Paramètre {
-  periodDays.
- * @param {number} minSamples Paramètre minSamples.
- * @param {number} minDays Paramètre minDays.
- * @returns {UnknownRecord} Résultat de compareOperatingPeriods.
+ * @param {VmiRecord[]} data Historique des relevés VMI.
+ * @param {AnalysisOptions} options Paramètres de fenêtre et de couverture.
+ * @returns {UnknownRecord} Comparaison des périodes successives.
  */
 export function compareOperatingPeriods(data, {
   periodDays = 7, minSamples = 12, minDays = 3
