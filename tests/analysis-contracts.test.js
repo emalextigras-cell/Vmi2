@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   median,
   compareOperatingPeriods,
+  analyzeSpeedTimeContext,
   summarizeTemperatureLimit,
   summarizeOperatingReference,
   summarizeRawVmiMode,
@@ -204,4 +205,38 @@ test('compareOperatingPeriods conserve les paramètres par défaut et accepte de
   assert.equal(custom.periodDays,2);
   assert.equal(custom.minSamples,1);
   assert.equal(custom.minDays,1);
+});
+
+
+test('analyzeSpeedTimeContext rejette les paramètres de comparaison invalides', () => {
+  for (const options of [
+    { minSamples: 0 },
+    { minSamples: -1 },
+    { minSamples: 1.5 },
+    { minDays: 0 },
+    { minDays: -1 },
+    { minDays: 2.5 },
+    { minDays: Infinity }
+  ]) {
+    assert.throws(
+      () => analyzeSpeedTimeContext([], options),
+      RangeError
+    );
+  }
+});
+
+test('analyzeSpeedTimeContext ne déclare pas comparables des groupes vides', () => {
+  const result = analyzeSpeedTimeContext([], { minSamples: 0, minDays: 0 });
+
+  assert.equal(result.comparisons.some(comparison => comparison.ready), false);
+});
+
+test('analyzeSpeedTimeContext conserve ses seuils par défaut et accepte des entiers positifs', () => {
+  const defaults = analyzeSpeedTimeContext([]);
+  assert.equal(defaults.minSamples, 5);
+  assert.equal(defaults.minDays, 2);
+
+  const custom = analyzeSpeedTimeContext([], { minSamples: 1, minDays: 1 });
+  assert.equal(custom.minSamples, 1);
+  assert.equal(custom.minDays, 1);
 });
