@@ -57,6 +57,8 @@ export function analyzeSpeedLevels(data, minSamples = 10, targetRH = 50) {
       return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     }));
     const rpms=samples.map(r=>r.rpm).filter(v=>Number.isFinite(v)&&v>0&&v<10000);
+    const firstAt=times.length?times.reduce((min,time)=>Math.min(min,time),Infinity):null;
+    const lastAt=times.length?times.reduce((max,time)=>Math.max(max,time),-Infinity):null;
     return {
       v,n:samples.length,sharedDays:0,
       daysCovered:coveredDays.size,
@@ -68,9 +70,9 @@ export function analyzeSpeedLevels(data, minSamples = 10, targetRH = 50) {
       rpm:median(rpms),
       rpmSamples:rpms.length,
       deltaSamples:deltas.length,
-      firstAt:times.length?Math.min(...times):null,
-      lastAt:times.length?Math.max(...times):null,
-      spanHours:times.length>1?(Math.max(...times)-Math.min(...times))/3600000:0
+      firstAt,
+      lastAt,
+      spanHours:times.length>1?(lastAt-firstAt)/3600000:0
     };
   });
   const sufficient=groups.filter(g=>g.n>=minSamples);
