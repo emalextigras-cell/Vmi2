@@ -1,7 +1,147 @@
+/** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
+import { absoluteHumidity } from './psychrometry.js';
+
+/**
+ * Estimation indicative de l'énergie électrique du ventilateur PUREVENT.
+ * Les puissances proviennent des points de mesure constructeur TÜV SÜD.
+ * La méthode interpole selon le débit, sans extrapoler hors de 50–350 m³/h.
+ * La pression réelle de l'installation n'étant pas mesurée, ce résultat n'est
+ * ni une mesure électrique ni une garantie de la puissance réellement absorbée.
+ */
+const assertValidEnergyOptions = (maxGapHours, minDays = null) => {
+  const maxGapMs = maxGapHours * 3600000;
+  if (!Number.isFinite(maxGapHours) || maxGapHours <= 0 || !Number.isFinite(maxGapMs) || maxGapMs <= 0) {
+    throw new RangeError('maxGapHours doit être un nombre fini strictement positif exploitable en millisecondes.');
+  }
+  if (minDays !== null && (!Number.isSafeInteger(minDays) || minDays < 0)) {
+    throw new RangeError('minDays doit être un entier sûr positif ou nul.');
+  }
+};
+
+const deduplicateByRelevantValues = (rows, fingerprint) => {
+  const groups=[];
+  for(const row of rows){
+    const last=groups[groups.length-1];
+    if(last&&last.timestamp===row.t)last.rows.push(row);
+    else groups.push({timestamp:row.t,rows:[row]});
+  }
+  const unique=[];
+  let duplicateTimestampCount=0,conflictingTimestampCount=0;
+  for(const group of groups){
+    if(group.rows.length>1)duplicateTimestampCount++;
+    const signatures=new Set(group.rows.map(row=>JSON.stringify(fingerprint(row))));
+    if(signatures.size>1){
+      conflictingTimestampCount++;
+      continue;
+    }
+    unique.push(group.rows[0]);
+  }
+  return {rows:unique,duplicateTimestampCount,conflictingTimestampCount};
+};
+
+export const PUREVENT_FAN_POWER_POINTS = Object.freeze([
+  Object.freeze({ flow: 50, powerW: 4 }),
+  Object.freeze({ flow: 125, powerW: 10 }),
+  Object.freeze({ flow: 200, powerW: 25 }),
+  Object.freeze({ flow: 245, powerW: 39 }),
+  Object.freeze({ flow: 350, powerW: 99 })
+]);
+
+/** Estime la puissance du ventilateur par interpolation dans la plage constructeur.
+ * @param {number} flow Débit d'air en m³/h.
+ * @returns {number|null} Puissance estimée en watts, ou null hors domaine.
+ */
+export function estimateFanPowerFromFlow(flow) {
+  if (!Number.isFinite(flow)) return null;
+  const points = PUREVENT_FAN_POWER_POINTS;
+  if (flow < points[0].flow || flow > points[points.length - 1].flow) return null;
+  for (let index = 1; index < points.length; index++) {
+    const upper = points[index];
+    if (flow > upper.flow) continue;
+    const lower = points[index - 1];
+    const ratio = (flow - lower.flow) / (upper.flow - lower.flow);
+    return lower.powerW + ratio * (upper.powerW - lower.powerW);
+  }
+  return points[points.length - 1].powerW;
+}
+
+/**
+ * Intègre une puissance estimée entre relevés successifs.
+ * Les intervalles > maxGapHours et les débits hors domaine constructeur
+ * sont exclus, sans interpolation à travers les trous.
+ */
+/** Intègre l'énergie estimée entre relevés successifs.
+ * @param {VmiRecord[]} history Historique horodaté avec débits.
+ * @param {{maxGapHours?: number}} [options] Écart maximal entre relevés intégrés.
+ * @returns {Record<string, unknown>} Résumé de l'estimation et de sa couverture.
+ */
+export function summarizeFanEnergyEstimate(history, options = {}) {
+  const { maxGapHours = 2 } = options ?? {};
+  assertValidEnergyOptions(maxGapHours);
+  const rows = (Array.isArray(history) ? history : [])
+    .filter(row => Number.isFinite(row?.t))
+    .sort((a, b) => a.t - b.t);
+  const deduplicated=deduplicateByRelevantValues(rows,row=>[row.t,row.debit]);
+  const unique=deduplicated.rows;
+  const sampleCount = unique.length;
+  const firstAt = sampleCount ? unique[0].t : null;
+  const lastAt = sampleCount ? unique[sampleCount - 1].t : null;
+  const observedHours = sampleCount > 1 ? (lastAt - firstAt) / 3600000 : 0;
+  const maxGapMs = maxGapHours * 3600000;
+  let energyWh = 0, coveredMs = 0, acceptedIntervalCount = 0;
+  let longGapCount = 0, invalidFlowIntervalCount = 0;
+  for (let index = 1; index < unique.length; index++) {
+    const a = unique[index - 1], b = unique[index];
+    const elapsedMs = b.t - a.t;
+    if (!(elapsedMs > 0)) continue;
+    if (elapsedMs > maxGapMs) { longGapCount++; continue; }
+    const powerA = estimateFanPowerFromFlow(a.debit);
+    const powerB = estimateFanPowerFromFlow(b.debit);
+    if (powerA == null || powerB == null) { invalidFlowIntervalCount++; continue; }
+    energyWh += ((powerA + powerB) / 2) * (elapsedMs / 3600000);
+    coveredMs += elapsedMs;
+    acceptedIntervalCount++;
+  }
+  const coveredHours = coveredMs / 3600000;
+  const coveragePercent = observedHours > 0 ? coveredHours / observedHours * 100 : 0;
+  return {
+    status: acceptedIntervalCount ? 'estimated' : 'insufficient-data',
+    sampleCount, firstAt, lastAt, observedHours, coveredHours, coveragePercent,
+    acceptedIntervalCount, longGapCount, invalidFlowIntervalCount,
+    duplicateTimestampCount:deduplicated.duplicateTimestampCount,
+    conflictingTimestampCount:deduplicated.conflictingTimestampCount,
+    estimatedWh: acceptedIntervalCount ? energyWh : null,
+    estimatedKwh: acceptedIntervalCount ? energyWh / 1000 : null,
+    averagePowerW: coveredHours > 0 ? energyWh / coveredHours : null,
+    maxGapHours,
+    limits: [
+      'Estimation du ventilateur par interpolation des points constructeur en fonction du débit exporté VMI+ en m³/h.',
+      'Les mesures constructeur sont associées à des pressions données ; la pression réelle de cette installation n’est pas mesurée ici.',
+      'Les intervalles de plus de ' + maxGapHours + ' h et les débits hors plage 50–350 m³/h sont exclus, sans extrapolation.',
+      'Le préchauffage n’est pas estimé : aucun état ni temps de fonctionnement exploitable n’est confirmé dans les champs CSV disponibles.',
+      'La consommation totale de la VMI ne peut donc pas être calculée à partir de ces seules données.'
+    ]
+  };
+}
+
+function medianEstimate(values) {
+  const sorted = values.filter(Number.isFinite).sort((a, b) => a - b);
+  if (!sorted.length) return null;
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+/**
+ * Ventile l'estimation entre niveaux manuels confirmés (1/2/3).
+ * Un intervalle n'est attribué à un mode que si ses deux extrémités
+ * portent le même vmiModeRaw. Les changements de mode sont ignorés.
+ * La puissance moyenne affichée est la médiane des moyennes journalières,
+ * pour éviter qu'une journée très échantillonnée pèse davantage.
+ */
 /** Compare les estimations énergétiques par niveau manuel.
  * @param {VmiRecord[]} history Historique horodaté avec modes manuels.
  * @param {{maxGapHours?: number, minDays?: number}} [options] Seuils d'intégration et de couverture.
- * @returns {UnknownRecord} Résultats descriptifs par mode manuel.
+ * @returns {Record<string, unknown>} Résultats descriptifs par mode manuel.
  */
 export function summarizeFanEnergyByManualMode(history, options = {}) {
   const { maxGapHours = 2, minDays = 2 } = options ?? {};
