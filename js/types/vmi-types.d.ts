@@ -295,9 +295,9 @@ export interface EnergyClimateMeterContextResult {
   meters:Array<{meterType:EnergyMeterType;label:string;intervals:Array<{
     from:number;to:number;elapsedHours:number;previousKwh:number;currentKwh:number;
     deltaKwh:number|null;averagePowerW:number|null;status:'measured'|'counter-decreased';context:{
-      indoorTemp:number|null;outdoorTemp:number|null;indoorRH:number|null;incomingTemp:number|null;
-      incomingRH:number|null;indoorAbsHumidity:number|null;incomingAbsHumidity:number|null;
-      deltaAbsHumidity:number|null;coverageHours:number;coveragePercent:number;coveredMs:number;
+      indoorTemp?:number|null;outdoorTemp?:number|null;indoorRH?:number|null;incomingTemp?:number|null;
+      incomingRH?:number|null;indoorAbsHumidity?:number|null;incomingAbsHumidity?:number|null;
+      deltaAbsHumidity?:number|null;coverageHours:number;coveragePercent:number;coveredMs:number;
       ready:boolean;metricCoverageHours:Record<string,number>
     }
   }>}>;
