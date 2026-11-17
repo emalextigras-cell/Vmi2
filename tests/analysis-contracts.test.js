@@ -474,3 +474,18 @@ test('summarizeOperatingReference exclut les débits négatifs des statistiques 
   assert.equal(debit.min, 100);
   assert.equal(debit.max, 100);
 });
+
+
+test('summarizeDailyTrends ne compte qu une observation par horodatage', () => {
+  const timestamp = at(12);
+  const result = summarizeDailyTrends([
+    { t: timestamp, st: 20, sh: 50 },
+    { t: timestamp, st: 21, sh: 52 },
+    { t: timestamp, st: 22, sh: 54 }
+  ]);
+
+  assert.equal(result.days.length, 1);
+  assert.equal(result.days[0].sampleCount, 1);
+  assert.equal(result.sampledDays, 0);
+  assert.equal(result.latest, null);
+});
