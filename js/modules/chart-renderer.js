@@ -52,12 +52,13 @@ function drawChart(id,title,series,selectedDate,$){
  const gaps=new Map();
  for(const s of series){const dts=[];for(let i=1;i<s.points.length&&dts.length<400;i++)dts.push(s.points[i].t-s.points[i-1].t);dts.sort((a,b)=>a-b);gaps.set(s,Math.max(4*3600000,6*(dts.length?dts[Math.floor(dts.length/2)]:0)))}
  for(const s of series){
-  const pts=s.points.filter(p=>Number.isFinite(p.v));if(!pts.length)continue;
+  /** @type {Array<{t:number,v:number,blocked?:boolean}>} */
+  const pts=s.points.filter(p=>typeof p.v === 'number' && Number.isFinite(p.v));if(!pts.length)continue;
   const gap=gaps.get(s);
   // Chaque relevé réel est tracé pour les historiques usuels ; au-delà de 5 000, affichage allégé.
   const step=pts.length>5000?Math.ceil(pts.length/5000):1;
   const sel=pts.filter((p,i)=>i%step===0||i===pts.length-1);
-  let d='',prev=null,segLen=0,dots='';
+  let d='',/** @type {{t:number,v:number,blocked?:boolean}|null} */ prev=null,segLen=0,dots='';
   sel.forEach(p=>{
    const blockedBetween=prev!==null&&hasBlockedBetween(s.points,prev.t,p.t);
    if(prev===null||p.t-prev.t>gap||blockedBetween){if(segLen===1)dots+=`<circle cx="${X(prev.t).toFixed(1)}" cy="${Y(prev.v).toFixed(1)}" r="1.8" fill="${s.color}"/>`;d+=`M${X(p.t).toFixed(1)} ${Y(p.v).toFixed(1)}`;segLen=1}
