@@ -1,4 +1,4 @@
-/** @typedef {import('../types/vmi-types.js').VmiBluetoothDevice} UnknownRecord */
+/** @typedef {import('../types/vmi-types.js').VmiBluetoothDevice} VmiBluetoothDevice */
 
 /**
  * Sélection prudente d'un périphérique Bluetooth déjà autorisé par le navigateur.
