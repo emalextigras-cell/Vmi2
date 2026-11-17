@@ -32,3 +32,26 @@ test('selectDataRange limite la période aux derniers jours depuis le relevé le
 test('selectDataRange retourne un tableau vide pour une entrée invalide', () => {
   assert.deepEqual(selectDataRange(null), []);
 });
+
+test('selectDataRange écarte les points futurs sans modifier les données sources', () => {
+  const now = new Date(2026, 10, 17, 12, 0, 0).getTime();
+  const past = { t: now - 60_000, sh: 55 };
+  const future = { t: now + 60_000, sh: 90 };
+  const records = [future, past];
+
+  const selected = selectDataRange(records, { daysSetting: 0, maxTimestamp: now });
+
+  assert.deepEqual(selected, [past]);
+  assert.deepEqual(records, [future, past]);
+});
+
+test('la fenêtre des derniers jours est calculée depuis le dernier relevé non futur', () => {
+  const now = new Date(2026, 10, 17, 12, 0, 0).getTime();
+  const recent = { t: now - 2 * 86400000, sh: 50 };
+  const old = { t: now - 40 * 86400000, sh: 60 };
+  const future = { t: now + 86400000, sh: 80 };
+
+  const selected = selectDataRange([old, recent, future], { daysSetting: 30, maxTimestamp: now });
+
+  assert.deepEqual(selected, [recent]);
+});

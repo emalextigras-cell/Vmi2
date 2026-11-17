@@ -490,7 +490,7 @@ const setCommandsDisabled=dis=>document.querySelectorAll('[data-r]').forEach(x=>
 $('clk').onclick=setClock;
 
 /* Correction des dates historiques isolée dans clock-correction.js. */
-function ingest(recs,label,maxTimestamp=Infinity){
+function ingest(recs,label,maxTimestamp=Date.now()){
  const {fixed,kept}=fixClock(recs,hist,MIN_VALID,maxTimestamp);
  hist=mergeImportedHistory(hist,kept);
  pruneHist();dbSet('hist',hist);source='hist';
