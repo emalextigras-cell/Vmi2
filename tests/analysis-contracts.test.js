@@ -489,3 +489,17 @@ test('summarizeDailyTrends ne compte qu une observation par horodatage', () => {
   assert.equal(result.sampledDays, 0);
   assert.equal(result.latest, null);
 });
+
+
+test('compareOperatingPeriods ne compte pas deux fois un même horodatage et un même mode', () => {
+  const timestamp = at(12, 8);
+  const result = compareOperatingPeriods([
+    { t: timestamp, vmiModeRaw: 1, debit: 100 },
+    { t: timestamp, vmiModeRaw: 1, debit: 140 }
+  ], { periodDays: 7, minSamples: 1, minDays: 1 });
+  const comparison = result.comparisons.find(item => item.mode === 1 && item.bucket === 1);
+
+  assert.equal(comparison.current.sampleCount, 1);
+  assert.equal(comparison.current.values.debit.count, 1);
+  assert.equal(comparison.current.values.debit.median, 140);
+});
