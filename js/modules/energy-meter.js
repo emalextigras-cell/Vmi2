@@ -1,4 +1,7 @@
 /** @typedef {import('../types/vmi-types.js').UnknownRecord} UnknownRecord */
+/** @typedef {import('../types/vmi-types.js').EnergyReading} EnergyReading */
+/** @typedef {import('../types/vmi-types.js').EnergySummary} EnergySummary */
+/** @typedef {import('../types/vmi-types.js').MonthlyEnergySummary} MonthlyEnergySummary */
 
 import { absoluteHumidity } from './psychrometry.js';
 
@@ -16,12 +19,13 @@ export const ENERGY_METER_LABELS = Object.freeze({
  * @returns {boolean} true si l'index est exploitable.
  */
 export function isValidEnergyReading(reading) {
-  return !!reading &&
-    typeof reading.id === 'string' && reading.id.length > 0 &&
-    ENERGY_METER_TYPES.includes(reading.meterType) &&
-    Number.isFinite(reading.t) && reading.t > 0 &&
-    Number.isFinite(reading.kwh) && reading.kwh >= 0 &&
-    (reading.note == null || typeof reading.note === 'string');
+  if (!reading || typeof reading !== 'object') return false;
+  const candidate = /** @type {Record<string, unknown>} */ (reading);
+  return typeof candidate.id === 'string' && candidate.id.length > 0 &&
+    typeof candidate.meterType === 'string' && ENERGY_METER_TYPES.includes(candidate.meterType) &&
+    typeof candidate.t === 'number' && Number.isFinite(candidate.t) && candidate.t > 0 &&
+    typeof candidate.kwh === 'number' && Number.isFinite(candidate.kwh) && candidate.kwh >= 0 &&
+    (candidate.note == null || typeof candidate.note === 'string');
 }
 
 /** Ajoute ou corrige un index pour le même compteur au même instant. */
