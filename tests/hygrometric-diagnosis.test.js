@@ -541,3 +541,42 @@ test('hourly comparison selects the strongest drying window among all eligible p
  assert.equal(result.hourlyComparisonDiagnostics.candidatePairCount,3);
  assert.equal(result.hourlyComparisonDiagnostics.pairsMeetingDailyMinimum,3);
 });
+
+
+test('trend accepts the maximum four-day span inside each three-day window',()=>{
+ const rows=[];
+ [1,3,5,10,11,13].forEach((day,index)=>{
+  for(let i=0;i<4;i++) rows.push({
+   t:new Date(2026,10,day,8,i*30,0).getTime(),
+   st:20,sh:index<3?45:75,te:10,he:40
+  });
+ });
+ const result=buildHygrometricDiagnosis(rows);
+ const finding=result.observations.find(item=>item.code==='indoor-moisture-rising');
+ assert.ok(finding);
+ assert.equal(finding.basis.baselineWindowSpanDays,4);
+ assert.equal(finding.basis.recentWindowSpanDays,3);
+});
+
+test('trend rejects a comparison spanning more than fourteen calendar days',()=>{
+ const rows=[];
+ [1,3,5,12,13,16].forEach((day,index)=>{
+  for(let i=0;i<4;i++) rows.push({
+   t:new Date(2026,10,day,8,i*30,0).getTime(),
+   st:20,sh:index<3?45:75,te:10,he:40
+  });
+ });
+ const result=buildHygrometricDiagnosis(rows);
+ const finding=result.observations.find(item=>item.code==='trend-calendar-span-limited');
+ assert.ok(finding);
+ assert.equal(finding.basis.totalSpanDays,15);
+ assert.ok(!result.observations.some(item=>item.code==='indoor-moisture-rising'));
+});
+
+test('trend can be confirmed with exactly two recent days above the baseline median',()=>{
+ const result=buildHygrometricDiagnosis(makeTrendRows([45,45,45,75,75,40]));
+ const finding=result.observations.find(item=>item.code==='indoor-moisture-rising');
+ assert.ok(finding);
+ assert.equal(finding.basis.risingDays,2);
+ assert.equal(finding.basis.minimumDirectionalDays,2);
+});
