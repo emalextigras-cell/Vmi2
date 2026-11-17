@@ -175,3 +175,33 @@ test('compareOperatingPeriods retourne no-mode-data si toutes les dates sont inv
   assert.deepEqual(result.periods,[]);
   assert.deepEqual(result.comparisons,[]);
 });
+
+
+test('compareOperatingPeriods rejette les paramètres de comparaison invalides',()=>{
+  for(const options of [
+    {periodDays:0},
+    {periodDays:-1},
+    {periodDays:1.5},
+    {minSamples:0},
+    {minSamples:2.5},
+    {minDays:-1},
+    {minDays:Infinity}
+  ]){
+    assert.throws(
+      ()=>compareOperatingPeriods([{t:at(12),vmiModeRaw:1,debit:100}],options),
+      RangeError
+    );
+  }
+});
+
+test('compareOperatingPeriods conserve les paramètres par défaut et accepte des entiers positifs',()=>{
+  const defaults=compareOperatingPeriods([]);
+  assert.equal(defaults.periodDays,7);
+  assert.equal(defaults.minSamples,12);
+  assert.equal(defaults.minDays,3);
+
+  const custom=compareOperatingPeriods([],{periodDays:2,minSamples:1,minDays:1});
+  assert.equal(custom.periodDays,2);
+  assert.equal(custom.minSamples,1);
+  assert.equal(custom.minDays,1);
+});
