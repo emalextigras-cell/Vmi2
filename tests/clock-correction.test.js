@@ -54,7 +54,7 @@ test('fixClock sépare les épisodes éloignés de plus de trois jours', () => {
 
 test('fixClock recale les dates 2018 avec un repère réel de novembre 2026', () => {
   const referenceDate = new Date(2026, 10, 10, 16, 45, 35).getTime();
-  const history = [{ t: referenceDate, d: 185 }];
+  const history = [{ t: referenceDate, d: 186 }];
   const morning = { t: new Date(2018, 3, 12, 7, 24, 2).getTime(), d: 159 };
   const daytime = { t: new Date(2018, 3, 12, 11, 30, 0).getTime(), d: 159 };
   const dayNumber = timestamp => {
@@ -76,7 +76,7 @@ test('fixClock recale les dates 2018 avec un repère réel de novembre 2026', ()
 test('fixClock écarte les dates reconstruites après la fin de la synchronisation', () => {
   const referenceDate = Date.UTC(2026, 10, 16, 10, 7, 9);
   const syncFinishedAt = Date.UTC(2026, 10, 17, 8, 7, 53);
-  const history = [{ t: referenceDate, d: 186 }];
+  const history = [{ t: referenceDate, d: 185 }];
   const first = { t: new Date(2018, 4, 16, 11, 15, 45).getTime(), d: 186 };
   const second = { t: new Date(2018, 4, 16, 11, 19, 35).getTime(), d: 186 };
 
