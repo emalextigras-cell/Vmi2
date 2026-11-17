@@ -660,3 +660,16 @@ test('analyzeSpeedLevels ne compte pas deux fois un même mode et horodatage', (
   assert.equal(mode1.rpm, 1150);
   assert.equal(result.status, 'insufficient');
 });
+
+
+test('detectRapidChanges ne compare que la dernière observation valide de chaque horodatage', () => {
+  const first = at(16, 8);
+  const second = at(16, 9);
+  const result = detectRapidChanges([
+    { t: first, st: 20, sh: 50 },
+    { t: second, st: 20, sh: 90 },
+    { t: second, st: 20, sh: 50 }
+  ]);
+
+  assert.deepEqual(result, []);
+});
