@@ -105,11 +105,14 @@ export function analyzeSpeedTimeContext(data, { minSamples = 5, minDays = 2 } = 
     }
   }
 
-  const rows=(Array.isArray(data)?data:[]).filter(r=>
-    Number.isFinite(r?.t) && Number.isFinite(r?.vmiModeRaw) && [1,2,3].includes(r.vmiModeRaw) &&
-    Number.isFinite(r.st) && isPlausibleTemperature(r.st) &&
-    Number.isFinite(r.sh) && isPlausibleHumidity(r.sh)
-  );
+  const uniqueRows=new Map();
+  for(const row of Array.isArray(data)?data:[]){
+    if(!Number.isFinite(row?.t)||!Number.isFinite(row?.vmiModeRaw)||![1,2,3].includes(row.vmiModeRaw)||
+      !Number.isFinite(row.st)||!isPlausibleTemperature(row.st)||
+      !Number.isFinite(row.sh)||!isPlausibleHumidity(row.sh))continue;
+    uniqueRows.set(`${row.vmiModeRaw}:${row.t}`,row);
+  }
+  const rows=[...uniqueRows.values()];
   const buckets=['00–05 h','06–11 h','12–17 h','18–23 h'];
   const bySpeedBucketDay=new Map();
   const dayKey=t=>{
