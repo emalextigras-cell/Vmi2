@@ -1,3 +1,18 @@
+/**
+ * @typedef {Object} VmiRecord
+ * @property {number} [t] Horodatage Unix en millisecondes.
+ * @property {number} [st] Température intérieure en °C.
+ * @property {number} [sh] Humidité relative intérieure en %.
+ * @property {number} [te] Température de l'air entrant en °C.
+ * @property {number} [he] Humidité relative de l'air entrant en %.
+ * @property {number} [tExt] Température extérieure en °C.
+ * @property {number} [rpm] Régime moteur en tr/min.
+ * @property {number} [debit] Débit en m³/h.
+ * @property {number} [vmiModeRaw] Code brut du mode VMI.
+ */
+/** @typedef {Record<string, unknown>} UnknownRecord */
+/** @typedef {{minSamples?: number, minDays?: number}} AnalysisOptions */
+
 import { absoluteHumidity } from './psychrometry.js';
 import { isPlausibleHumidity, isPlausibleTemperature } from './data-quality.js';
 import { summarizeDailyEnergyClimateContext } from './energy-climate.js';
@@ -34,6 +49,17 @@ const shiftDate = (date,days) => new Date(date.getFullYear(),date.getMonth(),dat
  * Compare deux fenêtres calendaires hebdomadaires à partir des médianes
  * journalières. Les jours ont le même poids ; les données hors fenêtre ne
  * peuvent pas relier des historiques éloignés. L'énergie reste estimée.
+ */
+/**
+ * summarizeWeeklyDiagnostic — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {unknown} history Paramètre history.
+ * @param {AnalysisOptions} options Options de calcul.
+ * @param {unknown} minSamplesPerDay Paramètre minSamplesPerDay.
+ * @param {unknown} minDaysPerWindow Paramètre minDaysPerWindow.
+ * @param {unknown} minEnergyDays Paramètre minEnergyDays.
+ * @param {unknown} maxGapHours Paramètre maxGapHours.
+ * @param {unknown} changeThreshold Paramètre changeThreshold.
+ * @returns {UnknownRecord} Résultat structuré du module.
  */
 export function summarizeWeeklyDiagnostic(history,{
   windowDays=7,
