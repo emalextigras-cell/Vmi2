@@ -673,6 +673,105 @@ export function detectRapidChanges(data, { maxGapHours = 2, rhJump = 15, absolut
 
 
 /**
+ * Compare les créneaux horaires sur les mêmes dates et avec un poids égal par jour.
+ * @param {VmiRecord[]} rows Relevés hygrométriques déjà validés et dédoublonnés.
+ * @param {Array<{label:string,startHour:number,sampleCount:number,dayCount:number,dayKeys:string[]}>} hourlyDetails Synthèse des quatre tranches horaires.
+ * @param {(timestamp:number)=>string} dayKey Convertit un horodatage en date locale.
+ */
+function compareHourlyWindows(rows, hourlyDetails, dayKey) {
+  const eligibleHours=hourlyDetails.filter(bucket=>bucket.sampleCount>=5&&bucket.dayCount>=2);
+  const hourlyPairs=[];
+  let candidatePairCount=0;
+  let pairsWithTwoCommonDays=0;
+  let pairsMeetingDailyMinimum=0;
+  for(let i=0;i<eligibleHours.length;i++){
+    for(let j=i+1;j<eligibleHours.length;j++){
+      const left=eligibleHours[i],right=eligibleHours[j];
+      candidatePairCount++;
+      const commonDayKeys=left.dayKeys.filter(day=>right.dayKeys.includes(day));
+      if(commonDayKeys.length>=2)pairsWithTwoCommonDays++;
+      // Une date ne contribue que si chaque créneau y compte au moins trois relevés.
+      const hourlyMinimumDailySamples=3;
+      const sharedDayKeys=commonDayKeys.filter(day=>[left,right].every(bucket=>
+        rows.filter(r=>
+          Math.floor(new Date(r.t).getHours()/6)===Math.floor(bucket.startHour/6)&&
+          dayKey(r.t)===day
+        ).length>=hourlyMinimumDailySamples
+      ));
+      if(sharedDayKeys.length<2)continue;
+      pairsMeetingDailyMinimum++;
+      const pairedStats=[left,right].map(bucket=>{
+        const daily=sharedDayKeys.map(day=>{
+          const daySamples=rows.filter(r=>
+            Math.floor(new Date(r.t).getHours()/6)===Math.floor(bucket.startHour/6)&&
+            dayKey(r.t)===day
+          );
+          return {
+            day,
+            sampleCount:daySamples.length,
+            medianDelta:median(daySamples.map(r=>absoluteHumidity(r.st,r.sh)-absoluteHumidity(r.te,r.he)))
+          };
+        });
+        return {
+          ...bucket,
+          // Chaque date pèse autant, même si le nombre de relevés diffère fortement.
+          medianDelta:median(daily.map(item=>item.medianDelta)),
+          sampleCount:daily.reduce((total,item)=>total+item.sampleCount,0),
+          dayCount:sharedDayKeys.length
+        };
+      });
+      if(pairedStats.some(item=>item.sampleCount<5||item.medianDelta==null))continue;
+      const [a,b]=pairedStats;
+      const winner=a.medianDelta>=b.medianDelta?a:b;
+      const comparator=winner===a?b:a;
+      hourlyPairs.push({
+        ...winner,
+        comparisonWindow:comparator.label,
+        comparisonMedianDelta:comparator.medianDelta,
+        comparisonSampleCount:comparator.sampleCount,
+        sharedDayCount:sharedDayKeys.length,
+        sharedDayKeys,
+        aggregationMethod:'Médiane des médianes journalières, avec un poids égal par date',
+        advantage:winner.medianDelta-comparator.medianDelta
+      });
+    }
+  }
+  const bestWindow=hourlyPairs.length
+    ? [...hourlyPairs].sort((a,b)=>
+        b.medianDelta-a.medianDelta||
+        b.advantage-a.advantage||
+        b.sharedDayCount-a.sharedDayCount
+      )[0]
+    :null;
+  let reason=null;
+  if(!bestWindow){
+    if(eligibleHours.length<2){
+      reason='Moins de deux tranches horaires disposent chacune d’au moins cinq relevés répartis sur deux jours.';
+    }else if(candidatePairCount>0&&pairsWithTwoCommonDays===0){
+      reason='Les tranches horaires candidates ne partagent pas au moins deux mêmes jours calendaires.';
+    }else if(pairsWithTwoCommonDays>0&&pairsMeetingDailyMinimum===0){
+      reason='Des jours sont communs, mais chaque paire échoue au minimum de trois relevés dans chaque tranche et pour chaque jour commun.';
+    }else{
+      reason='Aucune paire ne satisfait l’ensemble des critères de validité des mesures horaires.';
+    }
+  }
+  return {
+    bestWindow,
+    diagnostics:{
+      candidateWindowCount:eligibleHours.length,
+      candidatePairCount,
+      pairsWithTwoCommonDays,
+      pairsMeetingDailyMinimum,
+      minimumSamplesPerWindow:5,
+      minimumDistinctDaysPerWindow:2,
+      minimumSharedDays:2,
+      minimumSamplesPerWindowAndDay:3,
+      reason
+    }
+  };
+}
+
+/**
  * Diagnostic hygrométrique explicable.
  * Les constats reposent sur les mesures disponibles, sans inférer le débit réel,
  * la consommation électrique, une panne ou un lien de causalité.
@@ -821,95 +920,7 @@ function prepareHygrometricRows(inputRows) {
     const dayKeys=[...new Set(samples.map(r=>dayKey(r.t)))];
     return {...bucket,dayCount:dayKeys.length,dayKeys};
   });
-  const eligibleHours=hourlyDetails.filter(b=>b.sampleCount>=5&&b.dayCount>=2);
-  const hourlyPairs=[];
-  let candidatePairCount=0;
-  let pairsWithTwoCommonDays=0;
-  let pairsMeetingDailyMinimum=0;
-  for(let i=0;i<eligibleHours.length;i++){
-    for(let j=i+1;j<eligibleHours.length;j++){
-      const left=eligibleHours[i],right=eligibleHours[j];
-      candidatePairCount++;
-      const commonDayKeys=left.dayKeys.filter(day=>right.dayKeys.includes(day));
-      if(commonDayKeys.length>=2)pairsWithTwoCommonDays++;
-      // Une date ne contribue à la comparaison que si chaque créneau y compte
-      // au moins trois relevés : une journée isolée ne pèse pas autant qu'une
-      // journée correctement échantillonnée.
-      const hourlyMinimumDailySamples=3;
-      const sharedDayKeys=commonDayKeys.filter(day=>[left,right].every(bucket=>
-        rows.filter(r=>
-          Math.floor(new Date(r.t).getHours()/6)===Math.floor(bucket.startHour/6)&&
-          dayKey(r.t)===day
-        ).length>=hourlyMinimumDailySamples
-      ));
-      if(sharedDayKeys.length<2)continue;
-      pairsMeetingDailyMinimum++;
-      const pairedStats=[left,right].map(bucket=>{
-        const daily=sharedDayKeys.map(day=>{
-          const daySamples=rows.filter(r=>
-            Math.floor(new Date(r.t).getHours()/6)===Math.floor(bucket.startHour/6)&&
-            dayKey(r.t)===day
-          );
-          return {
-            day,
-            sampleCount:daySamples.length,
-            medianDelta:median(daySamples.map(r=>absoluteHumidity(r.st,r.sh)-absoluteHumidity(r.te,r.he)))
-          };
-        });
-        return {
-          ...bucket,
-          // Chaque date pèse autant, même si le nombre de relevés diffère fortement.
-          medianDelta:median(daily.map(item=>item.medianDelta)),
-          sampleCount:daily.reduce((total,item)=>total+item.sampleCount,0),
-          dayCount:sharedDayKeys.length
-        };
-      });
-      if(pairedStats.some(item=>item.sampleCount<5||item.medianDelta==null))continue;
-      const [a,b]=pairedStats;
-      const winner=a.medianDelta>=b.medianDelta?a:b;
-      const comparator=winner===a?b:a;
-      hourlyPairs.push({
-        ...winner,
-        comparisonWindow:comparator.label,
-        comparisonMedianDelta:comparator.medianDelta,
-        comparisonSampleCount:comparator.sampleCount,
-        sharedDayCount:sharedDayKeys.length,
-        sharedDayKeys,
-        aggregationMethod:'Médiane des médianes journalières, avec un poids égal par date',
-        advantage:winner.medianDelta-comparator.medianDelta
-      });
-    }
-  }
-  const bestWindow=hourlyPairs.length
-    ? [...hourlyPairs].sort((a,b)=>
-        b.medianDelta-a.medianDelta||
-        b.advantage-a.advantage||
-        b.sharedDayCount-a.sharedDayCount
-      )[0]
-    :null;
-  let hourlyComparisonReason=null;
-  if(!bestWindow){
-    if(eligibleHours.length<2){
-      hourlyComparisonReason='Moins de deux tranches horaires disposent chacune d’au moins cinq relevés répartis sur deux jours.';
-    }else if(candidatePairCount>0&&pairsWithTwoCommonDays===0){
-      hourlyComparisonReason='Les tranches horaires candidates ne partagent pas au moins deux mêmes jours calendaires.';
-    }else if(pairsWithTwoCommonDays>0&&pairsMeetingDailyMinimum===0){
-      hourlyComparisonReason='Des jours sont communs, mais chaque paire échoue au minimum de trois relevés dans chaque tranche et pour chaque jour commun.';
-    }else{
-      hourlyComparisonReason='Aucune paire ne satisfait l’ensemble des critères de validité des mesures horaires.';
-    }
-  }
-  const hourlyComparisonDiagnostics={
-    candidateWindowCount:eligibleHours.length,
-    candidatePairCount,
-    pairsWithTwoCommonDays,
-    pairsMeetingDailyMinimum,
-    minimumSamplesPerWindow:5,
-    minimumDistinctDaysPerWindow:2,
-    minimumSharedDays:2,
-    minimumSamplesPerWindowAndDay:3,
-    reason:hourlyComparisonReason
-  };
+  const {bestWindow,hourlyComparisonDiagnostics}=compareHourlyWindows(rows,hourlyDetails,dayKey);
 
   // Le niveau décrit la robustesse de l'échantillonnage, pas l'état physique de la VMI.
   // Il tient compte de la couverture temporelle et de la part de lignes réellement retenues.
