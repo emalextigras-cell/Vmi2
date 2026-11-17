@@ -369,3 +369,21 @@ test('analyzeHourlyPatterns ignore les horodatages hors plage JavaScript', () =>
   assert.equal(result.buckets.reduce((sum, bucket) => sum + bucket.sampleCount, 0), 0);
   assert.ok(result.buckets.every(bucket => bucket.medianRH === null && bucket.medianDelta === null));
 });
+
+
+test('summarizeTemperatureLimit ignore les horodatages hors plage JavaScript', () => {
+  const rows = [
+    { t: 8640000000000001, consTmaxRaw: 20, tExt: 21, vmiModeRaw: 1, debit: 110, rpm: 1100 },
+    { t: 8640000000000001, consTmaxRaw: 20, tExt: 19, vmiModeRaw: 1, debit: 90, rpm: 900 }
+  ];
+
+  const result = summarizeTemperatureLimit(rows, {
+    minimumGroupSamples: 1,
+    minimumGroupDays: 1
+  });
+  const mode = result.thresholds[0].modes.find(group => group.mode === 1);
+
+  assert.equal(result.eligibleSampleCount, 0);
+  assert.equal(result.thresholds.length, 0);
+  assert.equal(mode, undefined);
+});
