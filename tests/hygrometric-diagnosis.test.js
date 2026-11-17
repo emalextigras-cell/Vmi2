@@ -700,3 +700,26 @@ test('un potentiel hygrométrique favorable ne prouve pas une baisse de l’humi
  assert.match(potential.recommendation,/potentiel hygrométrique favorable/i);
  assert.match(potential.recommendation,/ne mesure pas l’effet réel/i);
 });
+
+test('un potentiel hygrométrique avec une couverture faible reste explicitement provisoire',()=>{
+ const dry=buildHygrometricDiagnosis(makeRows({
+  days:2,perDay:6,indoorRH:65,incomingRH:40,indoorTemp:20,incomingTemp:10
+ }));
+ const dryFinding=dry.observations.find(item=>item.code==='air-drying-potential');
+ assert.equal(dry.status,'analysis-available');
+ assert.equal(dry.coverageLevel,'faible');
+ assert.ok(dryFinding);
+ assert.equal(dryFinding.level,'info');
+ assert.equal(dryFinding.basis.coverageLevel,'faible');
+ assert.match(dryFinding.title,/à confirmer/i);
+ assert.match(dryFinding.detail,/couverture faible/i);
+
+ const humid=buildHygrometricDiagnosis(makeRows({
+  days:2,perDay:6,indoorRH:40,incomingRH:90,indoorTemp:20,incomingTemp:25
+ }));
+ const humidFinding=humid.observations.find(item=>item.code==='air-moisture-potential');
+ assert.equal(humid.coverageLevel,'faible');
+ assert.ok(humidFinding);
+ assert.equal(humidFinding.basis.coverageLevel,'faible');
+ assert.match(humidFinding.title,/à confirmer/i);
+});
