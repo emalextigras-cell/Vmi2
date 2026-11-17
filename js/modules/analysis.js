@@ -613,7 +613,7 @@ function validHygroRow(r) {
 export function summarizeDailyTrends(data) {
   const days = new Map();
   for (const r of Array.isArray(data) ? data : []) {
-    if (!validHygroRow(r)) continue;
+    if (!validHygroRow(r) || !Number.isFinite(new Date(r.t).getTime())) continue;
     const date = new Date(r.t);
     const key = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
     if (!days.has(key)) days.set(key, []);
