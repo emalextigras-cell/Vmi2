@@ -241,7 +241,7 @@ export function parseCsvRows(text, delimiter = null) {
     }else if(afterQuote){
       if(char===delimiter){row.push(field);field='';afterQuote=false}
       else if(char==='\n'||char==='\r'){
-        if(char==='\r'&&source[i+1]==='\\n')i++;
+        if(char==='\r'&&source[i+1]==='\n')i++;
         row.push(field);field='';rows.push(row);row=[];afterQuote=false;
       }else if(char!==' '&&char!=='\t'){
         throw new SyntaxError('CSV invalide : caractère après la fermeture d’un champ entre guillemets.');
@@ -249,7 +249,7 @@ export function parseCsvRows(text, delimiter = null) {
     }else if(char==='"'&&field==='')quoted=true;
     else if(char===delimiter){row.push(field);field=''}
     else if(char==='\n'||char==='\r'){
-      if(char==='\r'&&source[i+1]==='\\n')i++;
+      if(char==='\r'&&source[i+1]==='\n')i++;
       row.push(field);field='';rows.push(row);row=[];
     }else field+=char;
   }
