@@ -79,7 +79,7 @@ export function summarizeFanEnergyEstimate(history, options = {}) {
   const { maxGapHours = 2 } = options ?? {};
   assertValidEnergyOptions(maxGapHours);
   const rows = (Array.isArray(history) ? history : [])
-    .filter(row => Number.isFinite(row?.t))
+    .filter(row => Number.isFinite(row?.t) && Number.isFinite(new Date(row.t).getTime()))
     .sort((a, b) => a.t - b.t);
   const deduplicated=deduplicateByRelevantValues(rows,row=>[row.t,row.debit]);
   const unique=deduplicated.rows;
@@ -147,7 +147,7 @@ export function summarizeFanEnergyByManualMode(history, options = {}) {
   const { maxGapHours = 2, minDays = 2 } = options ?? {};
   assertValidEnergyOptions(maxGapHours, minDays);
   const rows = (Array.isArray(history) ? history : [])
-    .filter(row => Number.isFinite(row?.t))
+    .filter(row => Number.isFinite(row?.t) && Number.isFinite(new Date(row.t).getTime()))
     .sort((a, b) => a.t - b.t);
   const deduplicated=deduplicateByRelevantValues(rows,row=>[
     row.t,row.debit,row.vmiModeRaw,row.st,row.sh,row.te,row.he,row.tExt
