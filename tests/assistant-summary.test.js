@@ -130,3 +130,32 @@ test('ignore un horodatage fini mais hors plage JavaScript dans la période de s
   assert.equal(result.status, 'available');
   assert.match(result.period, /01\/11\/2026 au 07\/11\/2026/);
 });
+
+test('les états sans données et disponibles respectent le contrat AssistantViewModel', () => {
+  const models = [
+    buildVmiAssistantSummary([]),
+    buildVmiAssistantSummary(makeHistory())
+  ];
+
+  for (const model of models) {
+    assert.ok(['no-data', 'available', 'limited'].includes(model.status));
+    assert.equal(typeof model.title, 'string');
+    assert.equal(typeof model.overview, 'string');
+    assert.equal(typeof model.confidence, 'string');
+    assert.ok(Array.isArray(model.sections));
+    assert.ok(Array.isArray(model.recommendations));
+    assert.ok(Array.isArray(model.limits));
+    for (const section of model.sections) {
+      assert.equal(typeof section.id, 'string');
+      assert.equal(typeof section.title, 'string');
+      assert.equal(typeof section.status, 'string');
+      assert.equal(typeof section.summary, 'string');
+      assert.ok(Array.isArray(section.details));
+    }
+    for (const item of model.recommendations) {
+      for (const key of ['priority', 'title', 'text', 'reason']) {
+        assert.equal(typeof item[key], 'string');
+      }
+    }
+  }
+});
