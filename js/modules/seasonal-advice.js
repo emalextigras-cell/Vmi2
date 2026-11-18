@@ -36,6 +36,12 @@ function localDay(timestamp) {
   return [date.getFullYear(), String(date.getMonth()+1).padStart(2,'0'), String(date.getDate()).padStart(2,'0')].join('-');
 }
 
+function localSummerNightDay(timestamp) {
+  const date = new Date(timestamp);
+  if (date.getHours() < 6) date.setDate(date.getDate() - 1);
+  return localDay(date.getTime());
+}
+
 /**
  * Les médianes sont calculées par jour puis chaque jour a le même poids.
  * Une opportunité thermique est seulement un contexte favorable observé,
@@ -56,8 +62,9 @@ export function analyzeSeasonalVentilation(data, { minSamples = 6, minDays = 2, 
     const seasonalRows = rows.filter(row => row.calendarSeason === season);
     const days = new Map();
     for (const row of seasonalRows) {
-      if (!days.has(row.day)) days.set(row.day, []);
-      days.get(row.day).push(row);
+      const dayKey = season === 'été' ? localSummerNightDay(row.t) : row.day;
+      if (!days.has(dayKey)) days.set(dayKey, []);
+      days.get(dayKey).push(row);
     }
     const daily = [...days.entries()].map(([day, samples]) => {
       const hourRows = samples.filter(row => {
