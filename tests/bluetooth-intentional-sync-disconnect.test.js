@@ -41,7 +41,7 @@ test('signale les lignes rejetées au lieu d’annoncer un historique à jour', 
 
 
 test('sépare les lignes historiques sur CR et LF du flux VMI+', () => {
-  assert.match(source, /download\\.buf\\.split\\(\\/\\\\r\\\\n\\|\\\\n\\|\\\\r\\/\\)/);
+  assert.ok(source.includes('download.buf.split(/\\\\r\\\\n|\\\\n|\\\\r/)'));
 });
 
 test('ignore le préambule et l’en-tête VMI+ avant les lignes de relevés', () => {
