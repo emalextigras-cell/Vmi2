@@ -113,11 +113,19 @@ export function summarizeDailyEnergyClimateContext(history, {
     if(!(elapsed>0)||elapsed>maxGapMs)continue;
     const powerA=estimateFanPowerFromFlow(a.debit),powerB=estimateFanPowerFromFlow(b.debit);
     if(powerA==null||powerB==null)continue;
-    const midpoint=a.t+elapsed/2;
-    const day=ensure(dayKey(midpoint));
-    day.energyWh+=((powerA+powerB)/2)*(elapsed/HOUR);
-    day.fanCoveredMs+=elapsed;
-    day.fanIntervals++;
+    const intervalEnergyWh=((powerA+powerB)/2)*(elapsed/HOUR);
+    let cursor=a.t;
+    while(cursor<b.t){
+      const date=new Date(cursor);
+      date.setHours(24,0,0,0);
+      const segmentEnd=Math.min(b.t,date.getTime());
+      const segmentDuration=segmentEnd-cursor;
+      const day=ensure(dayKey(cursor));
+      day.energyWh+=intervalEnergyWh*(segmentDuration/elapsed);
+      day.fanCoveredMs+=segmentDuration;
+      day.fanIntervals++;
+      cursor=segmentEnd;
+    }
   }
   const daily=[...days.values()].map(day=>{
     const fanHours=day.fanCoveredMs/HOUR;
