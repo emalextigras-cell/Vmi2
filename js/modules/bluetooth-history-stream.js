@@ -34,8 +34,8 @@ export function acceptHistoryFragment(state, fragment) {
   const sequence = data.sequence;
   const chunkIndex = data.chunkIndex;
   const payload = String(data.payload ?? '');
-  if (typeof sequence !== 'number' || !Number.isInteger(sequence) || sequence < 0 ||
-      typeof chunkIndex !== 'number' || !Number.isInteger(chunkIndex) ||
+  if (typeof sequence !== 'number' || !Number.isSafeInteger(sequence) || sequence < 0 ||
+      typeof chunkIndex !== 'number' || !Number.isSafeInteger(chunkIndex) ||
       chunkIndex < 0 || chunkIndex % 10 !== 0) {
     state.gapCount++;
     // Si l'index de ligne reste lisible, condamner cette ligne et ignorer
