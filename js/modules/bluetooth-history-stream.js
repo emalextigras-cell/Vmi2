@@ -31,11 +31,12 @@ export function createHistoryStreamState() {
 export function acceptHistoryFragment(state, fragment) {
   const data = fragment && typeof fragment === 'object'
     ? /** @type {Record<string, unknown>} */ (fragment) : {};
-  const sequence = Number(data.sequence);
-  const chunkIndex = Number(data.chunkIndex);
+  const sequence = data.sequence;
+  const chunkIndex = data.chunkIndex;
   const payload = String(data.payload ?? '');
-  if (!Number.isInteger(sequence) || sequence < 0 ||
-      !Number.isInteger(chunkIndex) || chunkIndex < 0 || chunkIndex % 10 !== 0) {
+  if (typeof sequence !== 'number' || !Number.isInteger(sequence) || sequence < 0 ||
+      typeof chunkIndex !== 'number' || !Number.isInteger(chunkIndex) ||
+      chunkIndex < 0 || chunkIndex % 10 !== 0) {
     state.gapCount++;
     // Si l'index de ligne reste lisible, condamner cette ligne et ignorer
     // tous ses fragments suivants jusqu'à la ligne suivante.
