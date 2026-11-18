@@ -254,7 +254,7 @@ export function summarizeEnergyClimateContext(readings, history, options = {}) {
       coverageHours,
       coveragePercent,
       coveredMs: climateCoverageMs,
-      ready: coverageHours >= minCoveredHours && coveragePercent >= minCoveragePercent,
+      ready: climateCoverageMs > 0 && coverageHours >= minCoveredHours && coveragePercent >= minCoveragePercent,
       metricCoverageHours: Object.fromEntries(metricKeys.map(key => [
         key, coverage[key] / 3600000
       ]))
