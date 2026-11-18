@@ -771,13 +771,13 @@ test('une couverture juste sous 20 % ne doit pas être arrondie au seuil modér�
  const rows=[];
  let timestamp=start;
  rows.push({t:timestamp,st:20,sh:60,te:10,he:40});
- // Dix intervalles exploitables totalisent exactement 19,96 h.
+ // Dix intervalles exploitables de 1,996 h totalisent exactement 19,96 h.
  for(let i=0;i<10;i++){
-  timestamp+=7195600;
+  timestamp+=7185600;
   rows.push({t:timestamp,st:20,sh:60,te:10,he:40});
  }
- // Treize grandes lacunes portent l'étendue totale à exactement 100 h.
- const longGaps=[...Array(12).fill(26157000),26156000];
+ // Treize grandes lacunes (> 2 h) portent l'étendue totale à exactement 100 h.
+ const longGaps=[...Array(12).fill(21600000),28944000];
  for(const gap of longGaps){
   timestamp+=gap;
   rows.push({t:timestamp,st:20,sh:60,te:10,he:40});
