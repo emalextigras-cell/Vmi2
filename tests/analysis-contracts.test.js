@@ -768,3 +768,19 @@ test('summarizeOperatingReference exclut les RPM négatifs des statistiques de r
   assert.equal(rpm.min, 1000);
   assert.equal(rpm.max, 1200);
 });
+
+
+test('summarizeOperatingReference applique le même domaine RPM que les comparaisons de fonctionnement', () => {
+  const result = summarizeOperatingReference([
+    { t: at(30, 8), vmiModeRaw: 1, rpm: 1000 },
+    { t: at(31, 8), vmiModeRaw: 1, rpm: 1200 },
+    { t: at(1, 9), vmiModeRaw: 1, rpm: 0 },
+    { t: at(2, 9), vmiModeRaw: 1, rpm: 10000 }
+  ], { minSamples: 1 });
+  const rpm = result.groups[0].fields.find(field => field.key === 'rpm');
+
+  assert.equal(rpm.count, 2);
+  assert.equal(rpm.median, 1100);
+  assert.equal(rpm.min, 1000);
+  assert.equal(rpm.max, 1200);
+});
