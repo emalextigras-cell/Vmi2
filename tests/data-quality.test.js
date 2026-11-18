@@ -209,7 +209,7 @@ test('les trames de remplacement sont exclues de la couverture complète sans ef
 
 
 test('les horodatages finis hors plage JavaScript sont exclus des pics temporels', () => {
-  const start = 8_640_000_000_001;
+  const start = 8_640_000_000_000_001;
   const result = detectTransientSensorSpikes([
     { t: start, st: 20 },
     { t: start + 5 * 60_000, st: 36 },
