@@ -203,3 +203,22 @@ test('un index de ligne non sûr ne doit pas empoisonner la séquence du flux', 
   assert.equal(state.sequence, 0);
   assert.equal(state.fragments.has('0:0'), true);
 });
+
+
+test('libère les fragments des lignes précédentes quand le flux avance', () => {
+  const state = createHistoryStreamState();
+  assert.equal(acceptHistoryFragment(state, {
+    sequence: 0,
+    chunkIndex: 0,
+    payload: 'première ligne'
+  }).accepted, true);
+  assert.equal(acceptHistoryFragment(state, {
+    sequence: 1,
+    chunkIndex: 0,
+    payload: 'deuxième ligne'
+  }).accepted, true);
+
+  assert.equal(state.fragments.size, 1);
+  assert.equal(state.fragments.has('0:0'), false);
+  assert.equal(state.fragments.has('1:0'), true);
+});
