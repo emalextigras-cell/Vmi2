@@ -80,3 +80,30 @@ test('les graphiques ne reçoivent pas de relevés sans horodatage exploitable',
   assert.doesNotMatch(elements.get('chartRH').innerHTML, /NaN|Invalid Date/);
   assert.match(elements.get('chartRH').innerHTML, /1\.8/);
 });
+
+
+test('renderCharts trace les relevés dans l’ordre chronologique même si l’entrée est désordonnée', async () => {
+  const { renderCharts } = await import('../js/modules/chart-renderer.js');
+  const elements = new Map();
+  const get = id => {
+    if (!elements.has(id)) {
+      elements.set(id, {
+        innerHTML: '',
+        querySelectorAll: () => [],
+        querySelector: selector => selector === 'svg'
+          ? { addEventListener() {}, getBoundingClientRect: () => ({ width: 700, left: 0 }) }
+          : selector === '.tip'
+            ? { style: {} }
+            : { setAttribute() {}, style: {} }
+      });
+    }
+    return elements.get(id);
+  };
+
+  renderCharts([
+    { t: 2_000, sh: 60, st: 20, he: 65, te: 10 },
+    { t: 1_000, sh: 50, st: 19, he: 60, te: 9 }
+  ], null, get);
+
+  assert.match(elements.get('chartRH').innerHTML, /d="M48\\.0 [^"]+L700\\.0 [^"]+"/);
+});
