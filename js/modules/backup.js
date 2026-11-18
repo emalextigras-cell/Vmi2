@@ -87,7 +87,7 @@ export function mergeBackupData({
     if(maxLive===0) live=[];
     else if(live.length>maxLive) live=live.slice(-maxLive);
   }
-  const meta={...(currentMeta||{})};
+  const meta={...(currentMeta && typeof currentMeta === 'object' && !Array.isArray(currentMeta) ? currentMeta : {})};
   if(source.meta?.lastSync&&(!meta.lastSync||source.meta.lastSync>String(meta.lastSync))) meta.lastSync=source.meta.lastSync;
 
   let energyReadings = Array.isArray(currentEnergyReadings)
