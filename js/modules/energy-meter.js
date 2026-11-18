@@ -24,7 +24,7 @@ export function isValidEnergyReading(reading) {
   const candidate = /** @type {Record<string, unknown>} */ (reading);
   return typeof candidate.id === 'string' && candidate.id.length > 0 &&
     typeof candidate.meterType === 'string' && ENERGY_METER_TYPES.some(type => type === candidate.meterType) &&
-    typeof candidate.t === 'number' && Number.isFinite(candidate.t) && candidate.t > 0 &&
+    typeof candidate.t === 'number' && Number.isFinite(candidate.t) && Number.isFinite(new Date(candidate.t).getTime()) && candidate.t > 0 &&
     typeof candidate.kwh === 'number' && Number.isFinite(candidate.kwh) && candidate.kwh >= 0 &&
     (candidate.note == null || typeof candidate.note === 'string');
 }
