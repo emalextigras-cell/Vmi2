@@ -65,13 +65,17 @@ export function summarizeEnergyReadings(readings) {
         existing.reading = reading;
       }
     }
-    const rows = [...byTimestamp.values()]
+    const timestampGroups = [...byTimestamp.values()]
+      .sort((a, b) => a.reading.t - b.reading.t);
+    const rows = timestampGroups
       .filter(group => !group.conflict)
-      .map(group => group.reading)
-      .sort((a, b) => a.t - b.t);
+      .map(group => group.reading);
     const intervals = [];
-    for (let index = 1; index < rows.length; index++) {
-      const previous = rows[index - 1], current = rows[index];
+    for (let index = 1; index < timestampGroups.length; index++) {
+      const previousGroup = timestampGroups[index - 1], currentGroup = timestampGroups[index];
+      // Un horodatage contradictoire interrompt la continuité : ne jamais le franchir.
+      if (previousGroup.conflict || currentGroup.conflict) continue;
+      const previous = previousGroup.reading, current = currentGroup.reading;
       const elapsedHours = (current.t - previous.t) / 3600000;
       const deltaKwh = current.kwh - previous.kwh;
       if (!(elapsedHours > 0)) continue;
