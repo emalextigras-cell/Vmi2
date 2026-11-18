@@ -1,3 +1,4 @@
+import * as awaitableStoreModule from '../js/modules/store.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createStore } from '../js/modules/store.js';
@@ -110,4 +111,32 @@ test('get propage une erreur de lecture au lieu de la transformer en valeur abse
   } finally {
     mock.restore();
   }
+});
+
+
+test('le contrat StoreSnapshot normalise les quatre collections et préserve les relevés bruts', () => {
+  const { normalizeStoreSnapshot } = awaitableStoreModule;
+  assert.equal(typeof normalizeStoreSnapshot, 'function');
+  const history = [{ sh: 52 }, { t: 1760000000000, sh: 48 }];
+  const live = [{ sh: 53 }];
+  const energyReadings = [{ id:'e1', meterType:'ventilation', t:1760000000000, kwh:1.2 }];
+  const meta = { lastSync:'2026-11-18T12:00:00.000Z' };
+  const snapshot = normalizeStoreSnapshot({ history, live, energyReadings, meta });
+
+  assert.deepEqual(snapshot, { history, live, energyReadings, meta });
+  assert.strictEqual(snapshot.history, history);
+  assert.strictEqual(snapshot.live, live);
+  assert.strictEqual(snapshot.energyReadings, energyReadings);
+  assert.strictEqual(snapshot.meta, meta);
+});
+
+test('le contrat StoreSnapshot remplace les conteneurs de premier niveau mal formés par des valeurs sûres', () => {
+  const snapshot = awaitableStoreModule.normalizeStoreSnapshot({
+    history:{ t:1760000000000 },
+    live:null,
+    energyReadings:'invalid',
+    meta:['lastSync', '2026-11-18T12:00:00.000Z']
+  });
+
+  assert.deepEqual(snapshot, { history:[], live:[], energyReadings:[], meta:{} });
 });
