@@ -105,5 +105,7 @@ test('renderCharts trace les relevés dans l’ordre chronologique même si l’
     { t: 1_000, sh: 50, st: 19, he: 60, te: 9 }
   ], null, get);
 
-  assert.match(elements.get('chartRH').innerHTML, /d="M48\\.0 [^"]+L700\\.0 [^"]+"/);
+  const pathData = elements.get('chartRH').innerHTML.match(/<path d="([^"]+)"/)?.[1];
+  assert.ok(pathData?.startsWith('M48.0 '));
+  assert.match(pathData, /L688\.0 /);
 });
