@@ -217,3 +217,17 @@ test('les horodatages finis hors plage JavaScript sont exclus des pics temporels
   ]);
   assert.equal(result.count, 0);
 });
+
+
+test('un doublon au même horodatage ne masque pas un pic transitoire', () => {
+  const start = 1_800_000_000_000;
+  const result = detectTransientSensorSpikes([
+    { t: start, st: 20 },
+    { t: start + 5 * 60_000, st: 36 },
+    { t: start + 5 * 60_000, st: 36 },
+    { t: start + 10 * 60_000, st: 21 }
+  ]);
+  assert.equal(result.count, 1);
+  assert.equal(result.candidates[0].timestamp, start + 5 * 60_000);
+  assert.equal(result.candidates[0].value, 36);
+});
