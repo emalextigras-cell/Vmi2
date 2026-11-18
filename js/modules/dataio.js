@@ -245,6 +245,7 @@ export function parseCsvRows(text, delimiter = null) {
       row.push(field);field='';rows.push(row);row=[];
     }else field+=char;
   }
+  if(quoted)throw new SyntaxError('CSV invalide : champ entre guillemets non terminé.');
   if(field!==''||row.length){row.push(field);rows.push(row)}
   return rows;
 }
