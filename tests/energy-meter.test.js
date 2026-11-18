@@ -154,5 +154,5 @@ test('ne publie pas une puissance moyenne infinie pour des index finis extrêmes
   const interval = result.meters[0].intervals[0];
   assert.equal(interval.status, 'measured');
   assert.equal(interval.deltaKwh, 1e308);
-  assert.equal(Number.isFinite(interval.averagePowerW), true);
+  assert.equal(interval.averagePowerW, null);
 });
