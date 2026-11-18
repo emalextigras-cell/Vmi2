@@ -83,13 +83,13 @@ test('parseCsvRows rejette un champ entre guillemets qui n’est jamais refermé
 
 test('parseCsvRows rejette les caractères après la fermeture d’un champ cité', () => {
   assert.throws(
-    () => parseCsvRows('Date,Mode,Debit\\n10/11/2026 16:45:35,1,"122"x'),
+    () => parseCsvRows('Date,Mode,Debit\n10/11/2026 16:45:35,1,"122"x'),
     /guillemet|quote|CSV/i
   );
 });
 
 
 test('parseCsvRows conserve les lignes LF après un champ entre guillemets fermé', () => {
-  const rows = parseCsvRows('"a",b\\n"c",d');
+  const rows = parseCsvRows('"a",b\n"c",d');
   assert.deepEqual(rows, [['a', 'b'], ['c', 'd']]);
 });
