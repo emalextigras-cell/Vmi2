@@ -30,7 +30,7 @@ export const wallUtcToLocal = timestamp => {
  * @returns {VmiRecord|null} Relevé normalisé, ou null si la ligne est invalide.
  */
 export const fromOldRow = row => {
-  if (!Array.isArray(row) || row.length === 0) return null;
+  if (!Array.isArray(row) || row.length < 9) return null;
   const timestamp = wallUtcToLocal(row[0]);
   if (timestamp == null) return null;
   return {
