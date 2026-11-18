@@ -231,17 +231,25 @@ export function parseCsvRows(text, delimiter = null) {
     };
     delimiter=score(';')>score(',')?';':',';
   }
-  const rows=[];let row=[],field='',quoted=false;
+  const rows=[];let row=[],field='',quoted=false,afterQuote=false;
   for(let i=0;i<source.length;i++){
     const char=source[i];
     if(quoted){
       if(char==='"'&&source[i+1]==='"'){field+='"';i++}
-      else if(char==='"')quoted=false;
+      else if(char==='"'){quoted=false;afterQuote=true}
       else field+=char;
+    }else if(afterQuote){
+      if(char===delimiter){row.push(field);field='';afterQuote=false}
+      else if(char==='\\n'||char==='\\r'){
+        if(char==='\\r'&&source[i+1]==='\\n')i++;
+        row.push(field);field='';rows.push(row);row=[];afterQuote=false;
+      }else if(char!==' '&&char!=='\\t'){
+        throw new SyntaxError('CSV invalide : caractère après la fermeture d’un champ entre guillemets.');
+      }
     }else if(char==='"'&&field==='')quoted=true;
     else if(char===delimiter){row.push(field);field=''}
-    else if(char==='\n'||char==='\r'){
-      if(char==='\r'&&source[i+1]==='\n')i++;
+    else if(char==='\\n'||char==='\\r'){
+      if(char==='\\r'&&source[i+1]==='\\n')i++;
       row.push(field);field='';rows.push(row);row=[];
     }else field+=char;
   }
