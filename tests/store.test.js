@@ -1,4 +1,4 @@
-import * as awaitableStoreModule from '../js/modules/store.js';
+import * as storeModule from '../js/modules/store.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createStore } from '../js/modules/store.js';
@@ -115,7 +115,7 @@ test('get propage une erreur de lecture au lieu de la transformer en valeur abse
 
 
 test('le contrat StoreSnapshot normalise les quatre collections et préserve les relevés bruts', () => {
-  const { normalizeStoreSnapshot } = awaitableStoreModule;
+  const { normalizeStoreSnapshot } = storeModule;
   assert.equal(typeof normalizeStoreSnapshot, 'function');
   const history = [{ sh: 52 }, { t: 1760000000000, sh: 48 }];
   const live = [{ sh: 53 }];
@@ -131,7 +131,7 @@ test('le contrat StoreSnapshot normalise les quatre collections et préserve les
 });
 
 test('le contrat StoreSnapshot remplace les conteneurs de premier niveau mal formés par des valeurs sûres', () => {
-  const snapshot = awaitableStoreModule.normalizeStoreSnapshot({
+  const snapshot = storeModule.normalizeStoreSnapshot({
     history:{ t:1760000000000 },
     live:null,
     energyReadings:'invalid',
