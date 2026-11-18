@@ -24,7 +24,7 @@ export function isValidEnergyReading(reading) {
   const candidate = /** @type {Record<string, unknown>} */ (reading);
   return typeof candidate.id === 'string' && candidate.id.length > 0 &&
     typeof candidate.meterType === 'string' && ENERGY_METER_TYPES.some(type => type === candidate.meterType) &&
-    typeof candidate.t === 'number' && Number.isFinite(candidate.t) && Number.isFinite(new Date(candidate.t).getTime()) && candidate.t > 0 &&
+    typeof candidate.t === 'number' && Number.isFinite(candidate.t) && candidate.t > 0 &&
     typeof candidate.kwh === 'number' && Number.isFinite(candidate.kwh) && candidate.kwh >= 0 &&
     (candidate.note == null || typeof candidate.note === 'string');
 }
@@ -55,27 +55,13 @@ export function summarizeEnergyReadings(readings) {
   const meters = /** @type {EnergySummary['meters']} */ (ENERGY_METER_TYPES.map(meterType => {
     const byTimestamp = new Map();
     for (const reading of valid.filter(item => item.meterType === meterType).sort((a, b) => a.t - b.t)) {
-      const existing = byTimestamp.get(reading.t);
-      if (!existing) {
-        byTimestamp.set(reading.t, { reading, kwh: reading.kwh, conflict: false });
-      } else if (existing.kwh !== reading.kwh) {
-        // Sans ordre de modification fiable, un index contradictoire est inexploitable.
-        existing.conflict = true;
-      } else {
-        existing.reading = reading;
-      }
+      // En cas de doublon issu d'une sauvegarde, le dernier relevé de la liste prévaut.
+      byTimestamp.set(reading.t, reading);
     }
-    const timestampGroups = [...byTimestamp.values()]
-      .sort((a, b) => a.reading.t - b.reading.t);
-    const rows = timestampGroups
-      .filter(group => !group.conflict)
-      .map(group => group.reading);
+    const rows = [...byTimestamp.values()].sort((a, b) => a.t - b.t);
     const intervals = [];
-    for (let index = 1; index < timestampGroups.length; index++) {
-      const previousGroup = timestampGroups[index - 1], currentGroup = timestampGroups[index];
-      // Un horodatage contradictoire interrompt la continuité : ne jamais le franchir.
-      if (previousGroup.conflict || currentGroup.conflict) continue;
-      const previous = previousGroup.reading, current = currentGroup.reading;
+    for (let index = 1; index < rows.length; index++) {
+      const previous = rows[index - 1], current = rows[index];
       const elapsedHours = (current.t - previous.t) / 3600000;
       const deltaKwh = current.kwh - previous.kwh;
       if (!(elapsedHours > 0)) continue;
@@ -87,23 +73,21 @@ export function summarizeEnergyReadings(readings) {
         });
         continue;
       }
-      const averagePowerW = deltaKwh * 1000 / elapsedHours;
       intervals.push({
         from: previous.t, to: current.t, elapsedHours,
         previousKwh: previous.kwh, currentKwh: current.kwh,
-        deltaKwh, averagePowerW: Number.isFinite(averagePowerW) ? averagePowerW : null,
+        deltaKwh, averagePowerW: deltaKwh * 1000 / elapsedHours,
         status: 'measured'
       });
     }
     const measured = intervals.filter(interval => interval.status === 'measured');
-    const totalKwh = measured.reduce((sum, interval) => sum + interval.deltaKwh, 0);
     return {
       meterType, label: ENERGY_METER_LABELS[meterType],
       readingCount: rows.length,
       firstAt: rows.length ? rows[0].t : null,
       lastAt: rows.length ? rows[rows.length - 1].t : null,
       measuredIntervalCount: measured.length,
-      totalKwh: Number.isFinite(totalKwh) ? totalKwh : null,
+      totalKwh: measured.reduce((sum, interval) => sum + interval.deltaKwh, 0),
       intervals
     };
   }).filter(meter => meter.readingCount > 0));
@@ -143,8 +127,7 @@ export function summarizeMonthlyEnergyReadings(readings) {
       const toKey = String(to.getFullYear()) + '-' + String(to.getMonth() + 1).padStart(2, '0');
       if (fromKey !== toKey) {
         crossMonthIntervalCount++;
-        const nextCrossMonthKwh = crossMonthKwh == null ? null : crossMonthKwh + interval.deltaKwh;
-        crossMonthKwh = Number.isFinite(nextCrossMonthKwh) ? nextCrossMonthKwh : null;
+        crossMonthKwh += interval.deltaKwh;
         continue;
       }
       if (!months.has(fromKey)) {
@@ -154,8 +137,7 @@ export function summarizeMonthlyEnergyReadings(readings) {
         });
       }
       const month = months.get(fromKey);
-      const nextMonthKwh = month.energyKwh == null ? null : month.energyKwh + interval.deltaKwh;
-      month.energyKwh = Number.isFinite(nextMonthKwh) ? nextMonthKwh : null;
+      month.energyKwh += interval.deltaKwh;
       month.intervalCount++;
       month.firstAt = Math.min(month.firstAt, interval.from);
       month.lastAt = Math.max(month.lastAt, interval.to);
@@ -208,27 +190,9 @@ export function summarizeEnergyClimateContext(readings, history, options = {}) {
   } = options ?? {};
   assertValidEnergyClimateOptions(maxGapHours, minCoveredHours, minCoveragePercent);
   const summary = summarizeEnergyReadings(readings);
-  const sortedRows = (Array.isArray(history) ? history : [])
-    .filter(row => Number.isFinite(row?.t) && Number.isFinite(new Date(row.t).getTime()))
+  const rows = (Array.isArray(history) ? history : [])
+    .filter(row => Number.isFinite(row?.t))
     .sort((a, b) => a.t - b.t);
-  const timestampGroups = [];
-  for (const row of sortedRows) {
-    const last = timestampGroups[timestampGroups.length - 1];
-    if (last && last.timestamp === row.t) last.rows.push(row);
-    else timestampGroups.push({ timestamp: row.t, rows: [row] });
-  }
-  const conflictingTimestamps = new Set();
-  const rows = [];
-  for (const group of timestampGroups) {
-    const fingerprints = new Set(group.rows.map(row => JSON.stringify([
-      row.st, row.tExt, row.sh, row.te, row.he
-    ])));
-    if (fingerprints.size > 1) {
-      conflictingTimestamps.add(group.timestamp);
-      continue;
-    }
-    rows.push(group.rows[0]);
-  }
   const maxGapMs = maxGapHours * 3600000;
 
   const valuesFor = row => {
@@ -263,9 +227,6 @@ export function summarizeEnergyClimateContext(readings, history, options = {}) {
       const first = rows[index - 1], second = rows[index];
       const gap = second.t - first.t;
       if (!(gap > 0) || gap > maxGapMs) continue;
-      if ([...conflictingTimestamps].some(timestamp =>
-        timestamp > first.t && timestamp < second.t
-      )) continue;
       const start = Math.max(interval.from, first.t);
       const end = Math.min(interval.to, second.t);
       if (!(end > start)) continue;
@@ -293,7 +254,7 @@ export function summarizeEnergyClimateContext(readings, history, options = {}) {
       coverageHours,
       coveragePercent,
       coveredMs: climateCoverageMs,
-      ready: climateCoverageMs > 0 && coverageHours >= minCoveredHours && coveragePercent >= minCoveragePercent,
+      ready: coverageHours >= minCoveredHours && coveragePercent >= minCoveragePercent,
       metricCoverageHours: Object.fromEntries(metricKeys.map(key => [
         key, coverage[key] / 3600000
       ]))

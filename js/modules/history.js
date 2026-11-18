@@ -14,20 +14,11 @@ import { MIN_VALID } from './date-utils.js';
  * @returns {boolean} true si le relevé peut être conservé.
  */
 export function isRawDateEligible(record, minValid = MIN_VALID) {
-  if (!record || !Number.isFinite(record.t) || !Number.isFinite(new Date(record.t).getTime())) return false;
+  if (!record || !Number.isFinite(record.t)) return false;
   if (record.fixed === true) return record.t >= minValid;
   if (typeof record.rk === 'string' && record.rk.trim()) {
     const match = record.rk.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s/);
-    if (match) {
-      const day = Number(match[1]);
-      const month = Number(match[2]);
-      const year = Number(match[3]);
-      const calendarDate = new Date(Date.UTC(year, month - 1, day));
-      if (calendarDate.getUTCFullYear() !== year ||
-          calendarDate.getUTCMonth() !== month - 1 ||
-          calendarDate.getUTCDate() !== day) return false;
-      return year >= 2025;
-    }
+    if (match) return Number(match[3]) >= 2025;
   }
   // Sans date brute, conserver le relevé : l’horodatage peut rester vérifiable.
   return true;
@@ -88,12 +79,9 @@ export function mergeRecordFields(existing, incoming) {
 
 /** Fusionne les imports par horodatage sans perdre les champs déjà renseignés. */
 export function mergeImportedHistory(currentRecords, importedRecords, maxTimestamp = Date.now()) {
-  const byTimestamp = new Map();
-  for (const record of (Array.isArray(currentRecords) ? currentRecords : [])
-    .filter(record => isRawDateEligible(record) && record.t <= maxTimestamp)) {
-    const existing = byTimestamp.get(record.t);
-    byTimestamp.set(record.t, existing ? mergeRecordFields(existing, record) : record);
-  }
+  const byTimestamp = new Map((Array.isArray(currentRecords) ? currentRecords : [])
+    .filter(record => isRawDateEligible(record) && record.t <= maxTimestamp)
+    .map(record => [record.t, record]));
   (Array.isArray(importedRecords) ? importedRecords : [])
     .filter(record => isRawDateEligible(record) && record.t <= maxTimestamp)
     .forEach(record => byTimestamp.set(record.t, mergeRecordFields(byTimestamp.get(record.t), record)));

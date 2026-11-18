@@ -27,7 +27,7 @@ export function validateBluetoothHistoryRow(line) {
   }
 
   const duration = fields[11].trim().replace(',', '.');
-  if (!duration || !Number.isFinite(Number(duration)) || !Number.isInteger(Number(duration)) || Number(duration) < 0) {
+  if (!duration || !Number.isFinite(Number(duration))) {
     return { valid: false, reason: 'duration-invalid' };
   }
   return { valid: true, fields };

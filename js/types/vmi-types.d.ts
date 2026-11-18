@@ -50,25 +50,6 @@ export interface VmiRecord {
   id?: string | number;
 }
 
-/** Relevé prêt pour l'affichage : horodatage numérique valide obligatoire à l'exécution. */
-export interface DisplayVmiRecord extends VmiRecord {
-  t: number;
-}
-
-/** Snapshot des conteneurs persistés. Les éléments restent bruts à cette frontière ; leur validation appartient aux modules dédiés. */
-export interface StoreSnapshot {
-  history: unknown[];
-  live: unknown[];
-  energyReadings: unknown[];
-  meta: UnknownRecord;
-}
-
-/** Entrée validée du moteur graphique ; les relevés restent inchangés et chronologiques. */
-export interface ChartViewModel {
-  records: DisplayVmiRecord[];
-  selectedDate: string | null;
-}
-
 export type NullableNumber = number | null;
 export type UnknownRecord = Record<string, unknown>;
 
@@ -278,17 +259,13 @@ export interface TemperatureLimitResult {
       pairedAtOrBelow:{sampleCount:number;dayCount:number;medianDebit:number|null;medianRPM:number|null};comparable:boolean}>}>;
   limits:string[];
 }
-/** Modèle stable présenté par l'assistant VMI ; aucune commande matérielle n'en découle. */
-export interface AssistantViewModel {
+export interface AssistantSummary {
   status:'no-data'|'available'|'limited';title:string;overview:string;confidence:string;
   sampleCount?:number;acceptedSampleCount?:number;period?:string;targetRH?:number;minSamples?:number;
   sections:Array<{id:string;title:string;status:string;summary:string;details:string[]}>;
   recommendations:Array<{priority:string;title:string;text:string;reason:string}>;
   limits:string[];
 }
-
-/** Alias conservé pour compatibilité avec les appels existants. */
-export type AssistantSummary = AssistantViewModel;
 
 export interface FanEnergyEstimateResult {
   status:string;sampleCount:number;firstAt:number|null;lastAt:number|null;observedHours:number;
