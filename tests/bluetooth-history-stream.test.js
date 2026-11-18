@@ -120,6 +120,7 @@ test('un doublon avec un contenu différent invalide la ligne concernée', () =>
   const next = acceptHistoryFragment(state, { sequence: 1, chunkIndex: 0, payload: 'ligne suivante' });
   assert.equal(conflict.gap, true);
   assert.equal(conflict.resetBuffer, true);
+  assert.equal(state.fragments.size, 0);
   assert.equal(rest.accepted, false);
   assert.equal(next.accepted, true);
 });
