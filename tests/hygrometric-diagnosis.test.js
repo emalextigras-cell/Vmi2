@@ -764,3 +764,28 @@ test('diagnostic rejects invalid trend and minimum-sample thresholds', () => {
     );
   }
 });
+
+
+test('une couverture juste sous 20 % ne doit pas être arrondie au seuil modéré',()=>{
+ const start=new Date(2026,10,10,0,0,0).getTime();
+ const rows=[];
+ let timestamp=start;
+ rows.push({t:timestamp,st:20,sh:60,te:10,he:40});
+ // Dix intervalles exploitables totalisent exactement 19,96 h.
+ for(let i=0;i<10;i++){
+  timestamp+=7195600;
+  rows.push({t:timestamp,st:20,sh:60,te:10,he:40});
+ }
+ // Treize grandes lacunes portent l'étendue totale à exactement 100 h.
+ const longGaps=[...Array(12).fill(26157000),26156000];
+ for(const gap of longGaps){
+  timestamp+=gap;
+  rows.push({t:timestamp,st:20,sh:60,te:10,he:40});
+ }
+ const result=buildHygrometricDiagnosis(rows);
+ assert.equal(result.sampleCount,24);
+ assert.equal(result.observedHours,19.96);
+ assert.equal(result.coverageSpanHours,100);
+ assert.equal(result.confidenceBasis.observedCoveragePercent,20);
+ assert.equal(result.coverageLevel,'faible');
+});
