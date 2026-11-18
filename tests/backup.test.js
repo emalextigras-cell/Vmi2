@@ -230,3 +230,14 @@ test('le contrat du snapshot exige un objet meta et rejette les tableaux', () =>
 
   assert.deepEqual(snapshot.meta, {});
 });
+
+
+test('la restauration normalise les métadonnées locales non objet', () => {
+  const result = mergeBackupData({
+    backup:{ app:'vmi-purevent', hist:[] },
+    currentMeta:['lastSync', '2026-11-18T12:00:00.000Z'],
+    minValid:MIN_VALID
+  });
+
+  assert.deepEqual(result.meta, {});
+});
