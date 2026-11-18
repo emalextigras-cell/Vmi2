@@ -17,7 +17,7 @@ export function isRawDateEligible(record, minValid = MIN_VALID) {
   if (!record || !Number.isFinite(record.t) || !Number.isFinite(new Date(record.t).getTime())) return false;
   if (record.fixed === true) return record.t >= minValid;
   if (typeof record.rk === 'string' && record.rk.trim()) {
-    const match = record.rk.trim().match(/^(\\d{1,2})\\/(\\d{1,2})\\/(\\d{4})\\s/);
+    const match = record.rk.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s/);
     if (match) {
       const day = Number(match[1]);
       const month = Number(match[2]);
