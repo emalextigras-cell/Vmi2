@@ -41,6 +41,9 @@ export function acceptHistoryFragment(state, fragment) {
     // Si l'index de ligne reste lisible, condamner cette ligne et ignorer
     // tous ses fragments suivants jusqu'à la ligne suivante.
     if (typeof sequence === 'number' && Number.isSafeInteger(sequence) && sequence >= 0 && (state.sequence === null || sequence >= state.sequence)) {
+      // Les fragments de la ligne condamnée et des lignes précédentes ne
+      // peuvent plus servir à une détection de doublon utile.
+      state.fragments.clear();
       state.sequence = sequence;
       state.expectedChunk = 0;
       state.skippedSequence = sequence;
@@ -69,6 +72,9 @@ export function acceptHistoryFragment(state, fragment) {
     return { accepted: false, duplicate: false, gap: true, resetBuffer: false };
   } else if (sequence > state.sequence) {
     if (sequence !== state.sequence + 1 || chunkIndex !== 0) gap = true;
+    // Les séquences antérieures sont désormais rejetées par l'ordre du flux :
+    // conserver leurs payloads ne ferait qu'accroître la mémoire utilisée.
+    state.fragments.clear();
     state.sequence = sequence;
     state.expectedChunk = 0;
     state.skippedSequence = null;
