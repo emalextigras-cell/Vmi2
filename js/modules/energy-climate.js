@@ -57,7 +57,7 @@ export function summarizeDailyEnergyClimateContext(history, {
   assertPositiveInteger('minClimateSamples',minClimateSamples);
   assertNonNegativeInteger('minDays',minDays);
   const rows=(Array.isArray(history)?history:[])
-    .filter(row=>Number.isFinite(row?.t))
+    .filter(row=>Number.isFinite(row?.t)&&Number.isFinite(new Date(row.t).getTime()))
     .sort((a,b)=>a.t-b.t);
   const groups=[];
   for(const row of rows){
