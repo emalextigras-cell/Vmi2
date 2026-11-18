@@ -67,3 +67,15 @@ test('détecte également un CSV séparé par points-virgules malgré des virgul
  assert.equal(rows[3][1],'19,7');
  assert.equal(rows[3][3],'121');
 });
+
+
+test('parseCsvRows rejette un champ entre guillemets qui n’est jamais refermé', () => {
+  const source = [
+    'Date,Mode,Debit',
+    '10/11/2026 16:45:35,1,121',
+    '11/11/2026 16:45:35,2,"122',
+    '12/11/2026 16:45:35,3,123'
+  ].join('\\n');
+
+  assert.throws(() => parseCsvRows(source), /guillemet|quote|CSV/i);
+});
