@@ -188,3 +188,28 @@ test('ne publie pas un cumul infini des intervalles traversant les mois', () => 
   ]);
   assert.equal(result[0].crossMonthKwh, null);
 });
+
+
+test('conserve indisponible un cumul mensuel après un débordement, même avec des intervalles ultérieurs', () => {
+  const result = summarizeMonthlyEnergyReadings([
+    reading('total', Date.UTC(2026, 0, 1), 0),
+    reading('total', Date.UTC(2026, 0, 2), 1e308),
+    reading('total', Date.UTC(2026, 0, 3), 0),
+    reading('total', Date.UTC(2026, 0, 4), 1e308),
+    reading('total', Date.UTC(2026, 0, 5), 0),
+    reading('total', Date.UTC(2026, 0, 6), 1e308)
+  ]);
+  assert.equal(result[0].months[0].energyKwh, null);
+});
+
+test('conserve indisponible le cumul inter-mois après un débordement, même avec des intervalles ultérieurs', () => {
+  const result = summarizeMonthlyEnergyReadings([
+    reading('total', Date.UTC(2026, 0, 31, 23), 0),
+    reading('total', Date.UTC(2026, 1, 1, 1), 1e308),
+    reading('total', Date.UTC(2026, 1, 28, 23), 0),
+    reading('total', Date.UTC(2026, 2, 1, 1), 1e308),
+    reading('total', Date.UTC(2026, 2, 31, 23), 0),
+    reading('total', Date.UTC(2026, 3, 1, 1), 1e308)
+  ]);
+  assert.equal(result[0].crossMonthKwh, null);
+});
