@@ -220,3 +220,13 @@ test('la restauration fusionne les champs des doublons déjà présents dans les
     { t:MIN_VALID, st:19.2 }
   ]);
 });
+
+
+test('le contrat du snapshot exige un objet meta et rejette les tableaux', () => {
+  const snapshot = createBackupSnapshot({
+    hist:[], live:[], meta:['lastSync', 123],
+    exportedAt:'2026-11-18T12:00:00.000Z'
+  });
+
+  assert.deepEqual(snapshot.meta, {});
+});
