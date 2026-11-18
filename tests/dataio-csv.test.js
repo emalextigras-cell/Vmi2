@@ -93,3 +93,16 @@ test('parseCsvRows conserve les lignes LF après un champ entre guillemets ferm�
   const rows = parseCsvRows('"a",b\n"c",d');
   assert.deepEqual(rows, [['a', 'b'], ['c', 'd']]);
 });
+
+
+test('détecte le séparateur CSV avec des fins de ligne CR seules', () => {
+  const source = [
+    'export;vmi;metadata;version;extra;field',
+    'Date,Temp,Hum',
+    '10/11/2026 16:45:35,19.7,62'
+  ].join('\r');
+
+  const rows = parseCsvRows(source);
+  assert.equal(rows[1].length, 3);
+  assert.equal(rows[2][1], '19.7');
+});
