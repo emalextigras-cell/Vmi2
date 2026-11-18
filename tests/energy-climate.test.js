@@ -132,3 +132,12 @@ test('ignore un horodatage fini mais hors plage JavaScript dans le contexte éne
   assert.ok(result.days.every(item=>item.date!=='NaN-NaN-NaN'));
   assert.equal(result.days[0].climateSampleCount,5);
 });
+
+
+test('ne déclare pas le contexte énergie-climat disponible sans aucune journée appariée, même si minDays vaut zéro',()=>{
+  const result=summarizeDailyEnergyClimateContext([],{
+    minFanHours:0,minClimateSamples:1,minDays:0
+  });
+  assert.equal(result.matchedDayCount,0);
+  assert.equal(result.status,'insufficient-data');
+});
