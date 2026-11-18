@@ -38,3 +38,14 @@ test('signale les lignes rejetées au lieu d’annoncer un historique à jour', 
   assert.match(finish, /download\.invalidRows\s*>\s*0\s*\?/);
   assert.match(finish, /lignes rejetées/);
 });
+
+
+test('sépare les lignes historiques sur CR et LF du flux VMI+', () => {
+  assert.match(source, /download\\.buf\\.split\\(\\/\\\\r\\\\n\\|\\\\n\\|\\\\r\\/\\)/);
+});
+
+test('ignore le préambule et l’en-tête VMI+ avant les lignes de relevés', () => {
+  const parser = source.slice(source.indexOf('function parseDownloadLine('), source.indexOf('function armTimer('));
+  assert.match(parser, /download\\.dataStarted/);
+  assert.match(parser, /Date;Event;/);
+});
