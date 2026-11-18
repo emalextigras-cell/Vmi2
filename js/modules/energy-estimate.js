@@ -203,12 +203,23 @@ export function summarizeFanEnergyByManualMode(history, options = {}) {
         group.climate[key].hours += hours;
       }
     }
-    const midpoint = new Date(a.t + elapsedMs / 2);
-    const dayKey = [midpoint.getFullYear(), String(midpoint.getMonth() + 1).padStart(2, '0'), String(midpoint.getDate()).padStart(2, '0')].join('-');
-    const daily = group.daily.get(dayKey) || { wh: 0, hours: 0 };
-    daily.wh += wh;
-    daily.hours += hours;
-    group.daily.set(dayKey, daily);
+    let segmentStart = a.t;
+    while (segmentStart < b.t) {
+      const segmentDate = new Date(segmentStart);
+      const dayStart = new Date(segmentDate);
+      dayStart.setHours(0, 0, 0, 0);
+      const nextDay = new Date(dayStart);
+      nextDay.setDate(nextDay.getDate() + 1);
+      const segmentEnd = Math.min(b.t, nextDay.getTime());
+      if (!(segmentEnd > segmentStart)) break;
+      const segmentHours = (segmentEnd - segmentStart) / 3600000;
+      const dayKey = [segmentDate.getFullYear(), String(segmentDate.getMonth() + 1).padStart(2, '0'), String(segmentDate.getDate()).padStart(2, '0')].join('-');
+      const daily = group.daily.get(dayKey) || { wh: 0, hours: 0 };
+      daily.wh += wh * (segmentHours / hours);
+      daily.hours += segmentHours;
+      group.daily.set(dayKey, daily);
+      segmentStart = segmentEnd;
+    }
   }
   const results = groups.map(group => {
     const coveredHours = group.coveredMs / 3600000;
