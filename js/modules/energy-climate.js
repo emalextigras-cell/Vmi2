@@ -137,7 +137,7 @@ export function summarizeDailyEnergyClimateContext(history, {
   }).sort((a,b)=>a.date.localeCompare(b.date));
   const matchedDays=daily.filter(day=>day.paired);
   return {
-    status:matchedDays.length>=minDays?'available':'insufficient-data',
+    status:matchedDays.length>0 && matchedDays.length>=minDays?'available':'insufficient-data',
     days:daily,matchedDays,matchedDayCount:matchedDays.length,
     duplicateTimestampCount,conflictingTimestampCount,
     maxGapHours,minFanHours,minClimateSamples,minDays,
