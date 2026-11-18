@@ -143,7 +143,7 @@ export function summarizeMonthlyEnergyReadings(readings) {
       const toKey = String(to.getFullYear()) + '-' + String(to.getMonth() + 1).padStart(2, '0');
       if (fromKey !== toKey) {
         crossMonthIntervalCount++;
-        const nextCrossMonthKwh = crossMonthKwh + interval.deltaKwh;
+        const nextCrossMonthKwh = crossMonthKwh == null ? null : crossMonthKwh + interval.deltaKwh;
         crossMonthKwh = Number.isFinite(nextCrossMonthKwh) ? nextCrossMonthKwh : null;
         continue;
       }
@@ -154,7 +154,7 @@ export function summarizeMonthlyEnergyReadings(readings) {
         });
       }
       const month = months.get(fromKey);
-      const nextMonthKwh = month.energyKwh + interval.deltaKwh;
+      const nextMonthKwh = month.energyKwh == null ? null : month.energyKwh + interval.deltaKwh;
       month.energyKwh = Number.isFinite(nextMonthKwh) ? nextMonthKwh : null;
       month.intervalCount++;
       month.firstAt = Math.min(month.firstAt, interval.from);
