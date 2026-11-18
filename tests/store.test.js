@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createStore } from '../js/modules/store.js';
 
-function installIndexedDB({ fail = false } = {}) {
+function installIndexedDB({ fail = false, failRead = false } = {}) {
   const writes = [];
   const database = {
     objectStoreNames: { contains: () => true },
@@ -10,7 +10,17 @@ function installIndexedDB({ fail = false } = {}) {
       const tx = {
         error: fail ? new Error('quota exceeded') : null,
         objectStore() {
-          return { put(value, key) { writes.push([key, value]); } };
+          return {
+            put(value, key) { writes.push([key, value]); },
+            get() {
+              const request = { result: undefined, error: failRead ? new Error('read failed') : null };
+              queueMicrotask(() => {
+                if (failRead) request.onerror?.();
+                else request.onsuccess?.();
+              });
+              return request;
+            }
+          };
         }
       };
       queueMicrotask(() => {
@@ -81,6 +91,21 @@ test('setMany refuse une liste d’écritures mal formée', async () => {
   try {
     const store = createStore({ databaseName: 'test', storeName: 'data' });
     await assert.rejects(store.setMany([['hist']]), /Écritures IndexedDB invalides/);
+    assert.equal(mock.writes.length, 0);
+  } finally {
+    mock.restore();
+  }
+});
+
+
+test('get propage une erreur de lecture au lieu de la transformer en valeur absente', async () => {
+  const mock = installIndexedDB({ failRead: true });
+  const errors = [];
+  try {
+    const store = createStore({ databaseName: 'test', storeName: 'data', onError: message => errors.push(message) });
+    await assert.rejects(store.get('hist'), /read failed/);
+    assert.equal(errors.length, 1);
+    assert.match(errors[0], /IndexedDB lecture/);
     assert.equal(mock.writes.length, 0);
   } finally {
     mock.restore();
