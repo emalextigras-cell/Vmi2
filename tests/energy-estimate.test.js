@@ -208,3 +208,19 @@ test('ignore un horodatage fini mais hors plage JavaScript dans la comparaison p
   assert.equal(mode1.coveredHours,1);
   assert.equal(mode1.dayCount,1);
 });
+
+
+test('répartit un intervalle de mode manuel traversant minuit entre les deux journées', () => {
+  const start = new Date(2026, 0, 1, 23, 0).getTime();
+  const rows = [
+    { t: start, debit: 125, vmiModeRaw: 1 },
+    { t: start + 2 * HOUR, debit: 125, vmiModeRaw: 1 }
+  ];
+
+  const result = summarizeFanEnergyByManualMode(rows, { minDays: 2 });
+  const mode1 = result.groups[0];
+
+  assert.equal(mode1.dayCount, 2);
+  assert.equal(mode1.medianDailyAveragePowerW, 10);
+  assert.equal(mode1.status, 'comparable');
+});
