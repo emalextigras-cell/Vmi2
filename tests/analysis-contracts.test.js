@@ -784,3 +784,22 @@ test('summarizeOperatingReference applique le même domaine RPM que les comparai
   assert.equal(rpm.min, 1000);
   assert.equal(rpm.max, 1200);
 });
+
+
+test('summarizeOperatingReference ne déclare pas prête une référence dont aucune métrique n atteint le minimum de mesures', () => {
+  const start = Date.UTC(2026, 10, 1, 8);
+  const rows = Array.from({ length: 10 }, (_, index) => ({
+    t: start + index * 24 * 60 * 60 * 1000,
+    vmiModeRaw: 1,
+    ...(index === 0 ? { rpm: 1200 } : {})
+  }));
+  const result = summarizeOperatingReference(rows, { minSamples: 10 });
+  const mode1 = result.groups.find(group => group.mode === 1);
+  const rpm = mode1.fields.find(field => field.key === 'rpm');
+
+  assert.equal(mode1.sampleCount, 10);
+  assert.equal(mode1.dayCount, 10);
+  assert.equal(rpm.count, 1);
+  assert.equal(mode1.ready, false);
+  assert.equal(result.status, 'provisional');
+});
