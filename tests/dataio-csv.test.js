@@ -87,3 +87,9 @@ test('parseCsvRows rejette les caractères après la fermeture d’un champ cit�
     /guillemet|quote|CSV/i
   );
 });
+
+
+test('parseCsvRows conserve les lignes LF après un champ entre guillemets fermé', () => {
+  const rows = parseCsvRows('"a",b\\n"c",d');
+  assert.deepEqual(rows, [['a', 'b'], ['c', 'd']]);
+});
