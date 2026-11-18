@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { upsertEnergyReading, summarizeEnergyReadings, summarizeMonthlyEnergyReadings } from '../js/modules/energy-meter.js';
+import { upsertEnergyReading, summarizeEnergyReadings, summarizeMonthlyEnergyReadings, summarizeEnergyClimateContext } from '../js/modules/energy-meter.js';
 
 const HOUR = 60 * 60 * 1000;
 const reading = (meterType, t, kwh, id = meterType + ':' + t) => ({ id, meterType, t, kwh });
@@ -212,4 +212,29 @@ test('conserve indisponible le cumul inter-mois après un débordement, même av
     reading('total', Date.UTC(2026, 3, 1, 1), 1e308)
   ]);
   assert.equal(result[0].crossMonthKwh, null);
+});
+
+
+test('interrompt la couverture climatique aux horodatages contradictoires', () => {
+  const start = Date.UTC(2026, 0, 1, 0);
+  const end = start + 4 * HOUR;
+  const readings = [
+    reading('ventilation', start, 10),
+    reading('ventilation', end, 10.04)
+  ];
+  const history = [
+    { t: start, st: 20, sh: 50, te: 10, he: 80 },
+    { t: start + 2 * HOUR, st: 20, sh: 50, te: 10, he: 80 },
+    { t: start + 2 * HOUR, st: 20, sh: 95, te: 10, he: 80 },
+    { t: end, st: 20, sh: 50, te: 10, he: 80 }
+  ];
+  const result = summarizeEnergyClimateContext(readings, history, {
+    maxGapHours: 2,
+    minCoveredHours: 3,
+    minCoveragePercent: 50
+  });
+  const interval = result.meters[0].intervals[0];
+  assert.equal(interval.context.coverageHours, 0);
+  assert.equal(interval.context.coveredMs, 0);
+  assert.equal(interval.context.ready, false);
 });
