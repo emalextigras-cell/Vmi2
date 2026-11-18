@@ -156,3 +156,14 @@ test('ne publie pas une puissance moyenne infinie pour des index finis extrêmes
   assert.equal(interval.deltaKwh, 1e308);
   assert.equal(interval.averagePowerW, null);
 });
+
+
+test('ne publie pas un total kWh infini après plusieurs remises à zéro du compteur', () => {
+  const result = summarizeEnergyReadings([
+    reading('total', 1, 0),
+    reading('total', HOUR + 1, 1e308),
+    reading('total', 2 * HOUR + 1, 0),
+    reading('total', 3 * HOUR + 1, 1e308)
+  ]);
+  assert.equal(result.meters[0].totalKwh, null);
+});
