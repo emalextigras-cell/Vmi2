@@ -47,6 +47,12 @@ export function acceptHistoryFragment(state, fragment) {
       state.sequence = sequence;
       state.expectedChunk = 0;
       state.skippedSequence = sequence;
+    } else if (sequence === null && state.sequence !== null) {
+      // Sans index de ligne lisible, condamner la ligne en cours :
+      // un fragment ultérieur ne doit pas compléter une notification tronquée.
+      state.fragments.clear();
+      state.expectedChunk = 0;
+      state.skippedSequence = state.sequence;
     }
     return { accepted: false, duplicate: false, gap: true, resetBuffer: true };
   }
