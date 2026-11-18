@@ -328,7 +328,7 @@ export function compareOperatingPeriods(data, {
           const valid = samples.map(row => row[metric.key]).filter((value) =>
             typeof value === 'number' && Number.isFinite(value) &&
             (metric.key !== 'rpm' || (value > 0 && value < 10000)) &&
-            (metric.key !== 'debit' || value >= 0)
+            (['debit', 'rpm'].includes(metric.key) ? value >= 0 : true)
           );
           return [metric.key, { median: median(valid), count: valid.length }];
         }));
