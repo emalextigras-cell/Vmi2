@@ -206,3 +206,14 @@ test('les trames de remplacement sont exclues de la couverture complète sans ef
   assert.equal(result.completeHygrometricRecords, 1);
   assert.equal(JSON.stringify(rows), before);
 });
+
+
+test('les horodatages finis hors plage JavaScript sont exclus des pics temporels', () => {
+  const start = 8_640_000_000_001;
+  const result = detectTransientSensorSpikes([
+    { t: start, st: 20 },
+    { t: start + 5 * 60_000, st: 36 },
+    { t: start + 10 * 60_000, st: 21 }
+  ]);
+  assert.equal(result.count, 0);
+});
