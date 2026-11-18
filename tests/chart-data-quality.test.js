@@ -50,3 +50,33 @@ test('le moteur de tracé détecte une anomalie entre deux points valides', () =
   assert.equal(hasBlockedBetween(points, 0, 60_000), false);
   assert.equal(hasBlockedBetween(points, 60_000, 120_000), false);
 });
+
+
+test('les graphiques ne reçoivent pas de relevés sans horodatage exploitable', async () => {
+  const { renderCharts } = await import('../js/modules/chart-renderer.js');
+  const elements = new Map();
+  const get = id => {
+    if (!elements.has(id)) {
+      const element = {
+        innerHTML: '',
+        querySelectorAll: () => [],
+        querySelector: selector => selector === 'svg'
+          ? { addEventListener() {}, getBoundingClientRect: () => ({ width: 700, left: 0 }) }
+          : selector === '.tip'
+            ? { style: {} }
+            : { setAttribute() {}, style: {} }
+      };
+      elements.set(id, element);
+    }
+    return elements.get(id);
+  };
+
+  renderCharts([
+    { sh: 50, st: 20, he: 60, te: 10 },
+    { t: Number.MAX_VALUE, sh: 55, st: 21, he: 65, te: 11 },
+    { t: 1_800_000_000_000, sh: 58, st: 22, he: 68, te: 12 }
+  ], null, get);
+
+  assert.doesNotMatch(elements.get('chartRH').innerHTML, /NaN|Invalid Date/);
+  assert.match(elements.get('chartRH').innerHTML, /1\.8/);
+});
