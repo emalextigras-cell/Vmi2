@@ -116,11 +116,11 @@ test('un doublon avec un contenu différent invalide la ligne concernée', () =>
   const state = createHistoryStreamState();
   acceptHistoryFragment(state, { sequence: 0, chunkIndex: 0, payload: 'entête' });
   const conflict = acceptHistoryFragment(state, { sequence: 0, chunkIndex: 0, payload: 'contenu différent' });
-  const rest = acceptHistoryFragment(state, { sequence: 0, chunkIndex: 10, payload: 'suite' });
-  const next = acceptHistoryFragment(state, { sequence: 1, chunkIndex: 0, payload: 'ligne suivante' });
   assert.equal(conflict.gap, true);
   assert.equal(conflict.resetBuffer, true);
   assert.equal(state.fragments.size, 0);
+  const rest = acceptHistoryFragment(state, { sequence: 0, chunkIndex: 10, payload: 'suite' });
+  const next = acceptHistoryFragment(state, { sequence: 1, chunkIndex: 0, payload: 'ligne suivante' });
   assert.equal(rest.accepted, false);
   assert.equal(next.accepted, true);
 });
