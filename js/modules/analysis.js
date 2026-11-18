@@ -347,11 +347,17 @@ export function compareOperatingPeriods(data, {
           const enoughMetricSamples =
             previous.values[metric.key].count >= minSamples &&
             current.values[metric.key].count >= minSamples;
-          deltas[metric.key] = !enoughMetricSamples || before == null || after == null ? null : {
+          if (!enoughMetricSamples || before == null || after == null) {
+            deltas[metric.key] = null;
+            continue;
+          }
+          const absoluteDelta = after - before;
+          const relativeDelta = before !== 0 ? (absoluteDelta / Math.abs(before)) * 100 : null;
+          deltas[metric.key] = {
             previous: before,
             current: after,
-            absolute: after - before,
-            relativePercent: before !== 0 ? ((after - before) / Math.abs(before)) * 100 : null,
+            absolute: Number.isFinite(absoluteDelta) ? absoluteDelta : null,
+            relativePercent: Number.isFinite(relativeDelta) ? relativeDelta : null,
             unit: metric.unit
           };
         }
