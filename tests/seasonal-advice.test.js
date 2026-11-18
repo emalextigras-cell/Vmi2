@@ -62,3 +62,14 @@ test('ne fabrique aucun conseil thermique lorsque les températures extérieures
   assert.equal(result.status, 'insufficient-data');
   assert.match(result.advice, /insuffisantes/);
 });
+
+
+test('ignore les horodatages finis hors plage JavaScript dans l’analyse saisonnière', () => {
+  assert.equal(calendarSeason(Number.MAX_VALUE), null);
+  const result = analyzeSeasonalVentilation([
+    { t: Number.MAX_VALUE, st: 20, tExt: 10 }
+  ]);
+  assert.equal(result.status, 'insufficient-data');
+  assert.equal(result.currentSeason, null);
+  assert.equal(result.latestAt, null);
+});
