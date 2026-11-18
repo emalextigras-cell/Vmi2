@@ -16,10 +16,11 @@ export const wallUtcToLocal = timestamp => {
   if (!Number.isFinite(timestamp)) return null;
   const date = new Date(timestamp);
   if (!Number.isFinite(date.getTime())) return null;
-  return new Date(
+  const localTimestamp = new Date(
     date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(),
     date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds()
   ).getTime();
+  return Number.isFinite(localTimestamp) ? localTimestamp : null;
 };
 
 /** Convertit une ligne historique positionnelle de l'ancienne base VMI_DB. */
