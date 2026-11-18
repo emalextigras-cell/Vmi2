@@ -49,7 +49,11 @@ export function mergeBackupData({
   }
   const isUsableHistory = record => isRawDateEligible(record, minValid) &&
     record.t >= minValid && record.t <= maxTimestamp;
-  const history = new Map(currentHist.filter(isUsableHistory).map(r => [r.t, r]));
+  const history = new Map();
+  for (const record of currentHist.filter(isUsableHistory)) {
+    const existing = history.get(record.t);
+    history.set(record.t, existing ? mergeRecordFields(existing, record) : record);
+  }
   let addedHistory = 0, enrichedHistory = 0;
   for (const record of source.hist) {
     if (!isUsableHistory(record)) continue;
