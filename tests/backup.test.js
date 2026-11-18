@@ -200,3 +200,23 @@ test('la restauration fusionne les champs des doublons déjà présents dans l�
     { t:MIN_VALID, st:19.2 }
   ]);
 });
+
+
+test('la restauration fusionne les champs des doublons déjà présents dans les relevés directs', () => {
+  const currentLive = [
+    { t:MIN_VALID, sh:48 },
+    { t:MIN_VALID, st:19.2 }
+  ];
+
+  const result = mergeBackupData({
+    backup:{ app:'vmi-purevent', hist:[], live:[] },
+    currentLive,
+    minValid:MIN_VALID
+  });
+
+  assert.deepEqual(result.live, [{ t:MIN_VALID, sh:48, st:19.2 }]);
+  assert.deepEqual(currentLive, [
+    { t:MIN_VALID, sh:48 },
+    { t:MIN_VALID, st:19.2 }
+  ]);
+});
