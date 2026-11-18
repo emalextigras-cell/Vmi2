@@ -152,3 +152,12 @@ test('un index de fragment invalide condamne toute la ligne identifiable', () =>
   assert.equal(nextLine.accepted, true);
   assert.equal(state.gapCount, 1);
 });
+
+
+test('rejette une durée de fonctionnement négative dans une ligne historique', async () => {
+  const { validateBluetoothHistoryRow } = await import('../js/modules/bluetooth-history-row.js');
+  const row = '10/11/2026 16:45:35;35;337;1;4;0;28;25;09,3;1;6.4.2;-1';
+  const result = validateBluetoothHistoryRow(row);
+  assert.equal(result.valid, false);
+  assert.equal(result.reason, 'duration-invalid');
+});
