@@ -825,3 +825,22 @@ test('summarizeOperatingReference ne déclare pas prête une référence dont au
   assert.equal(mode1.ready, false);
   assert.equal(result.status, 'provisional');
 });
+
+
+test('compareOperatingPeriods ne publie pas de delta PWM non représentable', () => {
+  const rows = [
+    { t: at(4), vmiModeRaw: 1, vmiPwmRaw: -Number.MAX_VALUE },
+    { t: at(5), vmiModeRaw: 1, vmiPwmRaw: -Number.MAX_VALUE },
+    { t: at(11), vmiModeRaw: 1, vmiPwmRaw: Number.MAX_VALUE },
+    { t: at(12), vmiModeRaw: 1, vmiPwmRaw: Number.MAX_VALUE }
+  ];
+
+  const result = compareOperatingPeriods(rows, { periodDays: 7, minSamples: 2, minDays: 2 });
+  const comparison = result.comparisons.find(item => item.mode === 1 && item.bucket === 1);
+
+  assert.equal(comparison.comparable, true);
+  assert.equal(comparison.previous.values.vmiPwmRaw.median, -Number.MAX_VALUE);
+  assert.equal(comparison.current.values.vmiPwmRaw.median, Number.MAX_VALUE);
+  assert.equal(comparison.deltas.vmiPwmRaw.absolute, null);
+  assert.equal(comparison.deltas.vmiPwmRaw.relativePercent, null);
+});
