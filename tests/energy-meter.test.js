@@ -144,3 +144,15 @@ test('un doublon contradictoire au milieu de la série ne crée pas un intervall
   assert.equal(meter.intervals[0].to, next.t);
   assert.equal(meter.intervals[0].deltaKwh, 1);
 });
+
+
+test('ne publie pas une puissance moyenne infinie pour des index finis extrêmes', () => {
+  const result = summarizeEnergyReadings([
+    reading('total', 1, 0),
+    reading('total', 2, 1e308)
+  ]);
+  const interval = result.meters[0].intervals[0];
+  assert.equal(interval.status, 'measured');
+  assert.equal(interval.deltaKwh, 1e308);
+  assert.equal(Number.isFinite(interval.averagePowerW), true);
+});
