@@ -120,7 +120,8 @@ export function parseCell(value, spreadsheet = /** @type {SpreadsheetDateParser|
     if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day) ||
         month < 1 || month > 12 || day < 1 || day > 31 || c.H > 23 || c.M > 59 || second > 59) return null;
     const date = new Date(year, month - 1, day, c.H, c.M, second);
-    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day ||
+        date.getHours() !== c.H || date.getMinutes() !== c.M || date.getSeconds() !== second) return null;
     return { t: new Date(year, month-1, day, c.H, c.M, second).getTime(),
       rk: `${pad(day)}/${pad(month)}/${year} ${pad(c.H)}:${pad(c.M)}:${pad(second)}` };
   }
@@ -132,7 +133,8 @@ export function parseCell(value, spreadsheet = /** @type {SpreadsheetDateParser|
     const day=+m[1], month=+m[2], year=+m[3], hour=+m[4], minute=+m[5], second=+(m[6]||0);
     if(month<1||month>12||day<1||hour>23||minute>59||second>59) return null;
     const date=new Date(year,month-1,day,hour,minute,second);
-    if(date.getFullYear()!==year||date.getMonth()!==month-1||date.getDate()!==day) return null;
+    if(date.getFullYear()!==year||date.getMonth()!==month-1||date.getDate()!==day||
+       date.getHours()!==hour||date.getMinutes()!==minute||date.getSeconds()!==second) return null;
     return { t: date.getTime(),
       rk: `${pad(day)}/${pad(month)}/${year} ${pad(hour)}:${pad(minute)}:${pad(second)}` };
   }
