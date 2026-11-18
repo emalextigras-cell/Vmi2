@@ -135,3 +135,29 @@ test('conserve le comportement de restauration avec les limites par défaut', ()
   assert.equal(result.live[0].t, 3);
   assert.equal(result.live.at(-1).t, 10002);
 });
+
+
+test('la restauration écarte les relevés directs horodatés dans le futur', () => {
+  const now = Date.UTC(2026, 10, 18, 12);
+  const result = mergeBackupData({
+    backup: {
+      app:'vmi-purevent',
+      hist:[],
+      live:[
+        {t:now - 60_000, sh:50},
+        {t:now + 60_000, sh:90}
+      ]
+    },
+    currentLive:[
+      {t:now - 120_000, sh:45},
+      {t:now + 120_000, sh:95}
+    ],
+    minValid:MIN_VALID,
+    maxTimestamp:now
+  });
+
+  assert.deepEqual(result.live, [
+    {t:now - 120_000, sh:45},
+    {t:now - 60_000, sh:50}
+  ]);
+});
