@@ -50,6 +50,11 @@ export interface VmiRecord {
   id?: string | number;
 }
 
+/** Relevé prêt pour l'affichage : horodatage numérique valide obligatoire à l'exécution. */
+export interface DisplayVmiRecord extends VmiRecord {
+  t: number;
+}
+
 /** Snapshot des conteneurs persistés. Les éléments restent bruts à cette frontière ; leur validation appartient aux modules dédiés. */
 export interface StoreSnapshot {
   history: unknown[];
