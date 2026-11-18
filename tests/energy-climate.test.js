@@ -141,3 +141,19 @@ test('ne déclare pas le contexte énergie-climat disponible sans aucune journé
   assert.equal(result.matchedDayCount,0);
   assert.equal(result.status,'insufficient-data');
 });
+
+
+test('répartit un intervalle de ventilation qui traverse minuit entre les deux journées',()=>{
+  const result=summarizeDailyEnergyClimateContext([
+    row(23),row(25)
+  ],{
+    maxGapHours:2,minFanHours:0,minClimateSamples:1,minDays:0
+  });
+  assert.equal(result.days.length,2);
+  assert.equal(result.days[0].date,'2026-01-01');
+  assert.equal(result.days[1].date,'2026-01-02');
+  assert.equal(result.days[0].fanHours,1);
+  assert.equal(result.days[1].fanHours,1);
+  assert.equal(result.days[0].estimatedKwh,0.01);
+  assert.equal(result.days[1].estimatedKwh,0.01);
+});
