@@ -10,8 +10,12 @@ import { dayStart, shiftDay, MIN_VALID } from './date-utils.js';
  * @returns {record is import('../types/vmi-types.js').DisplayVmiRecord}
  */
 export function isDisplayVmiRecord(record) {
-  return Boolean(record && typeof record === 'object' && !Array.isArray(record) &&
-    Number.isFinite(record.t) && Number.isFinite(new Date(record.t).getTime()));
+  if (!record || typeof record !== 'object' || Array.isArray(record)) return false;
+
+  const timestamp = /** @type {{ t?: unknown }} */ (record).t;
+  return typeof timestamp === 'number' &&
+    Number.isFinite(timestamp) &&
+    Number.isFinite(new Date(timestamp).getTime());
 }
 
 export function selectDataRange(records, { selectedDate = null, daysSetting = 30, maxTimestamp = Date.now() } = {}) {
