@@ -55,10 +55,20 @@ export function summarizeEnergyReadings(readings) {
   const meters = /** @type {EnergySummary['meters']} */ (ENERGY_METER_TYPES.map(meterType => {
     const byTimestamp = new Map();
     for (const reading of valid.filter(item => item.meterType === meterType).sort((a, b) => a.t - b.t)) {
-      // En cas de doublon issu d'une sauvegarde, le dernier relevé de la liste prévaut.
-      byTimestamp.set(reading.t, reading);
+      const existing = byTimestamp.get(reading.t);
+      if (!existing) {
+        byTimestamp.set(reading.t, { reading, kwh: reading.kwh, conflict: false });
+      } else if (existing.kwh !== reading.kwh) {
+        // Sans ordre de modification fiable, un index contradictoire est inexploitable.
+        existing.conflict = true;
+      } else {
+        existing.reading = reading;
+      }
     }
-    const rows = [...byTimestamp.values()].sort((a, b) => a.t - b.t);
+    const rows = [...byTimestamp.values()]
+      .filter(group => !group.conflict)
+      .map(group => group.reading)
+      .sort((a, b) => a.t - b.t);
     const intervals = [];
     for (let index = 1; index < rows.length; index++) {
       const previous = rows[index - 1], current = rows[index];
