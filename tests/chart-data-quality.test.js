@@ -109,3 +109,19 @@ test('renderCharts trace les relevés dans l’ordre chronologique même si l’
   assert.ok(pathData?.startsWith('M48.0 '));
   assert.match(pathData, /L688\.0 /);
 });
+
+
+test('buildChartViewModel produit un contrat chronologique et écarte les horodatages non affichables', async () => {
+  const { buildChartViewModel } = await import('../js/modules/chart-renderer.js');
+  const validLate = { t: 2_000, sh: 60 };
+  const validEarly = { t: 1_000, sh: 50 };
+  const source = [validLate, { sh: 40 }, { t: Number.MAX_VALUE }, { t: '1500' }, validEarly];
+  const before = [...source];
+
+  const viewModel = buildChartViewModel(source, '2026-11-18');
+
+  assert.deepEqual(Object.keys(viewModel), ['records', 'selectedDate']);
+  assert.deepEqual(viewModel.records, [validEarly, validLate]);
+  assert.equal(viewModel.selectedDate, '2026-11-18');
+  assert.deepEqual(source, before);
+});
