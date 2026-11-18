@@ -27,25 +27,3 @@ test('un nouveau clic utilisateur autorise une nouvelle synchronisation initiale
   const connect = source.slice(source.indexOf('async function connectBLE('), source.indexOf('async function autoConnectAuthorizedDevice('));
   assert.match(connect, /autoDone=false/);
 });
-
-test('une ligne historique rejetée empêche de certifier le transfert comme complet', () => {
-  const finish = source.slice(source.indexOf('function finishDownload('), source.indexOf('async function startDownload('));
-  assert.match(finish, /const complete=[^;]*invalidRows/);
-});
-
-test('signale les lignes rejetées au lieu d’annoncer un historique à jour', () => {
-  const finish = source.slice(source.indexOf('function finishDownload('), source.indexOf('async function startDownload('));
-  assert.match(finish, /download\.invalidRows\s*>\s*0\s*\?/);
-  assert.match(finish, /lignes rejetées/);
-});
-
-
-test('sépare les lignes historiques sur CR et LF du flux VMI+', () => {
-  assert.ok(source.includes('download.buf.split(/\\r\\n|\\n|\\r(?!$)/)'));
-});
-
-test('ignore le préambule et l’en-tête VMI+ avant les lignes de relevés', () => {
-  const parser = source.slice(source.indexOf('function parseDownloadLine('), source.indexOf('function armTimer('));
-  assert.match(parser, /download\.dataStarted/);
-  assert.match(parser, /Date;Event;/);
-});

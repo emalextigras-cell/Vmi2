@@ -17,9 +17,6 @@ export function createBleWriteQueue({
   let tail = Promise.resolve();
 
   function write(bytes) {
-    // Le contenu de la commande est figé dès sa mise en file : l'appelant peut
-    // réutiliser ou modifier son tableau sans altérer une écriture en attente.
-    const payload = new Uint8Array(bytes);
     // Une écriture appartient à la session active au moment de sa mise en file.
     const connectionToken = getConnectionToken();
     const task = tail.then(async () => {
@@ -41,20 +38,20 @@ export function createBleWriteQueue({
 
       if (characteristic.properties?.write &&
           typeof characteristic.writeValueWithResponse === 'function') {
-        await characteristic.writeValueWithResponse(payload);
+        await characteristic.writeValueWithResponse(bytes);
       } else if (characteristic.properties?.writeWithoutResponse &&
                  typeof characteristic.writeValueWithoutResponse === 'function') {
-        await characteristic.writeValueWithoutResponse(payload);
+        await characteristic.writeValueWithoutResponse(bytes);
       } else if (typeof characteristic.writeValue === 'function') {
         // Repli historique conservé pour les navigateurs exposant l'ancienne API.
-        await characteristic.writeValue(payload);
+        await characteristic.writeValue(bytes);
       } else {
         throw new Error('Cette caractéristique Bluetooth ne permet pas l’écriture.');
       }
 
       // Une réponse d'écriture tardive ne doit pas valider une ancienne session.
       ensureSession();
-      onSuccess(payload);
+      onSuccess(bytes);
       await sleep(delayMs);
       // Le délai fait partie de la séquence : ne pas laisser la suite continuer
       // si la connexion a été perdue pendant cette attente.

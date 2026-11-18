@@ -1,20 +1,6 @@
 
 
 import { filterRawDateHistory } from './history.js';
-
-/** Normalise les conteneurs du snapshot persistant sans valider ni transformer les relevés bruts.
- * @param {{history?:unknown,live?:unknown,energyReadings?:unknown,meta?:unknown}} [values] Valeurs lues depuis IndexedDB.
- * @returns {import('../types/vmi-types.js').StoreSnapshot} Snapshot avec des conteneurs de premier niveau sûrs.
- */
-export function normalizeStoreSnapshot({ history, live, energyReadings, meta } = {}) {
-  return {
-    history: Array.isArray(history) ? history : [],
-    live: Array.isArray(live) ? live : [],
-    energyReadings: Array.isArray(energyReadings) ? energyReadings : [],
-    meta: meta && typeof meta === 'object' && !Array.isArray(meta) ? /** @type {import('../types/vmi-types.js').UnknownRecord} */ (meta) : {}
-  };
-}
-
 /** Crée un accès asynchrone à un object store IndexedDB.
  * @param {{databaseName: string, storeName: string, onError?: (message:string)=>void}} options Configuration du stockage.
  * @returns {{get: (key:IDBValidKey)=>Promise<unknown>, set: (key:IDBValidKey, value:unknown)=>Promise<void>, setMany: (entries:Array<[IDBValidKey,unknown]>)=>Promise<void>}} API de lecture/écriture.
@@ -44,10 +30,7 @@ export function createStore({ databaseName, storeName, onError = () => {} }) {
         req.onsuccess = () => resolve(key === 'hist' ? filterRawDateHistory(req.result) : req.result);
         req.onerror = () => reject(req.error);
       });
-    } catch (error) {
-      onError('IndexedDB lecture : ' + error.message);
-      throw error;
-    }
+    } catch (error) { onError('IndexedDB lecture : ' + error.message); return null; }
   }
   async function set(key, value) {
     try {

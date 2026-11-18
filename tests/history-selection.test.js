@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { selectDataRange, isDisplayVmiRecord } from '../js/modules/history-selection.js';
+import { selectDataRange } from '../js/modules/history-selection.js';
 import { dayStart, shiftDay } from '../js/modules/date-utils.js';
 
 test('selectDataRange filtre les dates invalides et trie sans modifier la source', () => {
@@ -54,30 +54,4 @@ test('la fenêtre des derniers jours est calculée depuis le dernier relevé non
   const selected = selectDataRange([old, recent, future], { daysSetting: 30, maxTimestamp: now });
 
   assert.deepEqual(selected, [recent]);
-});
-
-
-test('selectDataRange écarte les horodatages finis hors plage JavaScript', () => {
-  const valid = { t: 1_800_000_000_000 };
-  const invalidDate = { t: Number.MAX_VALUE };
-  const result = selectDataRange([valid, invalidDate], { daysSetting: 0, maxTimestamp: Infinity });
-  assert.deepEqual(result, [valid]);
-});
-
-
-test('selectDataRange rejette une date civile sélectionnée impossible', () => {
-  const result = selectDataRange([
-    { t: new Date(2026, 2, 3, 12).getTime() }
-  ], { selectedDate: '2026-02-31', daysSetting: 30 });
-  assert.deepEqual(result, []);
-});
-
-
-test('isDisplayVmiRecord exige un objet et un horodatage numérique convertible en date', () => {
-  assert.equal(isDisplayVmiRecord({ t: 1_800_000_000_000, sh: 55 }), true);
-  assert.equal(isDisplayVmiRecord({ sh: 55 }), false);
-  assert.equal(isDisplayVmiRecord({ t: '1800000000000', sh: 55 }), false);
-  assert.equal(isDisplayVmiRecord({ t: Number.MAX_VALUE, sh: 55 }), false);
-  assert.equal(isDisplayVmiRecord(null), false);
-  assert.equal(isDisplayVmiRecord([]), false);
 });

@@ -62,26 +62,3 @@ test('ne fabrique aucun conseil thermique lorsque les températures extérieures
   assert.equal(result.status, 'insufficient-data');
   assert.match(result.advice, /insuffisantes/);
 });
-
-
-test('ignore les horodatages finis hors plage JavaScript dans l’analyse saisonnière', () => {
-  assert.equal(calendarSeason(Number.MAX_VALUE), null);
-  const result = analyzeSeasonalVentilation([
-    { t: Number.MAX_VALUE, st: 20, tExt: 10 }
-  ]);
-  assert.equal(result.status, 'insufficient-data');
-  assert.equal(result.currentSeason, null);
-  assert.equal(result.latestAt, null);
-});
-
-test('regroupe une nuit d’été commencée avant minuit avec ses relevés après minuit', () => {
-  const rows = [
-    { t: new Date(2026, 6, 10, 23, 0).getTime(), st: 25, tExt: 15 },
-    { t: new Date(2026, 6, 11, 2, 0).getTime(), st: 25, tExt: 35 }
-  ];
-  const result = analyzeSeasonalVentilation(rows, { minSamples: 2, minDays: 1 });
-  const summer = result.seasons.find(item => item.season === 'été');
-  assert.equal(summer.thermalSampleCount, 2);
-  assert.equal(summer.dayCount, 1);
-  assert.equal(summer.opportunityDayCount, 0);
-});

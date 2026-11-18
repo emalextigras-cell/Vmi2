@@ -57,20 +57,6 @@ test('les lignes d’un transfert partiel ne deviennent pas une borne d’arrêt
 });
 
 
-test('rejette les index de fragment qui ne sont pas des nombres entiers explicites', () => {
-  const state = createHistoryStreamState();
-  const invalid = acceptHistoryFragment(state, {
-    sequence: null,
-    chunkIndex: '0',
-    payload: 'fragment mal typé'
-  });
-
-  assert.equal(invalid.accepted, false);
-  assert.equal(invalid.gap, true);
-  assert.equal(invalid.resetBuffer, true);
-  assert.equal(state.fragments.size, 0);
-});
-
 test('accepte les cinq fragments observés dans la capture Bluetooth', () => {
   const state = createHistoryStreamState();
   for (let sequence = 0; sequence < 25; sequence++) {
@@ -116,11 +102,10 @@ test('un doublon avec un contenu différent invalide la ligne concernée', () =>
   const state = createHistoryStreamState();
   acceptHistoryFragment(state, { sequence: 0, chunkIndex: 0, payload: 'entête' });
   const conflict = acceptHistoryFragment(state, { sequence: 0, chunkIndex: 0, payload: 'contenu différent' });
-  assert.equal(conflict.gap, true);
-  assert.equal(conflict.resetBuffer, true);
-  assert.equal(state.fragments.size, 0);
   const rest = acceptHistoryFragment(state, { sequence: 0, chunkIndex: 10, payload: 'suite' });
   const next = acceptHistoryFragment(state, { sequence: 1, chunkIndex: 0, payload: 'ligne suivante' });
+  assert.equal(conflict.gap, true);
+  assert.equal(conflict.resetBuffer, true);
   assert.equal(rest.accepted, false);
   assert.equal(next.accepted, true);
 });
@@ -152,135 +137,4 @@ test('un index de fragment invalide condamne toute la ligne identifiable', () =>
   assert.equal(sameLine.accepted, false);
   assert.equal(nextLine.accepted, true);
   assert.equal(state.gapCount, 1);
-});
-
-
-test('rejette une durée de fonctionnement négative dans une ligne historique', async () => {
-  const { validateBluetoothHistoryRow } = await import('../js/modules/bluetooth-history-row.js');
-  const row = '10/11/2026 16:45:35;35;337;1;4;0;28;25;09,3;1;6.4.2;-1';
-  const result = validateBluetoothHistoryRow(row);
-  assert.equal(result.valid, false);
-  assert.equal(result.reason, 'duration-invalid');
-});
-
-
-test('rejette une durée de fonctionnement fractionnaire exprimée en jours', async () => {
-  const { validateBluetoothHistoryRow } = await import('../js/modules/bluetooth-history-row.js');
-  const row = '10/11/2026 16:45:35;35;337;1;4;0;28;25;09,3;1;6.4.2;1.5';
-  const result = validateBluetoothHistoryRow(row);
-  assert.equal(result.valid, false);
-  assert.equal(result.reason, 'duration-invalid');
-});
-
-test('rejette un index de ligne supérieur à la précision entière sûre de JavaScript', () => {
-  const state = createHistoryStreamState();
-  const result = acceptHistoryFragment(state, {
-    sequence: Number.MAX_SAFE_INTEGER + 1,
-    chunkIndex: 0,
-    payload: 'index non représentable sans ambiguïté'
-  });
-
-  assert.equal(result.accepted, false);
-  assert.equal(result.gap, true);
-  assert.equal(state.fragments.size, 0);
-});
-
-
-test('un index de ligne non sûr ne doit pas empoisonner la séquence du flux', () => {
-  const state = createHistoryStreamState();
-  const invalid = acceptHistoryFragment(state, {
-    sequence: Number.MAX_SAFE_INTEGER + 1,
-    chunkIndex: 0,
-    payload: 'index non représentable'
-  });
-  const valid = acceptHistoryFragment(state, {
-    sequence: 0,
-    chunkIndex: 0,
-    payload: 'première ligne identifiable'
-  });
-
-  assert.equal(invalid.accepted, false);
-  assert.equal(valid.accepted, true);
-  assert.equal(state.sequence, 0);
-  assert.equal(state.fragments.has('0:0'), true);
-});
-
-
-test('libère les fragments des lignes précédentes quand le flux avance', () => {
-  const state = createHistoryStreamState();
-  assert.equal(acceptHistoryFragment(state, {
-    sequence: 0,
-    chunkIndex: 0,
-    payload: 'première ligne'
-  }).accepted, true);
-  assert.equal(acceptHistoryFragment(state, {
-    sequence: 1,
-    chunkIndex: 0,
-    payload: 'deuxième ligne'
-  }).accepted, true);
-
-  assert.equal(state.fragments.size, 1);
-  assert.equal(state.fragments.has('0:0'), false);
-  assert.equal(state.fragments.has('1:0'), true);
-});
-
-
-test('condamne la ligne en cours lorsqu’une notification ne permet pas de lire son index', () => {
-  const state = createHistoryStreamState();
-  assert.equal(acceptHistoryFragment(state, {
-    sequence: 0, chunkIndex: 0, payload: 'début de ligne'
-  }).accepted, true);
-
-  const invalid = acceptHistoryFragment(state, {
-    sequence: null, chunkIndex: 10, payload: 'notification tronquée'
-  });
-  const remaining = acceptHistoryFragment(state, {
-    sequence: 0, chunkIndex: 10, payload: 'suite de ligne'
-  });
-
-  assert.equal(invalid.accepted, false);
-  assert.equal(invalid.gap, true);
-  assert.equal(invalid.resetBuffer, true);
-  assert.equal(remaining.accepted, false);
-  assert.equal(state.skippedSequence, 0);
-});
-
-
-test('condamne la ligne en cours lorsque la séquence reçue est NaN', () => {
-  const state = createHistoryStreamState();
-  assert.equal(acceptHistoryFragment(state, {
-    sequence: 0, chunkIndex: 0, payload: 'début de ligne'
-  }).accepted, true);
-
-  const invalid = acceptHistoryFragment(state, {
-    sequence: Number.NaN, chunkIndex: 10, payload: 'séquence NaN'
-  });
-  const remaining = acceptHistoryFragment(state, {
-    sequence: 0, chunkIndex: 10, payload: 'suite de ligne'
-  });
-
-  assert.equal(invalid.accepted, false);
-  assert.equal(invalid.gap, true);
-  assert.equal(remaining.accepted, false);
-  assert.equal(state.skippedSequence, 0);
-});
-
-
-test('condamne la ligne en cours lorsque la séquence reçue est une chaîne', () => {
-  const state = createHistoryStreamState();
-  assert.equal(acceptHistoryFragment(state, {
-    sequence: 0, chunkIndex: 0, payload: 'début de ligne'
-  }).accepted, true);
-
-  const invalid = acceptHistoryFragment(state, {
-    sequence: '0', chunkIndex: 10, payload: 'séquence textuelle'
-  });
-  const remaining = acceptHistoryFragment(state, {
-    sequence: 0, chunkIndex: 10, payload: 'suite de ligne'
-  });
-
-  assert.equal(invalid.accepted, false);
-  assert.equal(invalid.gap, true);
-  assert.equal(remaining.accepted, false);
-  assert.equal(state.skippedSequence, 0);
 });

@@ -57,7 +57,7 @@ export function summarizeDailyEnergyClimateContext(history, {
   assertPositiveInteger('minClimateSamples',minClimateSamples);
   assertNonNegativeInteger('minDays',minDays);
   const rows=(Array.isArray(history)?history:[])
-    .filter(row=>Number.isFinite(row?.t)&&Number.isFinite(new Date(row.t).getTime()))
+    .filter(row=>Number.isFinite(row?.t))
     .sort((a,b)=>a.t-b.t);
   const groups=[];
   for(const row of rows){
@@ -113,19 +113,11 @@ export function summarizeDailyEnergyClimateContext(history, {
     if(!(elapsed>0)||elapsed>maxGapMs)continue;
     const powerA=estimateFanPowerFromFlow(a.debit),powerB=estimateFanPowerFromFlow(b.debit);
     if(powerA==null||powerB==null)continue;
-    const intervalEnergyWh=((powerA+powerB)/2)*(elapsed/HOUR);
-    let cursor=a.t;
-    while(cursor<b.t){
-      const date=new Date(cursor);
-      date.setHours(24,0,0,0);
-      const segmentEnd=Math.min(b.t,date.getTime());
-      const segmentDuration=segmentEnd-cursor;
-      const day=ensure(dayKey(cursor));
-      day.energyWh+=intervalEnergyWh*(segmentDuration/elapsed);
-      day.fanCoveredMs+=segmentDuration;
-      day.fanIntervals++;
-      cursor=segmentEnd;
-    }
+    const midpoint=a.t+elapsed/2;
+    const day=ensure(dayKey(midpoint));
+    day.energyWh+=((powerA+powerB)/2)*(elapsed/HOUR);
+    day.fanCoveredMs+=elapsed;
+    day.fanIntervals++;
   }
   const daily=[...days.values()].map(day=>{
     const fanHours=day.fanCoveredMs/HOUR;
@@ -145,7 +137,7 @@ export function summarizeDailyEnergyClimateContext(history, {
   }).sort((a,b)=>a.date.localeCompare(b.date));
   const matchedDays=daily.filter(day=>day.paired);
   return {
-    status:matchedDays.length>0 && matchedDays.length>=minDays?'available':'insufficient-data',
+    status:matchedDays.length>=minDays?'available':'insufficient-data',
     days:daily,matchedDays,matchedDayCount:matchedDays.length,
     duplicateTimestampCount,conflictingTimestampCount,
     maxGapHours,minFanHours,minClimateSamples,minDays,

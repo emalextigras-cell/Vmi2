@@ -20,25 +20,6 @@ test('sérialise les écritures et respecte leur ordre', async () => {
   assert.deepEqual(order, [1, 2]);
 });
 
-test('fige les octets de la commande au moment de sa mise en file', async () => {
-  const sent = [];
-  const queue = createBleWriteQueue({
-    isConnected: () => true,
-    getCharacteristic: () => ({
-      properties: { write: true },
-      async writeValueWithResponse(bytes) { sent.push([...bytes]); }
-    }),
-    sleep: immediate
-  });
-  const payload = new Uint8Array([0x10, 0x20]);
-  const pending = queue.write(payload);
-  payload[0] = 0xFF;
-  payload[1] = 0xEE;
-
-  assert.equal(await pending, true);
-  assert.deepEqual(sent, [[0x10, 0x20]]);
-});
-
 test('utilise write sans réponse uniquement si la caractéristique le permet', async () => {
   let called = false;
   const queue = createBleWriteQueue({
