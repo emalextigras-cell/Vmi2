@@ -183,3 +183,23 @@ test('rejette un index de ligne supérieur à la précision entière sûre de Ja
   assert.equal(result.gap, true);
   assert.equal(state.fragments.size, 0);
 });
+
+
+test('un index de ligne non sûr ne doit pas empoisonner la séquence du flux', () => {
+  const state = createHistoryStreamState();
+  const invalid = acceptHistoryFragment(state, {
+    sequence: Number.MAX_SAFE_INTEGER + 1,
+    chunkIndex: 0,
+    payload: 'index non représentable'
+  });
+  const valid = acceptHistoryFragment(state, {
+    sequence: 0,
+    chunkIndex: 0,
+    payload: 'première ligne identifiable'
+  });
+
+  assert.equal(invalid.accepted, false);
+  assert.equal(valid.accepted, true);
+  assert.equal(state.sequence, 0);
+  assert.equal(state.fragments.has('0:0'), true);
+});
