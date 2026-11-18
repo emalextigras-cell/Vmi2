@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { selectDataRange } from '../js/modules/history-selection.js';
+import { selectDataRange, isDisplayVmiRecord } from '../js/modules/history-selection.js';
 import { dayStart, shiftDay } from '../js/modules/date-utils.js';
 
 test('selectDataRange filtre les dates invalides et trie sans modifier la source', () => {
@@ -70,4 +70,14 @@ test('selectDataRange rejette une date civile sélectionnée impossible', () => 
     { t: new Date(2026, 2, 3, 12).getTime() }
   ], { selectedDate: '2026-02-31', daysSetting: 30 });
   assert.deepEqual(result, []);
+});
+
+
+test('isDisplayVmiRecord exige un objet et un horodatage numérique convertible en date', () => {
+  assert.equal(isDisplayVmiRecord({ t: 1_800_000_000_000, sh: 55 }), true);
+  assert.equal(isDisplayVmiRecord({ sh: 55 }), false);
+  assert.equal(isDisplayVmiRecord({ t: '1800000000000', sh: 55 }), false);
+  assert.equal(isDisplayVmiRecord({ t: Number.MAX_VALUE, sh: 55 }), false);
+  assert.equal(isDisplayVmiRecord(null), false);
+  assert.equal(isDisplayVmiRecord([]), false);
 });
