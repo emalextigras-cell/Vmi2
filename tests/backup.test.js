@@ -161,3 +161,18 @@ test('la restauration écarte les relevés directs horodatés dans le futur', ()
     {t:now - 60_000, sh:50}
   ]);
 });
+
+
+test('mergeBackupData rejette une date brute impossible même si son timestamp est valide', () => {
+  const now = Date.UTC(2026, 10, 18, 9);
+  const result = mergeBackupData({
+    backup: {
+      app:'vmi-purevent',
+      hist:[{ t:now, rk:'31/13/2026 09:00:00', sh:60 }]
+    },
+    minValid:MIN_VALID,
+    maxTimestamp:now
+  });
+
+  assert.deepEqual(result.hist, []);
+});
