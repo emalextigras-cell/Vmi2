@@ -61,7 +61,7 @@ let manualDisconnect=false,intentionalDisconnect=false,manualCommandPending=fals
 let bleNotificationHandler=null,bleNotificationCharacteristics=[],bleDisconnectHandler=null;
 let meta={},cur={},lastSeen={},live=[],hist=[],energyReadings=[],source='hist',selectedDate=null,daysSetting=30;
 let logLines=[],dlFrames=0;
-let download={on:false,rows:[],buf:'',total:0,sigs:new Set(),got:false,lastPacket:0,timeout:null,historyStream:createHistoryStreamState(),integrityGap:false};
+let download={on:false,rows:[],buf:'',total:0,sigs:new Set(),got:false,lastPacket:0,timeout:null,historyStream:createHistoryStreamState(),integrityGap:false,dataStarted:false};
 const DB='VMI_PUREVENT_DB_TEST',STORE='data';
 const { get: dbGet, set: dbSet, setMany: dbSetMany } = createStore({ databaseName: DB, storeName: STORE, onError: message => log(message) });
 const connected=()=>!!(chC&&dev&&dev.gatt&&dev.gatt.connected);
@@ -212,11 +212,11 @@ function handleNotification(ev){
   dlFrames++;if(dlFrames%200===1)log(`< trames d’historique reçues : ${dlFrames}`);
   download.got=true;download.lastPacket=now;
   download.buf+=payload;
-  const lines=download.buf.split('\n');download.buf=lines.pop();lines.forEach(parseDownloadLine);
+  const lines=download.buf.split(/\r\n|\n|\r(?!$)/);download.buf=lines.pop();lines.forEach(parseDownloadLine);
   if(download.on){
    $('dlp').textContent=`${download.rows.length} nouvelles lignes (index historique ${decoded.sequence+1} / ${download.total||'?'})`;
    armTimer();
-   if(decoded.final){if(download.buf.trim())parseDownloadLine(download.buf);if(download.on){download.finalSeen=true;finishDownload(false)}}
+   if(decoded.final){if(download.buf.trim()){const tail=download.buf.split(/\r\n|\n|\r/);download.buf='';tail.filter(line=>line.trim()).forEach(parseDownloadLine)}if(download.on){download.finalSeen=true;finishDownload(false)}}
   }
   return;
  }
@@ -518,6 +518,10 @@ function ingest(recs,label,maxTimestamp=Date.now()){
 const sigOf=r=>r.rk+'|'+r.d;
 function parseDownloadLine(line){
  if(!download.on)return;
+ if(!download.dataStarted){
+  if(String(line).trimStart().startsWith('Date;Event;'))download.dataStarted=true;
+  return;
+ }
  const validation=validateBluetoothHistoryRow(line);
  if(!validation.valid){download.invalidRows=(download.invalidRows||0)+1;log('Ligne historique Bluetooth rejetée ('+validation.reason+') · date brute : '+String(line).split(';',1)[0]);return}
  const f=validation.fields,p=parseCell(f[0]);if(!p)return;
