@@ -95,14 +95,16 @@ test('parseCsvRows conserve les lignes LF après un champ entre guillemets ferm�
 });
 
 
-test('détecte le séparateur CSV avec des fins de ligne CR seules', () => {
+test('détecte le séparateur de l’en-tête VMI+ avec des fins de ligne CR seules', () => {
   const source = [
     'export;vmi;metadata;version;extra;field',
+    'information secondaire',
+    'créé par VMI+',
     'Date,Temp,Hum',
     '10/11/2026 16:45:35,19.7,62'
-  ].join('\r');
+  ].join('\\r');
 
   const rows = parseCsvRows(source);
-  assert.equal(rows[1].length, 3);
-  assert.equal(rows[2][1], '19.7');
+  assert.equal(rows[3].length, 3);
+  assert.equal(rows[4][1], '19.7');
 });
