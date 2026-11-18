@@ -18,7 +18,9 @@ import { isPlausibleTemperature, isPlausibleHumidity } from './data-quality.js';
  */
 export function calendarSeason(timestamp) {
   if (!Number.isFinite(timestamp)) return null;
-  const month = new Date(timestamp).getMonth() + 1;
+  const date = new Date(timestamp);
+  if (!Number.isFinite(date.getTime())) return null;
+  const month = date.getMonth() + 1;
   if (month === 12 || month <= 2) return 'hiver';
   if (month >= 6 && month <= 8) return 'été';
   return 'intersaison';
@@ -46,7 +48,8 @@ function localDay(timestamp) {
  */
 export function analyzeSeasonalVentilation(data, { minSamples = 6, minDays = 2, temperatureMargin = 2 } = {}) {
   const rows = (Array.isArray(data) ? data : []).filter(row =>
-    Number.isFinite(row?.t) && validTemperature(row?.st) && validTemperature(row?.tExt)
+    Number.isFinite(row?.t) && Number.isFinite(new Date(row.t).getTime()) &&
+    validTemperature(row?.st) && validTemperature(row?.tExt)
   ).map(row => ({ ...row, calendarSeason: calendarSeason(row.t), day: localDay(row.t) }));
 
   const seasons = /** @type {SeasonalVentilationSummary['seasons']} */ (['été', 'hiver', 'intersaison'].map(season => {
