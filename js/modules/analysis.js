@@ -941,17 +941,17 @@ function analyzeHygrometricTrend(dailyDays, trendDelta) {
 
 /**
  * Évalue la robustesse de l'échantillonnage indépendamment des conclusions hygrométriques.
- * @param {{inputSampleCount:number,acceptedSampleCount:number,dailySampleCounts:number[],observedHours:number,observedCoveragePercent:number|null,minSamples:number}} metrics Mesures de couverture déjà calculées.
+ * @param {{inputSampleCount:number,acceptedSampleCount:number,dailySampleCounts:number[],observedHours:number,observedCoverageRatio:number,minSamples:number}} metrics Mesures de couverture déjà calculées.
  * @returns {{dayCount:number,daysWithAtLeastThreeSamples:number,acceptedSampleShare:number,coverageLevel:string,sufficient:boolean}} Indicateurs de couverture et suffisance.
  */
 function assessHygrometricCoverage({
   inputSampleCount,acceptedSampleCount,dailySampleCounts,
-  observedHours,observedCoveragePercent,minSamples
+  observedHours,observedCoverageRatio,minSamples
 }) {
   const dayCount=dailySampleCounts.length;
   const daysWithAtLeastThreeSamples=dailySampleCounts.filter(count=>count>=3).length;
   const acceptedSampleShare=inputSampleCount?acceptedSampleCount/inputSampleCount:0;
-  const coverageRatio=observedCoveragePercent==null?0:observedCoveragePercent/100;
+  const coverageRatio=observedCoverageRatio;
   // Le niveau décrit la robustesse de l'échantillonnage, pas l'état physique de la VMI.
   const coverageLevel=acceptedSampleCount>=60&&dayCount>=5&&daysWithAtLeastThreeSamples>=5&&
     observedHours>=24&&coverageRatio>=0.5&&acceptedSampleShare>=0.9?'élevée'
@@ -1090,7 +1090,7 @@ function prepareHygrometricRows(inputRows) {
     inputSampleCount:inputRows.length,
     acceptedSampleCount:rows.length,
     dailySampleCounts:[...dailySampleCounts.values()],
-    observedHours,observedCoveragePercent,minSamples
+    observedHours,observedCoverageRatio:coverageSpanHours>0?observedHours/coverageSpanHours:0,minSamples
   });
   const {
     dayCount,daysWithAtLeastThreeSamples,acceptedSampleShare,
