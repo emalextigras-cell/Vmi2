@@ -63,6 +63,12 @@ export interface StoreSnapshot {
   meta: UnknownRecord;
 }
 
+/** Entrée validée du moteur graphique ; les relevés restent inchangés et chronologiques. */
+export interface ChartViewModel {
+  records: DisplayVmiRecord[];
+  selectedDate: string | null;
+}
+
 export type NullableNumber = number | null;
 export type UnknownRecord = Record<string, unknown>;
 
