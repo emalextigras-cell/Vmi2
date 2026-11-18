@@ -161,3 +161,12 @@ test('rejette une durée de fonctionnement négative dans une ligne historique',
   assert.equal(result.valid, false);
   assert.equal(result.reason, 'duration-invalid');
 });
+
+
+test('rejette une durée de fonctionnement fractionnaire exprimée en jours', async () => {
+  const { validateBluetoothHistoryRow } = await import('../js/modules/bluetooth-history-row.js');
+  const row = '10/11/2026 16:45:35;35;337;1;4;0;28;25;09,3;1;6.4.2;1.5';
+  const result = validateBluetoothHistoryRow(row);
+  assert.equal(result.valid, false);
+  assert.equal(result.reason, 'duration-invalid');
+});
