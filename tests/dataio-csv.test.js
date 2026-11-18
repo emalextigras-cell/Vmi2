@@ -75,7 +75,15 @@ test('parseCsvRows rejette un champ entre guillemets qui n’est jamais refermé
     '10/11/2026 16:45:35,1,121',
     '11/11/2026 16:45:35,2,"122',
     '12/11/2026 16:45:35,3,123'
-  ].join('\\n');
+  ].join('\n');
 
   assert.throws(() => parseCsvRows(source), /guillemet|quote|CSV/i);
+});
+
+
+test('parseCsvRows rejette les caractères après la fermeture d’un champ cité', () => {
+  assert.throws(
+    () => parseCsvRows('Date,Mode,Debit\\n10/11/2026 16:45:35,1,"122"x'),
+    /guillemet|quote|CSV/i
+  );
 });
