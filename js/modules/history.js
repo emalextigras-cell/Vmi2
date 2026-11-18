@@ -14,7 +14,7 @@ import { MIN_VALID } from './date-utils.js';
  * @returns {boolean} true si le relevé peut être conservé.
  */
 export function isRawDateEligible(record, minValid = MIN_VALID) {
-  if (!record || !Number.isFinite(record.t)) return false;
+  if (!record || !Number.isFinite(record.t) || !Number.isFinite(new Date(record.t).getTime())) return false;
   if (record.fixed === true) return record.t >= minValid;
   if (typeof record.rk === 'string' && record.rk.trim()) {
     const match = record.rk.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s/);
