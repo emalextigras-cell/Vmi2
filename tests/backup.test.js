@@ -162,3 +162,21 @@ test('la restauration écarte les relevés directs horodatés dans le futur', ()
   ]);
 });
 
+
+
+test('la restauration rejette les horodatages live finis mais hors plage JavaScript', () => {
+  const invalidTimestamp = Number.MAX_VALUE;
+  const result = mergeBackupData({
+    backup: {
+      app:'vmi-purevent',
+      hist:[],
+      live:[{t:invalidTimestamp, sh:90}]
+    },
+    currentLive:[{t:invalidTimestamp, sh:80}],
+    minValid:MIN_VALID,
+    maxTimestamp:invalidTimestamp
+  });
+
+  assert.deepEqual(result.live, []);
+  assert.equal(result.addedLive, 0);
+});
