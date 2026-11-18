@@ -57,6 +57,20 @@ test('les lignes d’un transfert partiel ne deviennent pas une borne d’arrêt
 });
 
 
+test('rejette les index de fragment qui ne sont pas des nombres entiers explicites', () => {
+  const state = createHistoryStreamState();
+  const invalid = acceptHistoryFragment(state, {
+    sequence: null,
+    chunkIndex: '0',
+    payload: 'fragment mal typé'
+  });
+
+  assert.equal(invalid.accepted, false);
+  assert.equal(invalid.gap, true);
+  assert.equal(invalid.resetBuffer, true);
+  assert.equal(state.fragments.size, 0);
+});
+
 test('accepte les cinq fragments observés dans la capture Bluetooth', () => {
   const state = createHistoryStreamState();
   for (let sequence = 0; sequence < 25; sequence++) {
