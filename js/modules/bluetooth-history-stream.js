@@ -40,7 +40,7 @@ export function acceptHistoryFragment(state, fragment) {
     state.gapCount++;
     // Si l'index de ligne reste lisible, condamner cette ligne et ignorer
     // tous ses fragments suivants jusqu'à la ligne suivante.
-    if (typeof sequence === 'number' && Number.isInteger(sequence) && sequence >= 0 && (state.sequence === null || sequence >= state.sequence)) {
+    if (typeof sequence === 'number' && Number.isSafeInteger(sequence) && sequence >= 0 && (state.sequence === null || sequence >= state.sequence)) {
       state.sequence = sequence;
       state.expectedChunk = 0;
       state.skippedSequence = sequence;
