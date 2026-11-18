@@ -344,7 +344,10 @@ export function compareOperatingPeriods(data, {
         for (const metric of metrics) {
           const before = previous.values[metric.key].median;
           const after = current.values[metric.key].median;
-          deltas[metric.key] = before == null || after == null ? null : {
+          const enoughMetricSamples =
+            previous.values[metric.key].count >= minSamples &&
+            current.values[metric.key].count >= minSamples;
+          deltas[metric.key] = !enoughMetricSamples || before == null || after == null ? null : {
             previous: before,
             current: after,
             absolute: after - before,
@@ -363,7 +366,10 @@ export function compareOperatingPeriods(data, {
   }
   for (const item of comparisons) {
     item.comparable = item.comparable && metrics.some(metric =>
-      item.previous.values[metric.key].median != null && item.current.values[metric.key].median != null
+      item.previous.values[metric.key].count >= minSamples &&
+      item.current.values[metric.key].count >= minSamples &&
+      item.previous.values[metric.key].median != null &&
+      item.current.values[metric.key].median != null
     );
   }
   const comparableCount = comparisons.filter(item => item.comparable).length;
