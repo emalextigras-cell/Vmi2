@@ -17,8 +17,17 @@ export function isRawDateEligible(record, minValid = MIN_VALID) {
   if (!record || !Number.isFinite(record.t) || !Number.isFinite(new Date(record.t).getTime())) return false;
   if (record.fixed === true) return record.t >= minValid;
   if (typeof record.rk === 'string' && record.rk.trim()) {
-    const match = record.rk.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s/);
-    if (match) return Number(match[3]) >= 2025;
+    const match = record.rk.trim().match(/^(\\d{1,2})\\/(\\d{1,2})\\/(\\d{4})\\s/);
+    if (match) {
+      const day = Number(match[1]);
+      const month = Number(match[2]);
+      const year = Number(match[3]);
+      const calendarDate = new Date(Date.UTC(year, month - 1, day));
+      if (calendarDate.getUTCFullYear() !== year ||
+          calendarDate.getUTCMonth() !== month - 1 ||
+          calendarDate.getUTCDate() !== day) return false;
+      return year >= 2025;
+    }
   }
   // Sans date brute, conserver le relevé : l’horodatage peut rester vérifiable.
   return true;
