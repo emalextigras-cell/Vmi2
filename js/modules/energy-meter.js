@@ -208,9 +208,27 @@ export function summarizeEnergyClimateContext(readings, history, options = {}) {
   } = options ?? {};
   assertValidEnergyClimateOptions(maxGapHours, minCoveredHours, minCoveragePercent);
   const summary = summarizeEnergyReadings(readings);
-  const rows = (Array.isArray(history) ? history : [])
-    .filter(row => Number.isFinite(row?.t))
+  const sortedRows = (Array.isArray(history) ? history : [])
+    .filter(row => Number.isFinite(row?.t) && Number.isFinite(new Date(row.t).getTime()))
     .sort((a, b) => a.t - b.t);
+  const timestampGroups = [];
+  for (const row of sortedRows) {
+    const last = timestampGroups[timestampGroups.length - 1];
+    if (last && last.timestamp === row.t) last.rows.push(row);
+    else timestampGroups.push({ timestamp: row.t, rows: [row] });
+  }
+  const conflictingTimestamps = new Set();
+  const rows = [];
+  for (const group of timestampGroups) {
+    const fingerprints = new Set(group.rows.map(row => JSON.stringify([
+      row.st, row.tExt, row.sh, row.te, row.he
+    ])));
+    if (fingerprints.size > 1) {
+      conflictingTimestamps.add(group.timestamp);
+      continue;
+    }
+    rows.push(group.rows[0]);
+  }
   const maxGapMs = maxGapHours * 3600000;
 
   const valuesFor = row => {
@@ -245,6 +263,9 @@ export function summarizeEnergyClimateContext(readings, history, options = {}) {
       const first = rows[index - 1], second = rows[index];
       const gap = second.t - first.t;
       if (!(gap > 0) || gap > maxGapMs) continue;
+      if ([...conflictingTimestamps].some(timestamp =>
+        timestamp > first.t && timestamp < second.t
+      )) continue;
       const start = Math.max(interval.from, first.t);
       const end = Math.min(interval.to, second.t);
       if (!(end > start)) continue;
