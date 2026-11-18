@@ -116,3 +116,16 @@ test('refuse un horodatage fini mais hors plage des dates JavaScript', () => {
     /Relevé invalide/
   );
 });
+
+
+test('un doublon contradictoire au même instant ne choisit pas arbitrairement un index', () => {
+  const first = reading('total', 1, 10);
+  const conflict = reading('total', 1, 100, 'conflict');
+  const next = reading('total', HOUR + 1, 11);
+  const forward = summarizeEnergyReadings([first, conflict, next]);
+  const reverse = summarizeEnergyReadings([conflict, first, next]);
+  assert.equal(forward.meters[0].intervals.length, 0);
+  assert.equal(reverse.meters[0].intervals.length, 0);
+  assert.equal(forward.meters[0].readingCount, 1);
+  assert.equal(reverse.meters[0].readingCount, 1);
+});
