@@ -53,6 +53,28 @@ test('compareOperatingPeriods compare deux périodes successives à mode et tran
   assert.match(result.limits.join(' '), /ne prouve pas un encrassement/);
 });
 
+test('compareOperatingPeriods exige le minimum de mesures pour une métrique avant de déclarer une comparaison exploitable', () => {
+  const rows = [
+    { t: at(4), vmiModeRaw: 1, debit: 100 },
+    { t: at(5), vmiModeRaw: 1 },
+    { t: at(11), vmiModeRaw: 1, debit: 120 },
+    { t: at(12), vmiModeRaw: 1 }
+  ];
+
+  const result = compareOperatingPeriods(rows, { periodDays: 7, minSamples: 2, minDays: 2 });
+  const comparison = result.comparisons.find(item => item.mode === 1 && item.bucket === 1);
+
+  assert.equal(comparison.previous.sampleCount, 2);
+  assert.equal(comparison.current.sampleCount, 2);
+  assert.equal(comparison.previous.dayCount, 2);
+  assert.equal(comparison.current.dayCount, 2);
+  assert.equal(comparison.previous.values.debit.count, 1);
+  assert.equal(comparison.current.values.debit.count, 1);
+  assert.equal(comparison.comparable, false);
+  assert.equal(result.status, 'insufficient-data');
+  assert.equal(result.comparableCount, 0);
+});
+
 test('compareOperatingPeriods ne produit pas de delta sans couverture suffisante', () => {
   const rows = [
     { t: at(28), vmiModeRaw: 1, debit: 100 },
