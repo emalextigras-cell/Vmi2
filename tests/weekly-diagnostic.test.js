@@ -222,3 +222,16 @@ test('refuse une fenêtre dont les bornes dépassent la plage de dates JavaScrip
   );
 });
 
+
+test('ignore un horodatage fini mais hors plage JavaScript sans faire échouer le diagnostic',()=>{
+  const history=[
+    ...Array.from({length:7},(_,day)=>makeDay(day,50,40,{count:3})).flat(),
+    ...Array.from({length:7},(_,day)=>makeDay(day+7,52,40,{count:3})).flat(),
+    {t:Number.MAX_VALUE,debit:125,st:20,sh:50,te:10,he:40}
+  ];
+  const result=summarizeWeeklyDiagnostic(history);
+  assert.equal(result.status,'available');
+  assert.equal(result.periods[0].dayCount,7);
+  assert.equal(result.periods[1].dayCount,7);
+  assert.equal(result.duplicateTimestampCount,0);
+});
