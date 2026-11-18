@@ -11,7 +11,7 @@ export function normalizeStoreSnapshot({ history, live, energyReadings, meta } =
     history: Array.isArray(history) ? history : [],
     live: Array.isArray(live) ? live : [],
     energyReadings: Array.isArray(energyReadings) ? energyReadings : [],
-    meta: meta && typeof meta === 'object' && !Array.isArray(meta) ? meta : {}
+    meta: meta && typeof meta === 'object' && !Array.isArray(meta) ? /** @type {import('../types/vmi-types.js').UnknownRecord} */ (meta) : {}
   };
 }
 
