@@ -129,3 +129,18 @@ test('un doublon contradictoire au même instant ne choisit pas arbitrairement u
   assert.equal(forward.meters[0].readingCount, 1);
   assert.equal(reverse.meters[0].readingCount, 1);
 });
+
+
+test('un doublon contradictoire au milieu de la série ne crée pas un intervalle qui le traverse', () => {
+  const before = reading('total', 1, 10);
+  const conflictA = reading('total', HOUR + 1, 20, 'conflict-a');
+  const conflictB = reading('total', HOUR + 1, 200, 'conflict-b');
+  const after = reading('total', 2 * HOUR + 1, 30);
+  const next = reading('total', 3 * HOUR + 1, 31);
+  const result = summarizeEnergyReadings([before, conflictA, conflictB, after, next]);
+  const meter = result.meters[0];
+  assert.equal(meter.intervals.length, 1);
+  assert.equal(meter.intervals[0].from, after.t);
+  assert.equal(meter.intervals[0].to, next.t);
+  assert.equal(meter.intervals[0].deltaKwh, 1);
+});
