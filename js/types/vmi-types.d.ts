@@ -278,13 +278,17 @@ export interface TemperatureLimitResult {
       pairedAtOrBelow:{sampleCount:number;dayCount:number;medianDebit:number|null;medianRPM:number|null};comparable:boolean}>}>;
   limits:string[];
 }
-export interface AssistantSummary {
+/** Modèle stable présenté par l'assistant VMI ; aucune commande matérielle n'en découle. */
+export interface AssistantViewModel {
   status:'no-data'|'available'|'limited';title:string;overview:string;confidence:string;
   sampleCount?:number;acceptedSampleCount?:number;period?:string;targetRH?:number;minSamples?:number;
   sections:Array<{id:string;title:string;status:string;summary:string;details:string[]}>;
   recommendations:Array<{priority:string;title:string;text:string;reason:string}>;
   limits:string[];
 }
+
+/** Alias conservé pour compatibilité avec les appels existants. */
+export type AssistantSummary = AssistantViewModel;
 
 export interface FanEnergyEstimateResult {
   status:string;sampleCount:number;firstAt:number|null;lastAt:number|null;observedHours:number;
