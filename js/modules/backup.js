@@ -61,11 +61,16 @@ export function mergeBackupData({
     }
   }
   const hist = [...history.values()].sort((a,b) => a.t-b.t);
-  let live = [...currentLive], addedLive = 0;
+
+  // Les horodatages futurs sont écartés des relevés directs, qu'ils viennent
+  // de la sauvegarde ou de l'état local. Ne pas appliquer minValid ici :
+  // les relevés live historiques n'ont pas les mêmes contraintes que hist.
+  const isUsableLive = record => record && Number.isFinite(record.t) && record.t <= maxTimestamp;
+  let live = currentLive.filter(isUsableLive), addedLive = 0;
   if (Array.isArray(source.live)) {
-    const byTime = new Map(live.filter(r => r && Number.isFinite(r.t)).map(r => [r.t,r]));
+    const byTime = new Map(live.map(r => [r.t,r]));
     for (const record of source.live) {
-      if (!record || !Number.isFinite(record.t)) continue;
+      if (!isUsableLive(record)) continue;
       if (!byTime.has(record.t)) { byTime.set(record.t,record); addedLive++; }
       else byTime.set(record.t,mergeRecordFields(byTime.get(record.t),record));
     }
