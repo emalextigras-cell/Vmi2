@@ -47,7 +47,7 @@ export function acceptHistoryFragment(state, fragment) {
       state.sequence = sequence;
       state.expectedChunk = 0;
       state.skippedSequence = sequence;
-    } else if (sequence === null && state.sequence !== null) {
+    } else if (!(typeof sequence === 'number' && Number.isSafeInteger(sequence) && sequence >= 0) && state.sequence !== null) {
       // Sans index de ligne lisible, condamner la ligne en cours :
       // un fragment ultérieur ne doit pas compléter une notification tronquée.
       state.fragments.clear();
