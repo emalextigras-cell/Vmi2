@@ -110,3 +110,23 @@ test('le bilan simple refuse de départager les vitesses avec moins de cinq jour
   assert.match(balance.text, /Pas encore assez de recul pour départager les vitesses/);
   assert.ok(!result.recommendations.some(item => /Examiner les comparaisons de vitesses/.test(item.title)));
 });
+
+
+test('ignore un horodatage fini mais hors plage JavaScript dans la période de synthèse', () => {
+  const rows = makeHistory();
+  rows.push({
+    t: Number.MAX_VALUE,
+    st: 20,
+    sh: 60,
+    te: 10,
+    he: 50,
+    tExt: 12,
+    debit: 125,
+    rpm: 1200,
+    vmiModeRaw: 1,
+    vmiSpeedRaw: 5
+  });
+  const result = buildVmiAssistantSummary(rows);
+  assert.equal(result.status, 'available');
+  assert.match(result.period, /01\/11\/2026 au 07\/11\/2026/);
+});
