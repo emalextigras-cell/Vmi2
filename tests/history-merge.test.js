@@ -51,3 +51,12 @@ test('un relevé partiel reste partiel tant qu’aucune source complète ne le c
   assert.equal(mergeImportedHistory([partial], [{ t: 100, sh: 50, syncPartial: true }])[0].syncPartial, true);
   assert.equal(mergeImportedHistory([partial], [{ t: 100, sh: 50 }])[0].syncPartial, false);
 });
+
+
+test('isRawDateEligible rejette une date brute impossible même si son année est récente', async () => {
+  const { isRawDateEligible } = await import('../js/modules/history.js');
+  assert.equal(isRawDateEligible({
+    t: Date.UTC(2026, 1, 28, 12),
+    rk: '31/02/2026 12:00:00'
+  }), false);
+});
