@@ -55,3 +55,11 @@ test('la fenêtre des derniers jours est calculée depuis le dernier relevé non
 
   assert.deepEqual(selected, [recent]);
 });
+
+
+test('selectDataRange écarte les horodatages finis hors plage JavaScript', () => {
+  const valid = { t: 1_800_000_000_000 };
+  const invalidDate = { t: Number.MAX_VALUE };
+  const result = selectDataRange([valid, invalidDate], { daysSetting: 0, maxTimestamp: Infinity });
+  assert.deepEqual(result, [valid]);
+});
