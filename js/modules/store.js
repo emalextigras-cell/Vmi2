@@ -30,7 +30,10 @@ export function createStore({ databaseName, storeName, onError = () => {} }) {
         req.onsuccess = () => resolve(key === 'hist' ? filterRawDateHistory(req.result) : req.result);
         req.onerror = () => reject(req.error);
       });
-    } catch (error) { onError('IndexedDB lecture : ' + error.message); return null; }
+    } catch (error) {
+      onError('IndexedDB lecture : ' + error.message);
+      throw error;
+    }
   }
   async function set(key, value) {
     try {
