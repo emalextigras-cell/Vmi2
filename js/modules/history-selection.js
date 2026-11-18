@@ -5,7 +5,7 @@ import { dayStart, shiftDay, MIN_VALID } from './date-utils.js';
 
 export function selectDataRange(records, { selectedDate = null, daysSetting = 30, maxTimestamp = Date.now() } = {}) {
   const data = (Array.isArray(records) ? records : [])
-    .filter(record => record && Number.isFinite(record.t) && record.t >= MIN_VALID && record.t <= maxTimestamp)
+    .filter(record => record && Number.isFinite(record.t) && Number.isFinite(new Date(record.t).getTime()) && record.t >= MIN_VALID && record.t <= maxTimestamp)
     .sort((a, b) => a.t - b.t);
 
   if (selectedDate) {
