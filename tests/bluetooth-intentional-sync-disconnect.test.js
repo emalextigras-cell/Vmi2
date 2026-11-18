@@ -32,3 +32,9 @@ test('une ligne historique rejetée empêche de certifier le transfert comme com
   const finish = source.slice(source.indexOf('function finishDownload('), source.indexOf('async function startDownload('));
   assert.match(finish, /const complete=[^;]*invalidRows/);
 });
+
+test('signale les lignes rejetées au lieu d’annoncer un historique à jour', () => {
+  const finish = source.slice(source.indexOf('function finishDownload('), source.indexOf('async function startDownload('));
+  assert.match(finish, /download\.invalidRows\s*>\s*0\s*\?/);
+  assert.match(finish, /lignes rejetées/);
+});
