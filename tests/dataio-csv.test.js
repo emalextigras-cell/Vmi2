@@ -108,3 +108,11 @@ test('détecte le séparateur de l’en-tête VMI+ avec des fins de ligne CR seu
   assert.equal(rows[3].length, 3);
   assert.equal(rows[4][1], '19.7');
 });
+
+
+test('parseCsvRows rejette un guillemet inséré au milieu d’un champ non cité', () => {
+  assert.throws(
+    () => parseCsvRows('Date,Mode\\n10/11/2026 16:45:35,1"2'),
+    /guillemet|quote|CSV/i
+  );
+});
