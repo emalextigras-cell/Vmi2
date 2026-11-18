@@ -244,3 +244,43 @@ test('condamne la ligne en cours lorsqu’une notification ne permet pas de lire
   assert.equal(remaining.accepted, false);
   assert.equal(state.skippedSequence, 0);
 });
+
+
+test('condamne la ligne en cours lorsque la séquence reçue est NaN', () => {
+  const state = createHistoryStreamState();
+  assert.equal(acceptHistoryFragment(state, {
+    sequence: 0, chunkIndex: 0, payload: 'début de ligne'
+  }).accepted, true);
+
+  const invalid = acceptHistoryFragment(state, {
+    sequence: Number.NaN, chunkIndex: 10, payload: 'séquence NaN'
+  });
+  const remaining = acceptHistoryFragment(state, {
+    sequence: 0, chunkIndex: 10, payload: 'suite de ligne'
+  });
+
+  assert.equal(invalid.accepted, false);
+  assert.equal(invalid.gap, true);
+  assert.equal(remaining.accepted, false);
+  assert.equal(state.skippedSequence, 0);
+});
+
+
+test('condamne la ligne en cours lorsque la séquence reçue est une chaîne', () => {
+  const state = createHistoryStreamState();
+  assert.equal(acceptHistoryFragment(state, {
+    sequence: 0, chunkIndex: 0, payload: 'début de ligne'
+  }).accepted, true);
+
+  const invalid = acceptHistoryFragment(state, {
+    sequence: '0', chunkIndex: 10, payload: 'séquence textuelle'
+  });
+  const remaining = acceptHistoryFragment(state, {
+    sequence: 0, chunkIndex: 10, payload: 'suite de ligne'
+  });
+
+  assert.equal(invalid.accepted, false);
+  assert.equal(invalid.gap, true);
+  assert.equal(remaining.accepted, false);
+  assert.equal(state.skippedSequence, 0);
+});
