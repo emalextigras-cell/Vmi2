@@ -2,7 +2,7 @@ import { DAY, pad, localDay, dayStart, shiftDay, fmt, num, MIN_VALID, HIST_MAX }
 import { pruneHistory, mergeImportedHistory } from './modules/history.js';
 import { createBackupSnapshot, mergeBackupData } from './modules/backup.js';
 import { $, sleep, APP_VERSION } from './modules/core.js';
-import { createStore } from './modules/store.js';
+import { createStore, normalizeStoreSnapshot } from './modules/store.js';
 import { fromOldRow } from './modules/legacy-migration.js';
 import { median, analyzeSpeedLevels, analyzeSpeedTimeContext, analyzeHygrometricPeriods, summarizeDailyTrends, analyzeHourlyPatterns, detectRapidChanges, summarizeEnergyReadiness, summarizeRawVmiSpeed, summarizeRawVmiMode, summarizeOperatingReference, compareOperatingPeriods, buildHygrometricDiagnosis, summarizeTemperatureLimit } from './modules/analysis.js';
 import { renderCharts, resetChartViews } from './modules/charts.js';
@@ -112,11 +112,13 @@ async function readOldDatabase(){
  finally{if(old)old.close()}
 }
 async function init(){
- let l=await dbGet('live'),h=await dbGet('hist');
- live=Array.isArray(l)?l:[];hist=Array.isArray(h)?h:[];
- meta=(await dbGet('meta'))||{};
+ const storedLive=await dbGet('live'),storedHistory=await dbGet('hist');
+ const storedMeta=await dbGet('meta');
  const storedEnergyReadings=await dbGet('energyReadings');
- energyReadings=Array.isArray(storedEnergyReadings)?storedEnergyReadings:[];
+ const snapshot=normalizeStoreSnapshot({
+  history:storedHistory,live:storedLive,energyReadings:storedEnergyReadings,meta:storedMeta
+ });
+ live=snapshot.live;hist=snapshot.history;meta=snapshot.meta;energyReadings=snapshot.energyReadings;
  const migrated=await dbGet('migrated');
  // Le marqueur est l'unique preuve d'une migration achevée. Des données déjà présentes
  // ne doivent pas empêcher une nouvelle tentative après une migration interrompue.
