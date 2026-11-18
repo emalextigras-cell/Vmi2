@@ -122,9 +122,11 @@ export function buildVmiAssistantSummary(data, options = {}) {
   const level = diagnosis.coverageLevel || 'indéterminée';
   const confidence = formatDiagnosisConfidence(diagnosis, value => fmt(value));
   const latestTimestamp = rows.reduce((latest, row) =>
-    Number.isFinite(row?.t) ? Math.max(latest, row.t) : latest, -Infinity);
+    Number.isFinite(row?.t) && Number.isFinite(new Date(row.t).getTime())
+      ? Math.max(latest, row.t) : latest, -Infinity);
   const firstTimestamp = rows.reduce((first, row) =>
-    Number.isFinite(row?.t) ? Math.min(first, row.t) : first, Infinity);
+    Number.isFinite(row?.t) && Number.isFinite(new Date(row.t).getTime())
+      ? Math.min(first, row.t) : first, Infinity);
   const periodText = Number.isFinite(firstTimestamp) && Number.isFinite(latestTimestamp)
     ? dateLabel(firstTimestamp) + ' au ' + dateLabel(latestTimestamp)
     : 'période non datée';
