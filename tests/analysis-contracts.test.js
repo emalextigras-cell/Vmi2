@@ -753,3 +753,18 @@ test('summarizeTemperatureLimit ne déclare pas comparable un groupe sans métri
   assert.equal(mode1.pairedAbove.medianRPM, null);
   assert.equal(mode1.comparable, false);
 });
+
+
+test('summarizeOperatingReference exclut les RPM négatifs des statistiques de régime moteur', () => {
+  const result = summarizeOperatingReference([
+    { t: at(27, 8), vmiModeRaw: 1, rpm: 1000 },
+    { t: at(28, 8), vmiModeRaw: 1, rpm: 1200 },
+    { t: at(29, 8), vmiModeRaw: 1, rpm: -500 }
+  ], { minSamples: 1 });
+  const rpm = result.groups[0].fields.find(field => field.key === 'rpm');
+
+  assert.equal(rpm.count, 2);
+  assert.equal(rpm.median, 1100);
+  assert.equal(rpm.min, 1000);
+  assert.equal(rpm.max, 1200);
+});
