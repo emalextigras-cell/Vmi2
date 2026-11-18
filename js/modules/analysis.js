@@ -1297,7 +1297,7 @@ export function summarizeOperatingReference(data, { minSamples = 10 } = {}) {
     const fields = metrics.map(metric => {
       const values = samples.map(row => row?.[metric.key]).filter((value) =>
         typeof value === 'number' && Number.isFinite(value) &&
-        (metric.key !== 'debit' || value >= 0)
+        (['debit', 'rpm'].includes(metric.key) ? value >= 0 : true)
       );
       const center = median(values);
       const min = values.length ? values.reduce((minimum, value) => Math.min(minimum, value), Infinity) : null;
