@@ -223,3 +223,24 @@ test('libère les fragments des lignes précédentes quand le flux avance', () =
   assert.equal(state.fragments.has('0:0'), false);
   assert.equal(state.fragments.has('1:0'), true);
 });
+
+
+test('condamne la ligne en cours lorsqu’une notification ne permet pas de lire son index', () => {
+  const state = createHistoryStreamState();
+  assert.equal(acceptHistoryFragment(state, {
+    sequence: 0, chunkIndex: 0, payload: 'début de ligne'
+  }).accepted, true);
+
+  const invalid = acceptHistoryFragment(state, {
+    sequence: null, chunkIndex: 10, payload: 'notification tronquée'
+  });
+  const remaining = acceptHistoryFragment(state, {
+    sequence: 0, chunkIndex: 10, payload: 'suite de ligne'
+  });
+
+  assert.equal(invalid.accepted, false);
+  assert.equal(invalid.gap, true);
+  assert.equal(invalid.resetBuffer, true);
+  assert.equal(remaining.accepted, false);
+  assert.equal(state.skippedSequence, 0);
+});
