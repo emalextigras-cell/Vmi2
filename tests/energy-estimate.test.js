@@ -180,3 +180,31 @@ test('valide minDays comme entier sûr positif ou nul', () => {
   assert.equal(summarizeFanEnergyByManualMode([], { minDays: 0 }).minDays, 0);
   assert.equal(summarizeFanEnergyByManualMode([], null).minDays, 2);
 });
+
+
+test('ignore un horodatage fini mais hors plage JavaScript dans l’estimation ventilateur',()=>{
+  const result=summarizeFanEnergyEstimate([
+    row(0,125),row(1,125),
+    {t:Number.MAX_VALUE,debit:125}
+  ]);
+  assert.equal(result.sampleCount,2);
+  assert.equal(result.firstAt,0);
+  assert.equal(result.lastAt,HOUR);
+  assert.equal(result.observedHours,1);
+  assert.equal(result.longGapCount,0);
+  assert.equal(result.estimatedWh,10);
+});
+
+test('ignore un horodatage fini mais hors plage JavaScript dans la comparaison par mode manuel',()=>{
+  const result=summarizeFanEnergyByManualMode([
+    {...row(0,125),vmiModeRaw:1},
+    {...row(1,125),vmiModeRaw:1},
+    {t:Number.MAX_VALUE,debit:125,vmiModeRaw:1}
+  ]);
+  const mode1=result.groups[0];
+  assert.equal(mode1.intervalCount,1);
+  assert.equal(mode1.longGapCount,0);
+  assert.equal(mode1.candidateHours,1);
+  assert.equal(mode1.coveredHours,1);
+  assert.equal(mode1.dayCount,1);
+});
