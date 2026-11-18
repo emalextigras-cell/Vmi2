@@ -71,7 +71,7 @@ export function detectTransientSensorSpikes(records, options = {}) {
     throw new RangeError('maxGapMinutes dépasse la plage exploitable');
   }
   const rows = (Array.isArray(records) ? records : [])
-    .filter(row => Number.isFinite(row?.t) && Number.isFinite(new Date(row.t).getTime()))
+    .filter(row => Number.isFinite(row?.t))
     .slice()
     .sort((a, b) => a.t - b.t);
   const candidates = [];
