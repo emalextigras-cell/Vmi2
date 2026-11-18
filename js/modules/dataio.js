@@ -225,11 +225,16 @@ export function parseCsvRows(text, delimiter = null) {
       }
       return count;
     };
-    const score=separator=>{
-      const counts=sample.map(line=>countOutsideQuotes(line,separator));
-      return Math.max(0,...counts)*100+counts.reduce((sum,value)=>sum+value,0);
-    };
-    delimiter=score(';')>score(',')?';':',';
+    const headerLine=sample.find(line=>/^\s*"?date"?\s*[,;]/i.test(line));
+    if(headerLine){
+      delimiter=countOutsideQuotes(headerLine,';')>countOutsideQuotes(headerLine,',')?';':',';
+    }else{
+      const score=separator=>{
+        const counts=sample.map(line=>countOutsideQuotes(line,separator));
+        return Math.max(0,...counts)*100+counts.reduce((sum,value)=>sum+value,0);
+      };
+      delimiter=score(';')>score(',')?';':',';
+    }
   }
   const rows=[];let row=[],field='',quoted=false,afterQuote=false;
   for(let i=0;i<source.length;i++){
