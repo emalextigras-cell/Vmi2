@@ -107,3 +107,12 @@ test('isole les compteurs et ignore les intervalles avec remise à zéro', () =>
   assert.equal(ventilation.months[0].energyKwh, 1);
   assert.equal(preheating.months[0].energyKwh, 2);
 });
+
+
+test('refuse un horodatage fini mais hors plage des dates JavaScript', () => {
+  const outOfRangeTimestamp = 8_640_000_000_000_001;
+  assert.throws(
+    () => upsertEnergyReading([], reading('total', outOfRangeTimestamp, 1)),
+    /Relevé invalide/
+  );
+});
