@@ -87,10 +87,11 @@ export function summarizeEnergyReadings(readings) {
         });
         continue;
       }
+      const averagePowerW = deltaKwh * 1000 / elapsedHours;
       intervals.push({
         from: previous.t, to: current.t, elapsedHours,
         previousKwh: previous.kwh, currentKwh: current.kwh,
-        deltaKwh, averagePowerW: deltaKwh * 1000 / elapsedHours,
+        deltaKwh, averagePowerW: Number.isFinite(averagePowerW) ? averagePowerW : null,
         status: 'measured'
       });
     }
