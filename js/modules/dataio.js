@@ -120,7 +120,8 @@ export function parseCell(value, spreadsheet = /** @type {SpreadsheetDateParser|
     if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day) ||
         month < 1 || month > 12 || day < 1 || day > 31 || c.H > 23 || c.M > 59 || second > 59) return null;
     const date = new Date(year, month - 1, day, c.H, c.M, second);
-    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day ||
+        date.getHours() !== c.H || date.getMinutes() !== c.M || date.getSeconds() !== second) return null;
     return { t: new Date(year, month-1, day, c.H, c.M, second).getTime(),
       rk: `${pad(day)}/${pad(month)}/${year} ${pad(c.H)}:${pad(c.M)}:${pad(second)}` };
   }
@@ -132,7 +133,8 @@ export function parseCell(value, spreadsheet = /** @type {SpreadsheetDateParser|
     const day=+m[1], month=+m[2], year=+m[3], hour=+m[4], minute=+m[5], second=+(m[6]||0);
     if(month<1||month>12||day<1||hour>23||minute>59||second>59) return null;
     const date=new Date(year,month-1,day,hour,minute,second);
-    if(date.getFullYear()!==year||date.getMonth()!==month-1||date.getDate()!==day) return null;
+    if(date.getFullYear()!==year||date.getMonth()!==month-1||date.getDate()!==day||
+       date.getHours()!==hour||date.getMinutes()!==minute||date.getSeconds()!==second) return null;
     return { t: date.getTime(),
       rk: `${pad(day)}/${pad(month)}/${year} ${pad(hour)}:${pad(minute)}:${pad(second)}` };
   }
@@ -214,7 +216,7 @@ export function parseCsvRows(text, delimiter = null) {
     // Les exports VMI+ comportent plusieurs lignes de métadonnées avant
     // l'en-tête (4e ligne). Détecter sur plusieurs lignes évite qu'une
     // première ligne descriptive fausse le choix du séparateur.
-    const sample=source.split(/\r?\n/).filter(line=>line.trim()).slice(0,12);
+    const sample=source.split(/\r\n|\n|\r/).filter(line=>line.trim()).slice(0,12);
     const countOutsideQuotes=(line,separator)=>{
       let count=0,quoted=false;
       for(let i=0;i<line.length;i++){
@@ -225,26 +227,42 @@ export function parseCsvRows(text, delimiter = null) {
       }
       return count;
     };
-    const score=separator=>{
-      const counts=sample.map(line=>countOutsideQuotes(line,separator));
-      return Math.max(0,...counts)*100+counts.reduce((sum,value)=>sum+value,0);
-    };
-    delimiter=score(';')>score(',')?';':',';
+    const headerLine=sample.find(line=>/^\s*"?date"?\s*[,;]/i.test(line));
+    if(headerLine){
+      delimiter=countOutsideQuotes(headerLine,';')>countOutsideQuotes(headerLine,',')?';':',';
+    }else{
+      const score=separator=>{
+        const counts=sample.map(line=>countOutsideQuotes(line,separator));
+        return Math.max(0,...counts)*100+counts.reduce((sum,value)=>sum+value,0);
+      };
+      delimiter=score(';')>score(',')?';':',';
+    }
   }
-  const rows=[];let row=[],field='',quoted=false;
+  const rows=[];let row=[],field='',quoted=false,afterQuote=false;
   for(let i=0;i<source.length;i++){
     const char=source[i];
     if(quoted){
       if(char==='"'&&source[i+1]==='"'){field+='"';i++}
-      else if(char==='"')quoted=false;
+      else if(char==='"'){quoted=false;afterQuote=true}
       else field+=char;
-    }else if(char==='"'&&field==='')quoted=true;
-    else if(char===delimiter){row.push(field);field=''}
+    }else if(afterQuote){
+      if(char===delimiter){row.push(field);field='';afterQuote=false}
+      else if(char==='\n'||char==='\r'){
+        if(char==='\r'&&source[i+1]==='\n')i++;
+        row.push(field);field='';rows.push(row);row=[];afterQuote=false;
+      }else if(char!==' '&&char!=='\t'){
+        throw new SyntaxError('CSV invalide : caractère après la fermeture d’un champ entre guillemets.');
+      }
+    }else if(char==='"'){
+      if(field==='')quoted=true;
+      else throw new SyntaxError('CSV invalide : guillemet dans un champ non encadré.');
+    }else if(char===delimiter){row.push(field);field=''}
     else if(char==='\n'||char==='\r'){
       if(char==='\r'&&source[i+1]==='\n')i++;
       row.push(field);field='';rows.push(row);row=[];
     }else field+=char;
   }
+  if(quoted)throw new SyntaxError('CSV invalide : champ entre guillemets non terminé.');
   if(field!==''||row.length){row.push(field);rows.push(row)}
   return rows;
 }

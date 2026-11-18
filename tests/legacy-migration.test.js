@@ -43,3 +43,24 @@ test('fromOldRow ignore les lignes absentes, mal formées ou à date invalide', 
   assert.equal(fromOldRow([NaN, 19.7, 62]), null);
   assert.equal(fromOldRow([Infinity, 19.7, 62]), null);
 });
+
+
+test('wallUtcToLocal rejette une date qui déborde lors de la reconstruction locale', () => {
+  const previousTimeZone = process.env.TZ;
+  try {
+    process.env.TZ = 'Pacific/Pago_Pago';
+    const timestamp = 8.64e15;
+    assert.equal(Number.isFinite(new Date(timestamp).getTime()), true);
+    assert.equal(wallUtcToLocal(timestamp), null);
+    assert.equal(fromOldRow([timestamp, 19.7, 62]), null);
+  } finally {
+    if (previousTimeZone === undefined) delete process.env.TZ;
+    else process.env.TZ = previousTimeZone;
+  }
+});
+
+
+test('fromOldRow rejette une ligne historique tronquée', () => {
+  const timestamp = new Date(Date.UTC(2026, 10, 10, 16, 55, 30)).getTime();
+  assert.equal(fromOldRow([timestamp, 19.7, 62]), null);
+});

@@ -18,7 +18,9 @@ import { isPlausibleTemperature, isPlausibleHumidity } from './data-quality.js';
  */
 export function calendarSeason(timestamp) {
   if (!Number.isFinite(timestamp)) return null;
-  const month = new Date(timestamp).getMonth() + 1;
+  const date = new Date(timestamp);
+  if (!Number.isFinite(date.getTime())) return null;
+  const month = date.getMonth() + 1;
   if (month === 12 || month <= 2) return 'hiver';
   if (month >= 6 && month <= 8) return 'été';
   return 'intersaison';
@@ -34,6 +36,12 @@ function localDay(timestamp) {
   return [date.getFullYear(), String(date.getMonth()+1).padStart(2,'0'), String(date.getDate()).padStart(2,'0')].join('-');
 }
 
+function localSummerNightDay(timestamp) {
+  const date = new Date(timestamp);
+  if (date.getHours() < 6) date.setDate(date.getDate() - 1);
+  return localDay(date.getTime());
+}
+
 /**
  * Les médianes sont calculées par jour puis chaque jour a le même poids.
  * Une opportunité thermique est seulement un contexte favorable observé,
@@ -46,15 +54,17 @@ function localDay(timestamp) {
  */
 export function analyzeSeasonalVentilation(data, { minSamples = 6, minDays = 2, temperatureMargin = 2 } = {}) {
   const rows = (Array.isArray(data) ? data : []).filter(row =>
-    Number.isFinite(row?.t) && validTemperature(row?.st) && validTemperature(row?.tExt)
+    Number.isFinite(row?.t) && Number.isFinite(new Date(row.t).getTime()) &&
+    validTemperature(row?.st) && validTemperature(row?.tExt)
   ).map(row => ({ ...row, calendarSeason: calendarSeason(row.t), day: localDay(row.t) }));
 
   const seasons = /** @type {SeasonalVentilationSummary['seasons']} */ (['été', 'hiver', 'intersaison'].map(season => {
     const seasonalRows = rows.filter(row => row.calendarSeason === season);
     const days = new Map();
     for (const row of seasonalRows) {
-      if (!days.has(row.day)) days.set(row.day, []);
-      days.get(row.day).push(row);
+      const dayKey = season === 'été' ? localSummerNightDay(row.t) : row.day;
+      if (!days.has(dayKey)) days.set(dayKey, []);
+      days.get(dayKey).push(row);
     }
     const daily = [...days.entries()].map(([day, samples]) => {
       const hourRows = samples.filter(row => {

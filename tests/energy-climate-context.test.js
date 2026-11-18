@@ -105,3 +105,18 @@ test('accepte les bornes de couverture et conserve les valeurs par défaut avec 
   });
   assert.equal(bounds.matchedIntervalCount, 1);
 });
+
+
+test('ne déclare jamais prêt un intervalle sans aucune couverture climatique', () => {
+  const result = summarizeEnergyClimateContext(
+    [reading(1, 10), reading(6 * HOUR + 1, 11)],
+    [],
+    { minCoveredHours: 0, minCoveragePercent: 0 }
+  );
+  const context = result.meters[0].intervals[0].context;
+  assert.equal(context.coverageHours, 0);
+  assert.equal(context.coveragePercent, 0);
+  assert.equal(context.deltaAbsHumidity, null);
+  assert.equal(context.ready, false);
+  assert.equal(result.matchedIntervalCount, 0);
+});

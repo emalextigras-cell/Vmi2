@@ -368,3 +368,15 @@ test('la restauration conserve les dates anciennes déjà corrigées', () => {
   assert.deepEqual(result.hist, [corrected, recent]);
   assert.equal(result.addedHistory, 1);
 });
+
+test('parseCell rejette une heure locale inexistante lors du passage à l’heure d’été',()=>{
+  const previousTZ=process.env.TZ;
+  try{
+    process.env.TZ='Europe/Paris';
+    assert.equal(parseCell('29/03/2026 02:30:00',null),null);
+    assert.ok(parseCell('29/03/2026 03:30:00',null));
+  }finally{
+    if(previousTZ===undefined)delete process.env.TZ;
+    else process.env.TZ=previousTZ;
+  }
+});

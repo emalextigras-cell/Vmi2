@@ -62,7 +62,7 @@ export function summarizeWeeklyDiagnostic(history,{
     throw new RangeError('minEnergyDays ne peut pas dépasser windowDays.');
   }
   const rows=(Array.isArray(history)?history:[])
-    .filter(row=>Number.isFinite(row?.t))
+    .filter(row=>Number.isFinite(row?.t)&&Number.isFinite(new Date(row.t).getTime()))
     .sort((a,b)=>a.t-b.t);
   // Un même horodatage ne doit jamais être arbitrairement représenté par
   // la dernière ligne rencontrée : en cas de valeurs contradictoires,

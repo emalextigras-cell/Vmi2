@@ -135,3 +135,109 @@ test('conserve le comportement de restauration avec les limites par défaut', ()
   assert.equal(result.live[0].t, 3);
   assert.equal(result.live.at(-1).t, 10002);
 });
+
+
+test('la restauration écarte les relevés directs horodatés dans le futur', () => {
+  const now = Date.UTC(2026, 10, 18, 12);
+  const result = mergeBackupData({
+    backup: {
+      app:'vmi-purevent',
+      hist:[],
+      live:[
+        {t:now - 60_000, sh:50},
+        {t:now + 60_000, sh:90}
+      ]
+    },
+    currentLive:[
+      {t:now - 120_000, sh:45},
+      {t:now + 120_000, sh:95}
+    ],
+    minValid:MIN_VALID,
+    maxTimestamp:now
+  });
+
+  assert.deepEqual(result.live, [
+    {t:now - 120_000, sh:45},
+    {t:now - 60_000, sh:50}
+  ]);
+});
+
+
+
+test('la restauration rejette les horodatages live finis mais hors plage JavaScript', () => {
+  const invalidTimestamp = Number.MAX_VALUE;
+  const result = mergeBackupData({
+    backup: {
+      app:'vmi-purevent',
+      hist:[],
+      live:[{t:invalidTimestamp, sh:90}]
+    },
+    currentLive:[{t:invalidTimestamp, sh:80}],
+    minValid:MIN_VALID,
+    maxTimestamp:invalidTimestamp
+  });
+
+  assert.deepEqual(result.live, []);
+  assert.equal(result.addedLive, 0);
+});
+
+
+test('la restauration fusionne les champs des doublons déjà présents dans l’historique local', () => {
+  const currentHist = [
+    { t: MIN_VALID, sh: 48 },
+    { t: MIN_VALID, st: 19.2 }
+  ];
+
+  const result = mergeBackupData({
+    backup: { app:'vmi-purevent', hist:[] },
+    currentHist,
+    minValid:MIN_VALID
+  });
+
+  assert.deepEqual(result.hist, [{ t:MIN_VALID, sh:48, st:19.2 }]);
+  assert.deepEqual(currentHist, [
+    { t:MIN_VALID, sh:48 },
+    { t:MIN_VALID, st:19.2 }
+  ]);
+});
+
+
+test('la restauration fusionne les champs des doublons déjà présents dans les relevés directs', () => {
+  const currentLive = [
+    { t:MIN_VALID, sh:48 },
+    { t:MIN_VALID, st:19.2 }
+  ];
+
+  const result = mergeBackupData({
+    backup:{ app:'vmi-purevent', hist:[], live:[] },
+    currentLive,
+    minValid:MIN_VALID
+  });
+
+  assert.deepEqual(result.live, [{ t:MIN_VALID, sh:48, st:19.2 }]);
+  assert.deepEqual(currentLive, [
+    { t:MIN_VALID, sh:48 },
+    { t:MIN_VALID, st:19.2 }
+  ]);
+});
+
+
+test('le contrat du snapshot exige un objet meta et rejette les tableaux', () => {
+  const snapshot = createBackupSnapshot({
+    hist:[], live:[], meta:['lastSync', 123],
+    exportedAt:'2026-11-18T12:00:00.000Z'
+  });
+
+  assert.deepEqual(snapshot.meta, {});
+});
+
+
+test('la restauration normalise les métadonnées locales non objet', () => {
+  const result = mergeBackupData({
+    backup:{ app:'vmi-purevent', hist:[] },
+    currentMeta:['lastSync', '2026-11-18T12:00:00.000Z'],
+    minValid:MIN_VALID
+  });
+
+  assert.deepEqual(result.meta, {});
+});

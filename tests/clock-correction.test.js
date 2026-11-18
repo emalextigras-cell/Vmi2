@@ -105,3 +105,13 @@ test('fixClock écarte aussi un relevé déjà daté après la fin de synchronis
   assert.equal(result.future, 1);
   assert.deepEqual(result.kept, []);
 });
+
+
+test('fixClock exclut un horodatage fini mais hors plage JavaScript', () => {
+  const invalidDate = { t: Number.MAX_VALUE, d: 200 };
+  const result = fixClock([invalidDate], [], MIN_VALID);
+
+  assert.equal(result.fixed, 0);
+  assert.deepEqual(result.kept, []);
+  assert.equal(result.future, 0);
+});

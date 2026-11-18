@@ -16,10 +16,11 @@ export const wallUtcToLocal = timestamp => {
   if (!Number.isFinite(timestamp)) return null;
   const date = new Date(timestamp);
   if (!Number.isFinite(date.getTime())) return null;
-  return new Date(
+  const localTimestamp = new Date(
     date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(),
     date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds()
   ).getTime();
+  return Number.isFinite(localTimestamp) ? localTimestamp : null;
 };
 
 /** Convertit une ligne historique positionnelle de l'ancienne base VMI_DB. */
@@ -29,7 +30,7 @@ export const wallUtcToLocal = timestamp => {
  * @returns {VmiRecord|null} Relevé normalisé, ou null si la ligne est invalide.
  */
 export const fromOldRow = row => {
-  if (!Array.isArray(row) || row.length === 0) return null;
+  if (!Array.isArray(row) || row.length < 9) return null;
   const timestamp = wallUtcToLocal(row[0]);
   if (timestamp == null) return null;
   return {

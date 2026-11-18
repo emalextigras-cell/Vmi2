@@ -67,7 +67,7 @@ const recommendation = (priority, title, text, reason) => ({
  * buildVmiAssistantSummary — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
  * @param {VmiRecord[]} data Paramètre data.
  * @param {{targetRH?: number, minSamples?: number, energyReadings?: EnergyReading[], meterHistory?: VmiRecord[]}} [options] Paramètres de la synthèse.
- * @returns {import('../types/vmi-types.js').AssistantSummary} Synthèse pédagogique structurée.
+ * @returns {import('../types/vmi-types.js').AssistantViewModel} Modèle d'affichage pédagogique structuré.
  */
 export function buildVmiAssistantSummary(data, options = {}) {
   const rows = Array.isArray(data) ? data : [];
@@ -122,9 +122,11 @@ export function buildVmiAssistantSummary(data, options = {}) {
   const level = diagnosis.coverageLevel || 'indéterminée';
   const confidence = formatDiagnosisConfidence(diagnosis, value => fmt(value));
   const latestTimestamp = rows.reduce((latest, row) =>
-    Number.isFinite(row?.t) ? Math.max(latest, row.t) : latest, -Infinity);
+    Number.isFinite(row?.t) && Number.isFinite(new Date(row.t).getTime())
+      ? Math.max(latest, row.t) : latest, -Infinity);
   const firstTimestamp = rows.reduce((first, row) =>
-    Number.isFinite(row?.t) ? Math.min(first, row.t) : first, Infinity);
+    Number.isFinite(row?.t) && Number.isFinite(new Date(row.t).getTime())
+      ? Math.min(first, row.t) : first, Infinity);
   const periodText = Number.isFinite(firstTimestamp) && Number.isFinite(latestTimestamp)
     ? dateLabel(firstTimestamp) + ' au ' + dateLabel(latestTimestamp)
     : 'période non datée';

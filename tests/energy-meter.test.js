@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { upsertEnergyReading, summarizeEnergyReadings, summarizeMonthlyEnergyReadings } from '../js/modules/energy-meter.js';
+import { upsertEnergyReading, summarizeEnergyReadings, summarizeMonthlyEnergyReadings, summarizeEnergyClimateContext } from '../js/modules/energy-meter.js';
 
 const HOUR = 60 * 60 * 1000;
 const reading = (meterType, t, kwh, id = meterType + ':' + t) => ({ id, meterType, t, kwh });
@@ -106,4 +106,135 @@ test('isole les compteurs et ignore les intervalles avec remise à zéro', () =>
   const preheating = result.find(meter => meter.meterType === 'preheating');
   assert.equal(ventilation.months[0].energyKwh, 1);
   assert.equal(preheating.months[0].energyKwh, 2);
+});
+
+
+test('refuse un horodatage fini mais hors plage des dates JavaScript', () => {
+  const outOfRangeTimestamp = 8_640_000_000_000_001;
+  assert.throws(
+    () => upsertEnergyReading([], reading('total', outOfRangeTimestamp, 1)),
+    /Relevé invalide/
+  );
+});
+
+
+test('un doublon contradictoire au même instant ne choisit pas arbitrairement un index', () => {
+  const first = reading('total', 1, 10);
+  const conflict = reading('total', 1, 100, 'conflict');
+  const next = reading('total', HOUR + 1, 11);
+  const forward = summarizeEnergyReadings([first, conflict, next]);
+  const reverse = summarizeEnergyReadings([conflict, first, next]);
+  assert.equal(forward.meters[0].intervals.length, 0);
+  assert.equal(reverse.meters[0].intervals.length, 0);
+  assert.equal(forward.meters[0].readingCount, 1);
+  assert.equal(reverse.meters[0].readingCount, 1);
+});
+
+
+test('un doublon contradictoire au milieu de la série ne crée pas un intervalle qui le traverse', () => {
+  const before = reading('total', 1, 10);
+  const conflictA = reading('total', HOUR + 1, 20, 'conflict-a');
+  const conflictB = reading('total', HOUR + 1, 200, 'conflict-b');
+  const after = reading('total', 2 * HOUR + 1, 30);
+  const next = reading('total', 3 * HOUR + 1, 31);
+  const result = summarizeEnergyReadings([before, conflictA, conflictB, after, next]);
+  const meter = result.meters[0];
+  assert.equal(meter.intervals.length, 1);
+  assert.equal(meter.intervals[0].from, after.t);
+  assert.equal(meter.intervals[0].to, next.t);
+  assert.equal(meter.intervals[0].deltaKwh, 1);
+});
+
+
+test('ne publie pas une puissance moyenne infinie pour des index finis extrêmes', () => {
+  const result = summarizeEnergyReadings([
+    reading('total', 1, 0),
+    reading('total', 2, 1e308)
+  ]);
+  const interval = result.meters[0].intervals[0];
+  assert.equal(interval.status, 'measured');
+  assert.equal(interval.deltaKwh, 1e308);
+  assert.equal(interval.averagePowerW, null);
+});
+
+
+test('ne publie pas un total kWh infini après plusieurs remises à zéro du compteur', () => {
+  const result = summarizeEnergyReadings([
+    reading('total', 1, 0),
+    reading('total', HOUR + 1, 1e308),
+    reading('total', 2 * HOUR + 1, 0),
+    reading('total', 3 * HOUR + 1, 1e308)
+  ]);
+  assert.equal(result.meters[0].totalKwh, null);
+});
+
+
+test('ne publie pas un cumul mensuel infini pour des deltas finis extrêmes', () => {
+  const result = summarizeMonthlyEnergyReadings([
+    reading('total', Date.UTC(2026, 0, 1), 0),
+    reading('total', Date.UTC(2026, 0, 2), 1e308),
+    reading('total', Date.UTC(2026, 0, 3), 0),
+    reading('total', Date.UTC(2026, 0, 4), 1e308)
+  ]);
+  assert.equal(result[0].months[0].energyKwh, null);
+});
+
+test('ne publie pas un cumul infini des intervalles traversant les mois', () => {
+  const result = summarizeMonthlyEnergyReadings([
+    reading('total', Date.UTC(2026, 0, 31, 23), 0),
+    reading('total', Date.UTC(2026, 1, 1, 1), 1e308),
+    reading('total', Date.UTC(2026, 1, 28, 23), 0),
+    reading('total', Date.UTC(2026, 2, 1, 1), 1e308)
+  ]);
+  assert.equal(result[0].crossMonthKwh, null);
+});
+
+
+test('conserve indisponible un cumul mensuel après un débordement, même avec des intervalles ultérieurs', () => {
+  const result = summarizeMonthlyEnergyReadings([
+    reading('total', Date.UTC(2026, 0, 1), 0),
+    reading('total', Date.UTC(2026, 0, 2), 1e308),
+    reading('total', Date.UTC(2026, 0, 3), 0),
+    reading('total', Date.UTC(2026, 0, 4), 1e308),
+    reading('total', Date.UTC(2026, 0, 5), 0),
+    reading('total', Date.UTC(2026, 0, 6), 1e308)
+  ]);
+  assert.equal(result[0].months[0].energyKwh, null);
+});
+
+test('conserve indisponible le cumul inter-mois après un débordement, même avec des intervalles ultérieurs', () => {
+  const result = summarizeMonthlyEnergyReadings([
+    reading('total', Date.UTC(2026, 0, 31, 23), 0),
+    reading('total', Date.UTC(2026, 1, 1, 1), 1e308),
+    reading('total', Date.UTC(2026, 1, 28, 23), 0),
+    reading('total', Date.UTC(2026, 2, 1, 1), 1e308),
+    reading('total', Date.UTC(2026, 2, 31, 23), 0),
+    reading('total', Date.UTC(2026, 3, 1, 1), 1e308)
+  ]);
+  assert.equal(result[0].crossMonthKwh, null);
+});
+
+
+test('interrompt la couverture climatique aux horodatages contradictoires', () => {
+  const start = Date.UTC(2026, 0, 1, 0);
+  const end = start + 4 * HOUR;
+  const readings = [
+    reading('ventilation', start, 10),
+    reading('ventilation', end, 10.04)
+  ];
+  const history = [
+    { t: start, st: 20, sh: 50, te: 10, he: 80 },
+    { t: start + 2 * HOUR, st: 20, sh: 50, te: 10, he: 80 },
+    { t: start + 2 * HOUR, st: 20, sh: 95, te: 10, he: 80 },
+    { t: end, st: 20, sh: 50, te: 10, he: 80 }
+  ];
+  const result = summarizeEnergyClimateContext(readings, history, {
+    maxGapHours: 2,
+    minCoveredHours: 3,
+    minCoveragePercent: 50
+  });
+  const interval = result.meters[0].intervals[0];
+  assert.equal(interval.context.coverageHours, 0);
+  assert.equal(interval.context.coveredMs, 0);
+  assert.equal(interval.context.ready, false);
 });

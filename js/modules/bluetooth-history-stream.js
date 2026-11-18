@@ -31,18 +31,28 @@ export function createHistoryStreamState() {
 export function acceptHistoryFragment(state, fragment) {
   const data = fragment && typeof fragment === 'object'
     ? /** @type {Record<string, unknown>} */ (fragment) : {};
-  const sequence = Number(data.sequence);
-  const chunkIndex = Number(data.chunkIndex);
+  const sequence = data.sequence;
+  const chunkIndex = data.chunkIndex;
   const payload = String(data.payload ?? '');
-  if (!Number.isInteger(sequence) || sequence < 0 ||
-      !Number.isInteger(chunkIndex) || chunkIndex < 0 || chunkIndex % 10 !== 0) {
+  if (typeof sequence !== 'number' || !Number.isSafeInteger(sequence) || sequence < 0 ||
+      typeof chunkIndex !== 'number' || !Number.isSafeInteger(chunkIndex) ||
+      chunkIndex < 0 || chunkIndex % 10 !== 0) {
     state.gapCount++;
     // Si l'index de ligne reste lisible, condamner cette ligne et ignorer
     // tous ses fragments suivants jusqu'à la ligne suivante.
-    if (Number.isInteger(sequence) && sequence >= 0 && (state.sequence === null || sequence >= state.sequence)) {
+    if (typeof sequence === 'number' && Number.isSafeInteger(sequence) && sequence >= 0 && (state.sequence === null || sequence >= state.sequence)) {
+      // Les fragments de la ligne condamnée et des lignes précédentes ne
+      // peuvent plus servir à une détection de doublon utile.
+      state.fragments.clear();
       state.sequence = sequence;
       state.expectedChunk = 0;
       state.skippedSequence = sequence;
+    } else if (!(typeof sequence === 'number' && Number.isSafeInteger(sequence) && sequence >= 0) && state.sequence !== null) {
+      // Sans index de ligne lisible, condamner la ligne en cours :
+      // un fragment ultérieur ne doit pas compléter une notification tronquée.
+      state.fragments.clear();
+      state.expectedChunk = 0;
+      state.skippedSequence = state.sequence;
     }
     return { accepted: false, duplicate: false, gap: true, resetBuffer: true };
   }
@@ -53,6 +63,9 @@ export function acceptHistoryFragment(state, fragment) {
       return { accepted: false, duplicate: true, gap: false, resetBuffer: false };
     }
     state.gapCount++;
+    // Un doublon contradictoire invalide la ligne : libérer immédiatement
+    // les fragments déjà reçus, devenus inutilisables.
+    state.fragments.clear();
     state.skippedSequence = sequence;
     return { accepted: false, duplicate: false, gap: true, resetBuffer: true };
   }
@@ -68,6 +81,9 @@ export function acceptHistoryFragment(state, fragment) {
     return { accepted: false, duplicate: false, gap: true, resetBuffer: false };
   } else if (sequence > state.sequence) {
     if (sequence !== state.sequence + 1 || chunkIndex !== 0) gap = true;
+    // Les séquences antérieures sont désormais rejetées par l'ordre du flux :
+    // conserver leurs payloads ne ferait qu'accroître la mémoire utilisée.
+    state.fragments.clear();
     state.sequence = sequence;
     state.expectedChunk = 0;
     state.skippedSequence = null;

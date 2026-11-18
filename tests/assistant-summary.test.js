@@ -110,3 +110,52 @@ test('le bilan simple refuse de départager les vitesses avec moins de cinq jour
   assert.match(balance.text, /Pas encore assez de recul pour départager les vitesses/);
   assert.ok(!result.recommendations.some(item => /Examiner les comparaisons de vitesses/.test(item.title)));
 });
+
+
+test('ignore un horodatage fini mais hors plage JavaScript dans la période de synthèse', () => {
+  const rows = makeHistory();
+  rows.push({
+    t: Number.MAX_VALUE,
+    st: 20,
+    sh: 60,
+    te: 10,
+    he: 50,
+    tExt: 12,
+    debit: 125,
+    rpm: 1200,
+    vmiModeRaw: 1,
+    vmiSpeedRaw: 5
+  });
+  const result = buildVmiAssistantSummary(rows);
+  assert.equal(result.status, 'available');
+  assert.match(result.period, /01\/11\/2026 au 07\/11\/2026/);
+});
+
+test('les états sans données et disponibles respectent le contrat AssistantViewModel', () => {
+  const models = [
+    buildVmiAssistantSummary([]),
+    buildVmiAssistantSummary(makeHistory())
+  ];
+
+  for (const model of models) {
+    assert.ok(['no-data', 'available', 'limited'].includes(model.status));
+    assert.equal(typeof model.title, 'string');
+    assert.equal(typeof model.overview, 'string');
+    assert.equal(typeof model.confidence, 'string');
+    assert.ok(Array.isArray(model.sections));
+    assert.ok(Array.isArray(model.recommendations));
+    assert.ok(Array.isArray(model.limits));
+    for (const section of model.sections) {
+      assert.equal(typeof section.id, 'string');
+      assert.equal(typeof section.title, 'string');
+      assert.equal(typeof section.status, 'string');
+      assert.equal(typeof section.summary, 'string');
+      assert.ok(Array.isArray(section.details));
+    }
+    for (const item of model.recommendations) {
+      for (const key of ['priority', 'title', 'text', 'reason']) {
+        assert.equal(typeof item[key], 'string');
+      }
+    }
+  }
+});

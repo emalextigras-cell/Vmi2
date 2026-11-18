@@ -1,8 +1,9 @@
+import * as storeModule from '../js/modules/store.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createStore } from '../js/modules/store.js';
 
-function installIndexedDB({ fail = false } = {}) {
+function installIndexedDB({ fail = false, failRead = false } = {}) {
   const writes = [];
   const database = {
     objectStoreNames: { contains: () => true },
@@ -10,7 +11,17 @@ function installIndexedDB({ fail = false } = {}) {
       const tx = {
         error: fail ? new Error('quota exceeded') : null,
         objectStore() {
-          return { put(value, key) { writes.push([key, value]); } };
+          return {
+            put(value, key) { writes.push([key, value]); },
+            get() {
+              const request = { result: undefined, error: failRead ? new Error('read failed') : null };
+              queueMicrotask(() => {
+                if (failRead) request.onerror?.();
+                else request.onsuccess?.();
+              });
+              return request;
+            }
+          };
         }
       };
       queueMicrotask(() => {
@@ -85,4 +96,47 @@ test('setMany refuse une liste d’écritures mal formée', async () => {
   } finally {
     mock.restore();
   }
+});
+
+
+test('get propage une erreur de lecture au lieu de la transformer en valeur absente', async () => {
+  const mock = installIndexedDB({ failRead: true });
+  const errors = [];
+  try {
+    const store = createStore({ databaseName: 'test', storeName: 'data', onError: message => errors.push(message) });
+    await assert.rejects(store.get('hist'), /read failed/);
+    assert.equal(errors.length, 1);
+    assert.match(errors[0], /IndexedDB lecture/);
+    assert.equal(mock.writes.length, 0);
+  } finally {
+    mock.restore();
+  }
+});
+
+
+test('le contrat StoreSnapshot normalise les quatre collections et préserve les relevés bruts', () => {
+  const { normalizeStoreSnapshot } = storeModule;
+  assert.equal(typeof normalizeStoreSnapshot, 'function');
+  const history = [{ sh: 52 }, { t: 1760000000000, sh: 48 }];
+  const live = [{ sh: 53 }];
+  const energyReadings = [{ id:'e1', meterType:'ventilation', t:1760000000000, kwh:1.2 }];
+  const meta = { lastSync:'2026-11-18T12:00:00.000Z' };
+  const snapshot = normalizeStoreSnapshot({ history, live, energyReadings, meta });
+
+  assert.deepEqual(snapshot, { history, live, energyReadings, meta });
+  assert.strictEqual(snapshot.history, history);
+  assert.strictEqual(snapshot.live, live);
+  assert.strictEqual(snapshot.energyReadings, energyReadings);
+  assert.strictEqual(snapshot.meta, meta);
+});
+
+test('le contrat StoreSnapshot remplace les conteneurs de premier niveau mal formés par des valeurs sûres', () => {
+  const snapshot = storeModule.normalizeStoreSnapshot({
+    history:{ t:1760000000000 },
+    live:null,
+    energyReadings:'invalid',
+    meta:['lastSync', '2026-11-18T12:00:00.000Z']
+  });
+
+  assert.deepEqual(snapshot, { history:[], live:[], energyReadings:[], meta:{} });
 });

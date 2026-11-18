@@ -15,7 +15,7 @@ export function createBackupSnapshot({ hist, live, meta, energyReadings, exporte
   const snapshot = {
     app: 'vmi-purevent', version: 1, exportedAt,
     hist: Array.isArray(hist) ? hist : [], live: Array.isArray(live) ? live : [],
-    meta: meta && typeof meta === 'object' ? meta : {}
+    meta: meta && typeof meta === 'object' && !Array.isArray(meta) ? meta : {}
   };
   // Champ facultatif pour conserver la compatibilité avec les sauvegardes v13 antérieures.
   if (Array.isArray(energyReadings)) {
@@ -49,7 +49,11 @@ export function mergeBackupData({
   }
   const isUsableHistory = record => isRawDateEligible(record, minValid) &&
     record.t >= minValid && record.t <= maxTimestamp;
-  const history = new Map(currentHist.filter(isUsableHistory).map(r => [r.t, r]));
+  const history = new Map();
+  for (const record of currentHist.filter(isUsableHistory)) {
+    const existing = history.get(record.t);
+    history.set(record.t, existing ? mergeRecordFields(existing, record) : record);
+  }
   let addedHistory = 0, enrichedHistory = 0;
   for (const record of source.hist) {
     if (!isUsableHistory(record)) continue;
@@ -61,11 +65,21 @@ export function mergeBackupData({
     }
   }
   const hist = [...history.values()].sort((a,b) => a.t-b.t);
-  let live = [...currentLive], addedLive = 0;
+
+  // Les horodatages futurs sont écartés des relevés directs, qu'ils viennent
+  // de la sauvegarde ou de l'état local. Ne pas appliquer minValid ici :
+  // les relevés live historiques n'ont pas les mêmes contraintes que hist.
+  const isUsableLive = record => record && Number.isFinite(record.t) &&
+    Number.isFinite(new Date(record.t).getTime()) && record.t <= maxTimestamp;
+  let live = currentLive.filter(isUsableLive), addedLive = 0;
   if (Array.isArray(source.live)) {
-    const byTime = new Map(live.filter(r => r && Number.isFinite(r.t)).map(r => [r.t,r]));
+    const byTime = new Map();
+    for (const record of live) {
+      const existing = byTime.get(record.t);
+      byTime.set(record.t, existing ? mergeRecordFields(existing, record) : record);
+    }
     for (const record of source.live) {
-      if (!record || !Number.isFinite(record.t)) continue;
+      if (!isUsableLive(record)) continue;
       if (!byTime.has(record.t)) { byTime.set(record.t,record); addedLive++; }
       else byTime.set(record.t,mergeRecordFields(byTime.get(record.t),record));
     }
@@ -73,7 +87,7 @@ export function mergeBackupData({
     if(maxLive===0) live=[];
     else if(live.length>maxLive) live=live.slice(-maxLive);
   }
-  const meta={...(currentMeta||{})};
+  const meta={...(currentMeta && typeof currentMeta === 'object' && !Array.isArray(currentMeta) ? currentMeta : {})};
   if(source.meta?.lastSync&&(!meta.lastSync||source.meta.lastSync>String(meta.lastSync))) meta.lastSync=source.meta.lastSync;
 
   let energyReadings = Array.isArray(currentEnergyReadings)

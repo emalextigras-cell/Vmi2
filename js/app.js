@@ -2,7 +2,7 @@ import { DAY, pad, localDay, dayStart, shiftDay, fmt, num, MIN_VALID, HIST_MAX }
 import { pruneHistory, mergeImportedHistory } from './modules/history.js';
 import { createBackupSnapshot, mergeBackupData } from './modules/backup.js';
 import { $, sleep, APP_VERSION } from './modules/core.js';
-import { createStore } from './modules/store.js';
+import { createStore, normalizeStoreSnapshot } from './modules/store.js';
 import { fromOldRow } from './modules/legacy-migration.js';
 import { median, analyzeSpeedLevels, analyzeSpeedTimeContext, analyzeHygrometricPeriods, summarizeDailyTrends, analyzeHourlyPatterns, detectRapidChanges, summarizeEnergyReadiness, summarizeRawVmiSpeed, summarizeRawVmiMode, summarizeOperatingReference, compareOperatingPeriods, buildHygrometricDiagnosis, summarizeTemperatureLimit } from './modules/analysis.js';
 import { renderCharts, resetChartViews } from './modules/charts.js';
@@ -61,7 +61,7 @@ let manualDisconnect=false,intentionalDisconnect=false,manualCommandPending=fals
 let bleNotificationHandler=null,bleNotificationCharacteristics=[],bleDisconnectHandler=null;
 let meta={},cur={},lastSeen={},live=[],hist=[],energyReadings=[],source='hist',selectedDate=null,daysSetting=30;
 let logLines=[],dlFrames=0;
-let download={on:false,rows:[],buf:'',total:0,sigs:new Set(),got:false,lastPacket:0,timeout:null,historyStream:createHistoryStreamState(),integrityGap:false};
+let download={on:false,rows:[],buf:'',total:0,sigs:new Set(),got:false,lastPacket:0,timeout:null,historyStream:createHistoryStreamState(),integrityGap:false,dataStarted:false};
 const DB='VMI_PUREVENT_DB_TEST',STORE='data';
 const { get: dbGet, set: dbSet, setMany: dbSetMany } = createStore({ databaseName: DB, storeName: STORE, onError: message => log(message) });
 const connected=()=>!!(chC&&dev&&dev.gatt&&dev.gatt.connected);
@@ -112,11 +112,13 @@ async function readOldDatabase(){
  finally{if(old)old.close()}
 }
 async function init(){
- let l=await dbGet('live'),h=await dbGet('hist');
- live=Array.isArray(l)?l:[];hist=Array.isArray(h)?h:[];
- meta=(await dbGet('meta'))||{};
+ const storedLive=await dbGet('live'),storedHistory=await dbGet('hist');
+ const storedMeta=await dbGet('meta');
  const storedEnergyReadings=await dbGet('energyReadings');
- energyReadings=Array.isArray(storedEnergyReadings)?storedEnergyReadings:[];
+ const snapshot=normalizeStoreSnapshot({
+  history:storedHistory,live:storedLive,energyReadings:storedEnergyReadings,meta:storedMeta
+ });
+ live=snapshot.live;hist=snapshot.history;meta=snapshot.meta;energyReadings=snapshot.energyReadings;
  const migrated=await dbGet('migrated');
  // Le marqueur est l'unique preuve d'une migration achevée. Des données déjà présentes
  // ne doivent pas empêcher une nouvelle tentative après une migration interrompue.
@@ -212,11 +214,11 @@ function handleNotification(ev){
   dlFrames++;if(dlFrames%200===1)log(`< trames d’historique reçues : ${dlFrames}`);
   download.got=true;download.lastPacket=now;
   download.buf+=payload;
-  const lines=download.buf.split('\n');download.buf=lines.pop();lines.forEach(parseDownloadLine);
+  const lines=download.buf.split(/\r\n|\n|\r(?!$)/);download.buf=lines.pop();lines.forEach(parseDownloadLine);
   if(download.on){
    $('dlp').textContent=`${download.rows.length} nouvelles lignes (index historique ${decoded.sequence+1} / ${download.total||'?'})`;
    armTimer();
-   if(decoded.final){if(download.buf.trim())parseDownloadLine(download.buf);if(download.on){download.finalSeen=true;finishDownload(false)}}
+   if(decoded.final){if(download.buf.trim()){const tail=download.buf.split(/\r\n|\n|\r/);download.buf='';tail.filter(line=>line.trim()).forEach(parseDownloadLine)}if(download.on){download.finalSeen=true;finishDownload(false)}}
   }
   return;
  }
@@ -518,6 +520,10 @@ function ingest(recs,label,maxTimestamp=Date.now()){
 const sigOf=r=>r.rk+'|'+r.d;
 function parseDownloadLine(line){
  if(!download.on)return;
+ if(!download.dataStarted){
+  if(String(line).trimStart().startsWith('Date;Event;'))download.dataStarted=true;
+  return;
+ }
  const validation=validateBluetoothHistoryRow(line);
  if(!validation.valid){download.invalidRows=(download.invalidRows||0)+1;log('Ligne historique Bluetooth rejetée ('+validation.reason+') · date brute : '+String(line).split(';',1)[0]);return}
  const f=validation.fields,p=parseCell(f[0]);if(!p)return;
@@ -529,11 +535,11 @@ function finishDownload(reachedCut,timeout=false,interrupted=false){
  if(!download.on)return;
  download.on=false;clearTimeout(download.timeout);
  const count=download.rows.length;
- const complete=!timeout&&!interrupted&&!download.integrityGap&&(reachedCut||download.finalSeen===true);
+ const complete=!timeout&&!interrupted&&!download.integrityGap&&!(download.invalidRows>0)&&(reachedCut||download.finalSeen===true);
  if(count)ingest(markHistoryRows(download.rows,complete),'Téléchargement',Date.now());
  if(complete){meta.lastSync=Date.now();void persist('meta',meta,'Sauvegarde des métadonnées').catch(()=>{});renderFreshness()}
  $('dlh').disabled=false;setCommandsDisabled(false);
- $('dlp').textContent=`Terminé : ${count} nouvelles lignes${download.integrityGap?' · lacune détectée : synchronisation non certifiée, relance nécessaire':interrupted?(download.got?' · transfert interrompu, données partielles conservées ; relance la synchronisation':' · transfert interrompu avant réception') :reachedCut?' · historique à jour':timeout?(download.got?' · arrêt après une pause de 20 s':' · aucune réponse de la VMI'):(download.sigs.size?' · attention : trou possible avant la dernière ligne mémorisée':' · historique complet')}`;
+ $('dlp').textContent=`Terminé : ${count} nouvelles lignes${download.invalidRows>0?' · lignes rejetées : synchronisation non certifiée, relance nécessaire':download.integrityGap?' · lacune détectée : synchronisation non certifiée, relance nécessaire':interrupted?(download.got?' · transfert interrompu, données partielles conservées ; relance la synchronisation':' · transfert interrompu avant réception') :reachedCut?' · historique à jour':timeout?(download.got?' · arrêt après une pause de 20 s':' · aucune réponse de la VMI'):(download.sigs.size?' · attention : trou possible avant la dernière ligne mémorisée':' · historique complet')}`;
  if(reachedCut&&dev&&dev.gatt&&dev.gatt.connected){
   // La VMI ne sait pas arrêter seule le flux historique : cette coupure est volontaire.
   // onDisconnect doit la distinguer d'une vraie perte de liaison.
@@ -788,14 +794,16 @@ function renderHygrometricPeriods(data){
  }
  const total=result.observedDurationMs;
  const pct=value=>Math.round(value/total*100);
- let message='Sur '+formatDuration(total)+' de périodes observées (sans extrapoler les trous de plus de 2 h) : ';
- message+='Air entrant plus sec : '+formatDuration(result.dryDurationMs)+' ('+pct(result.dryDurationMs)+' %). ';
- message+='Air entrant plus humide : '+formatDuration(result.humidDurationMs)+' ('+pct(result.humidDurationMs)+' %). ';
+ let message='Sur '+formatDuration(total)+' d’intervalles exploitables (interpolation entre relevés, sans extrapoler les trous de plus de '+result.maxGapHours+' h) : ';
+ message+='Dans le diagnostic global, le seuil de 1 g/m³ et la règle de dominance de 60 % sont des critères heuristiques, pas des seuils physiques validés pour ces capteurs. ';
+ message+='Potentiel favorable (air entrant plus sec) : '+formatDuration(result.dryDurationMs)+' ('+pct(result.dryDurationMs)+' %). ';
+ message+='Potentiel défavorable (air entrant plus humide) : '+formatDuration(result.humidDurationMs)+' ('+pct(result.humidDurationMs)+' %). ';
  message+='Écart faible : '+formatDuration(result.neutralDurationMs)+' ('+pct(result.neutralDurationMs)+' %). ';
  message+='Écart médian salon − air entrant : '+fmt(result.medianDelta)+' g/m³. ';
- message+='Plus longue séquence asséchante estimée : '+formatDuration(result.longestDryMs)+'. ';
- message+='Plus longue séquence où l’air entrant est plus humide : '+formatDuration(result.longestHumidMs)+'.';
- if(result.gapCount)message+=' '+result.gapCount+' interruption(s) de plus de 2 h exclue(s) du calcul.';
+ message+='Plus longue séquence estimée avec un écart favorable : '+formatDuration(result.longestDryMs)+'. ';
+ message+='Plus longue séquence avec un air entrant plus humide : '+formatDuration(result.longestHumidMs)+'.';
+ if(result.gapCount)message+=' '+result.gapCount+' interruption(s) de plus de '+result.maxGapHours+' h exclue(s) du calcul.';
+ message+=' Ces durées décrivent uniquement l’écart d’humidité absolue entre les deux capteurs. Elles ne prouvent pas une baisse de l’humidité dans le logement : cette évolution est évaluée séparément à partir des mesures intérieures. Le débit réellement renouvelé et les échanges d’humidité avec les parois ne sont pas mesurés ici.';
  box.className=result.humidDurationMs>result.dryDurationMs?'advice warn':'advice';
  box.textContent=message;
 }
