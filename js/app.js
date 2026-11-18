@@ -529,7 +529,7 @@ function finishDownload(reachedCut,timeout=false,interrupted=false){
  if(!download.on)return;
  download.on=false;clearTimeout(download.timeout);
  const count=download.rows.length;
- const complete=!timeout&&!interrupted&&!download.integrityGap&&(reachedCut||download.finalSeen===true);
+ const complete=!timeout&&!interrupted&&!download.integrityGap&&!(download.invalidRows>0)&&(reachedCut||download.finalSeen===true);
  if(count)ingest(markHistoryRows(download.rows,complete),'Téléchargement',Date.now());
  if(complete){meta.lastSync=Date.now();void persist('meta',meta,'Sauvegarde des métadonnées').catch(()=>{});renderFreshness()}
  $('dlh').disabled=false;setCommandsDisabled(false);
