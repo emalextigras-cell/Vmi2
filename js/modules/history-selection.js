@@ -3,9 +3,20 @@
  */
 import { dayStart, shiftDay, MIN_VALID } from './date-utils.js';
 
+/**
+ * Vérifie qu'un relevé possède la structure minimale requise pour l'affichage.
+ * Les archives brutes restent permissives ; cette validation ne transforme aucune donnée.
+ * @param {unknown} record Valeur issue du stockage ou d'un import.
+ * @returns {record is import('../types/vmi-types.js').DisplayVmiRecord}
+ */
+export function isDisplayVmiRecord(record) {
+  return Boolean(record && typeof record === 'object' && !Array.isArray(record) &&
+    Number.isFinite(record.t) && Number.isFinite(new Date(record.t).getTime()));
+}
+
 export function selectDataRange(records, { selectedDate = null, daysSetting = 30, maxTimestamp = Date.now() } = {}) {
   const data = (Array.isArray(records) ? records : [])
-    .filter(record => record && Number.isFinite(record.t) && Number.isFinite(new Date(record.t).getTime()) && record.t >= MIN_VALID && record.t <= maxTimestamp)
+    .filter(record => isDisplayVmiRecord(record) && record.t >= MIN_VALID && record.t <= maxTimestamp)
     .sort((a, b) => a.t - b.t);
 
   if (selectedDate) {
