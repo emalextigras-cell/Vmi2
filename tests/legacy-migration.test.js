@@ -58,3 +58,9 @@ test('wallUtcToLocal rejette une date qui déborde lors de la reconstruction loc
     else process.env.TZ = previousTimeZone;
   }
 });
+
+
+test('fromOldRow rejette une ligne historique tronquée', () => {
+  const timestamp = new Date(Date.UTC(2026, 10, 10, 16, 55, 30)).getTime();
+  assert.equal(fromOldRow([timestamp, 19.7, 62]), null);
+});
