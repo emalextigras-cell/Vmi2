@@ -96,13 +96,14 @@ export function summarizeEnergyReadings(readings) {
       });
     }
     const measured = intervals.filter(interval => interval.status === 'measured');
+    const totalKwh = measured.reduce((sum, interval) => sum + interval.deltaKwh, 0);
     return {
       meterType, label: ENERGY_METER_LABELS[meterType],
       readingCount: rows.length,
       firstAt: rows.length ? rows[0].t : null,
       lastAt: rows.length ? rows[rows.length - 1].t : null,
       measuredIntervalCount: measured.length,
-      totalKwh: measured.reduce((sum, interval) => sum + interval.deltaKwh, 0),
+      totalKwh: Number.isFinite(totalKwh) ? totalKwh : null,
       intervals
     };
   }).filter(meter => meter.readingCount > 0));
