@@ -117,3 +117,18 @@ test('accepte une couverture énergétique nulle et zéro jour requis',()=>{
   assert.equal(result.status,'available');
   assert.equal(result.matchedDayCount,1);
 });
+
+
+test('ignore un horodatage fini mais hors plage JavaScript dans le contexte énergie-climat',()=>{
+  const history=[
+    row(0),row(1),row(2),row(3),row(4),
+    {t:Number.MAX_VALUE,debit:125,st:20,sh:60,te:10,he:80}
+  ];
+  const result=summarizeDailyEnergyClimateContext(history,{
+    minFanHours:3,minClimateSamples:3,minDays:1
+  });
+  assert.equal(result.status,'available');
+  assert.equal(result.matchedDayCount,1);
+  assert.ok(result.days.every(item=>item.date!=='NaN-NaN-NaN'));
+  assert.equal(result.days[0].climateSampleCount,5);
+});
