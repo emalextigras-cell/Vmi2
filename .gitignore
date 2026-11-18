@@ -1,0 +1,19 @@
+# Dépendances installées localement
+node_modules/
+
+# Journaux et fichiers temporaires
+*.log
+*.tmp
+*.temp
+
+# Résultats générés par les tests
+coverage/
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+
+# Configuration locale et secrets
+.env
+.env.*
+!.env.example
