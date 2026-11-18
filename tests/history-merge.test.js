@@ -60,3 +60,19 @@ test('isRawDateEligible rejette une date brute impossible même si son année es
     rk: '31/02/2026 12:00:00'
   }), false);
 });
+
+
+test('mergeImportedHistory fusionne les champs de tous les doublons locaux avant l’import', () => {
+  const current = [
+    { t: 100, sh: 48 },
+    { t: 100, st: 19.2 }
+  ];
+
+  const result = mergeImportedHistory(current, []);
+
+  assert.deepEqual(result, [{ t: 100, sh: 48, st: 19.2 }]);
+  assert.deepEqual(current, [
+    { t: 100, sh: 48 },
+    { t: 100, st: 19.2 }
+  ]);
+});
