@@ -104,7 +104,7 @@ function seriesFor(data,key,name,color,derive=null,invalid=null){
  * @returns {void}
  */
 export function renderCharts(data,selectedDate,$){
- const chartData=Array.isArray(data)?data.filter(r=>r&&Number.isFinite(r.t)&&Number.isFinite(new Date(r.t).getTime())):[];
+ const chartData=Array.isArray(data)?data.filter(r=>r&&Number.isFinite(r.t)&&Number.isFinite(new Date(r.t).getTime())).sort((a,b)=>a.t-b.t):[];
  drawChart('chartRH','Humidité relative',[
   seriesFor(chartData,'sh','Salon',COLORS[0],r=>isPlausibleHumidity(r.sh)?r.sh:null,r=>Number.isFinite(r.sh)&&!isPlausibleHumidity(r.sh)),seriesFor(chartData,'h1','Sonde résistances',COLORS[1],r=>isPlausibleHumidity(r.h1)?r.h1:null,r=>Number.isFinite(r.h1)&&!isPlausibleHumidity(r.h1)),seriesFor(chartData,'he','Air entrant',COLORS[2],r=>isPlausibleHumidity(r.he)?r.he:null,r=>Number.isFinite(r.he)&&!isPlausibleHumidity(r.he))],selectedDate,$);
  drawChart('chartVmiAbs','Humidité absolue exportée par VMI+ (valeurs brutes, unité à confirmer)',[
