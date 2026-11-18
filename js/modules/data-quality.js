@@ -86,11 +86,14 @@ export function detectTransientSensorSpikes(records, options = {}) {
       values.add(row[field.key]);
       byTimestamp.set(row.t, values);
     }
-    const fieldRows = rows.filter((row, index) => {
+    const seenTimestamps = new Set();
+    const fieldRows = [];
+    for (const row of rows) {
       const values = byTimestamp.get(row.t);
-      return Number.isFinite(row?.[field.key]) && values?.size === 1 &&
-        rows.findIndex(candidate => candidate.t === row.t) === index;
-    });
+      if (!Number.isFinite(row?.[field.key]) || values?.size !== 1 || seenTimestamps.has(row.t)) continue;
+      seenTimestamps.add(row.t);
+      fieldRows.push(row);
+    }
     for (let index = 1; index < fieldRows.length - 1; index++) {
       const before = fieldRows[index - 1], current = fieldRows[index], after = fieldRows[index + 1];
       const a = before[field.key], b = current[field.key], c = after[field.key];
