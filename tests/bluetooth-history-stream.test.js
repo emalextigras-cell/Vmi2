@@ -170,3 +170,16 @@ test('rejette une durée de fonctionnement fractionnaire exprimée en jours', as
   assert.equal(result.valid, false);
   assert.equal(result.reason, 'duration-invalid');
 });
+
+test('rejette un index de ligne supérieur à la précision entière sûre de JavaScript', () => {
+  const state = createHistoryStreamState();
+  const result = acceptHistoryFragment(state, {
+    sequence: Number.MAX_SAFE_INTEGER + 1,
+    chunkIndex: 0,
+    payload: 'index non représentable sans ambiguïté'
+  });
+
+  assert.equal(result.accepted, false);
+  assert.equal(result.gap, true);
+  assert.equal(state.fragments.size, 0);
+});
