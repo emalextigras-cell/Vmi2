@@ -73,7 +73,11 @@ export function mergeBackupData({
     Number.isFinite(new Date(record.t).getTime()) && record.t <= maxTimestamp;
   let live = currentLive.filter(isUsableLive), addedLive = 0;
   if (Array.isArray(source.live)) {
-    const byTime = new Map(live.map(r => [r.t,r]));
+    const byTime = new Map();
+    for (const record of live) {
+      const existing = byTime.get(record.t);
+      byTime.set(record.t, existing ? mergeRecordFields(existing, record) : record);
+    }
     for (const record of source.live) {
       if (!isUsableLive(record)) continue;
       if (!byTime.has(record.t)) { byTime.set(record.t,record); addedLive++; }
