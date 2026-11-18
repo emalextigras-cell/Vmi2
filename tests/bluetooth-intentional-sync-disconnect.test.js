@@ -27,3 +27,8 @@ test('un nouveau clic utilisateur autorise une nouvelle synchronisation initiale
   const connect = source.slice(source.indexOf('async function connectBLE('), source.indexOf('async function autoConnectAuthorizedDevice('));
   assert.match(connect, /autoDone=false/);
 });
+
+test('une ligne historique rejetée empêche de certifier le transfert comme complet', () => {
+  const finish = source.slice(source.indexOf('function finishDownload('), source.indexOf('async function startDownload('));
+  assert.match(finish, /const complete=[^;]*invalidRows/);
+});
