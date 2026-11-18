@@ -15,7 +15,7 @@ export function createBackupSnapshot({ hist, live, meta, energyReadings, exporte
   const snapshot = {
     app: 'vmi-purevent', version: 1, exportedAt,
     hist: Array.isArray(hist) ? hist : [], live: Array.isArray(live) ? live : [],
-    meta: meta && typeof meta === 'object' ? meta : {}
+    meta: meta && typeof meta === 'object' && !Array.isArray(meta) ? meta : {}
   };
   // Champ facultatif pour conserver la compatibilité avec les sauvegardes v13 antérieures.
   if (Array.isArray(energyReadings)) {
