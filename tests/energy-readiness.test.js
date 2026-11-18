@@ -119,6 +119,8 @@ test('ignore les codes Vitesse bruts : seuls les niveaux manuels explicitement a
   ];
   assert.equal(analyzeSpeedLevels(rawOnly).status, 'no-speed-data');
   assert.deepEqual(analyzeSpeedTimeContext(rawOnly).comparableBuckets, []);
+  const speedContext = analyzeSpeedTimeContext(rawOnly);
+  assert.ok(speedContext.groups.every(group => group.sampleCount === 0 && !group.ready));
 });
 
 test('compare les niveaux manuels uniquement dans la même tranche et sur les mêmes jours', () => {
