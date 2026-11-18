@@ -46,6 +46,6 @@ test('sépare les lignes historiques sur CR et LF du flux VMI+', () => {
 
 test('ignore le préambule et l’en-tête VMI+ avant les lignes de relevés', () => {
   const parser = source.slice(source.indexOf('function parseDownloadLine('), source.indexOf('function armTimer('));
-  assert.match(parser, /download\\.dataStarted/);
+  assert.match(parser, /download\.dataStarted/);
   assert.match(parser, /Date;Event;/);
 });
