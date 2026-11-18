@@ -50,6 +50,14 @@ export interface VmiRecord {
   id?: string | number;
 }
 
+/** Snapshot des conteneurs persistés. Les éléments restent bruts à cette frontière ; leur validation appartient aux modules dédiés. */
+export interface StoreSnapshot {
+  history: unknown[];
+  live: unknown[];
+  energyReadings: unknown[];
+  meta: UnknownRecord;
+}
+
 export type NullableNumber = number | null;
 export type UnknownRecord = Record<string, unknown>;
 
