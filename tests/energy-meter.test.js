@@ -167,3 +167,24 @@ test('ne publie pas un total kWh infini après plusieurs remises à zéro du com
   ]);
   assert.equal(result.meters[0].totalKwh, null);
 });
+
+
+test('ne publie pas un cumul mensuel infini pour des deltas finis extrêmes', () => {
+  const result = summarizeMonthlyEnergyReadings([
+    reading('total', Date.UTC(2026, 0, 1), 0),
+    reading('total', Date.UTC(2026, 0, 2), 1e308),
+    reading('total', Date.UTC(2026, 0, 3), 0),
+    reading('total', Date.UTC(2026, 0, 4), 1e308)
+  ]);
+  assert.equal(result[0].months[0].energyKwh, null);
+});
+
+test('ne publie pas un cumul infini des intervalles traversant les mois', () => {
+  const result = summarizeMonthlyEnergyReadings([
+    reading('total', Date.UTC(2026, 0, 31, 23), 0),
+    reading('total', Date.UTC(2026, 1, 1, 1), 1e308),
+    reading('total', Date.UTC(2026, 1, 28, 23), 0),
+    reading('total', Date.UTC(2026, 2, 1, 1), 1e308)
+  ]);
+  assert.equal(result[0].crossMonthKwh, null);
+});
