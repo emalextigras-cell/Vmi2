@@ -118,8 +118,8 @@ test('ignore les codes Vitesse bruts : seuls les niveaux manuels explicitement a
     { t: Date.UTC(2026, 10, 10, 10, 10), vit: 3, vmiSpeedRaw: 3, st: 19, sh: 56 }
   ];
   assert.equal(analyzeSpeedLevels(rawOnly).status, 'no-speed-data');
-  assert.deepEqual(analyzeSpeedTimeContext(rawOnly).comparableBuckets, []);
   const speedContext = analyzeSpeedTimeContext(rawOnly);
+  assert.deepEqual(speedContext.comparableBuckets, []);
   assert.ok(speedContext.groups.every(group => group.sampleCount === 0 && !group.ready));
 });
 
