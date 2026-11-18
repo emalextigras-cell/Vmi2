@@ -57,6 +57,9 @@ export function acceptHistoryFragment(state, fragment) {
       return { accepted: false, duplicate: true, gap: false, resetBuffer: false };
     }
     state.gapCount++;
+    // Un doublon contradictoire invalide la ligne : libérer immédiatement
+    // les fragments déjà reçus, devenus inutilisables.
+    state.fragments.clear();
     state.skippedSequence = sequence;
     return { accepted: false, duplicate: false, gap: true, resetBuffer: true };
   }
