@@ -214,7 +214,7 @@ export function parseCsvRows(text, delimiter = null) {
     // Les exports VMI+ comportent plusieurs lignes de métadonnées avant
     // l'en-tête (4e ligne). Détecter sur plusieurs lignes évite qu'une
     // première ligne descriptive fausse le choix du séparateur.
-    const sample=source.split(/\r?\n/).filter(line=>line.trim()).slice(0,12);
+    const sample=source.split(/\r\n|\n|\r/).filter(line=>line.trim()).slice(0,12);
     const countOutsideQuotes=(line,separator)=>{
       let count=0,quoted=false;
       for(let i=0;i<line.length;i++){
