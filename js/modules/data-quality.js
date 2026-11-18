@@ -76,8 +76,23 @@ export function detectTransientSensorSpikes(records, options = {}) {
     .sort((a, b) => a.t - b.t);
   const candidates = [];
   for (const field of TRANSIENT_SPIKE_FIELDS) {
-    for (let index = 1; index < rows.length - 1; index++) {
-      const before = rows[index - 1], current = rows[index], after = rows[index + 1];
+    // Regroupe les mesures par horodatage : les doublons identiques ne
+    // doivent pas créer un intervalle nul, les valeurs contradictoires
+    // rendent ce point temporel ambigu et sont exclues de cette détection.
+    const byTimestamp = new Map();
+    for (const row of rows) {
+      if (!Number.isFinite(row?.[field.key])) continue;
+      const values = byTimestamp.get(row.t) || new Set();
+      values.add(row[field.key]);
+      byTimestamp.set(row.t, values);
+    }
+    const fieldRows = rows.filter((row, index) => {
+      const values = byTimestamp.get(row.t);
+      return Number.isFinite(row?.[field.key]) && values?.size === 1 &&
+        rows.findIndex(candidate => candidate.t === row.t) === index;
+    });
+    for (let index = 1; index < fieldRows.length - 1; index++) {
+      const before = fieldRows[index - 1], current = fieldRows[index], after = fieldRows[index + 1];
       const a = before[field.key], b = current[field.key], c = after[field.key];
       if (typeof a !== 'number' || typeof b !== 'number' || typeof c !== 'number' ||
           !Number.isFinite(a) || !Number.isFinite(b) || !Number.isFinite(c)) continue;
