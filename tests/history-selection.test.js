@@ -63,3 +63,11 @@ test('selectDataRange écarte les horodatages finis hors plage JavaScript', () =
   const result = selectDataRange([valid, invalidDate], { daysSetting: 0, maxTimestamp: Infinity });
   assert.deepEqual(result, [valid]);
 });
+
+
+test('selectDataRange rejette une date civile sélectionnée impossible', () => {
+  const result = selectDataRange([
+    { t: new Date(2026, 2, 3, 12).getTime() }
+  ], { selectedDate: '2026-02-31', daysSetting: 30 });
+  assert.deepEqual(result, []);
+});
