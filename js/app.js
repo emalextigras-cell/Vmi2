@@ -507,10 +507,10 @@ const setCommandsDisabled=dis=>document.querySelectorAll('[data-r]').forEach(x=>
 $('clk').onclick=setClock;
 
 /* Correction des dates historiques isolée dans clock-correction.js. */
-function ingest(recs,label,maxTimestamp=Date.now()){
+function ingest(recs,label,maxTimestamp=Date.now(),options={}){
  const future=recs.filter(record=>Number.isFinite(record.t)&&record.t>maxTimestamp);
  if(future.length)log(`${label} : dates futures reçues (${future.map(record=>record.rk+' · +'+Math.round((record.t-maxTimestamp)/1000)+' s').join(' ; ')})`);
- const {fixed,kept,futureDetails}=fixClock(recs,hist,MIN_VALID,maxTimestamp);
+ const {fixed,kept,futureDetails}=fixClock(recs,hist,MIN_VALID,maxTimestamp,options);
  if(futureDetails.length)log(`${label} : dates futures après correction (${futureDetails.map(({record,correctedTimestamp})=>record.rk+' · d='+record.d+' · '+new Date(correctedTimestamp).toLocaleString('fr-FR')).join(' ; ')})`);
  const keptSet=new Set(kept);
  const discarded=recs.filter(record=>!keptSet.has(record));
