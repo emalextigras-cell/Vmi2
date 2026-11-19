@@ -93,7 +93,7 @@ function showError(e){$('err').textContent=e?String(e.message||e):''}
 function persist(key,value,label='Sauvegarde IndexedDB'){
  return dbSet(key,value).catch(error=>{
   const message=label+' impossible : '+(error?.message||error);
-  showError(message);log(message);throw error;
+  showError(message);log(message);recordError('Échec IndexedDB : '+message);throw error;
  });
 }
 function renderLog(){const p=$('log');p.textContent=logLines.slice(-70).join('\n');p.scrollTop=p.scrollHeight}
@@ -142,8 +142,8 @@ async function init(){
     if(Array.isArray(old.hist))oldHist=old.hist.map(fromOldRow).filter(Boolean);
     if(Array.isArray(old.live))oldLive=old.live;
    }
-   if(!oldHist.length){try{const x=JSON.parse(localStorage.getItem('vmi_hist')||'[]');if(Array.isArray(x))oldHist=x.map(fromOldRow).filter(Boolean)}catch(e){}}
-   if(!oldLive.length){try{const x=JSON.parse(localStorage.getItem('vmi_live')||'[]');if(Array.isArray(x))oldLive=x}catch(e){}}
+   if(!oldHist.length){try{const x=JSON.parse(localStorage.getItem('vmi_hist')||'[]');if(Array.isArray(x))oldHist=x.map(fromOldRow).filter(Boolean)}catch(e){const message='Récupération de l’ancien historique local impossible : '+(e?.message||e);log(message);recordError(message)}}
+   if(!oldLive.length){try{const x=JSON.parse(localStorage.getItem('vmi_live')||'[]');if(Array.isArray(x))oldLive=x}catch(e){const message='Récupération des anciens relevés en direct impossible : '+(e?.message||e);log(message);recordError(message)}}
    // Fusion par horodatage : une nouvelle tentative ne remplace jamais un historique
    // plus récent déjà enregistré dans la base de préversion.
    hist=mergeImportedHistory(hist,oldHist);
@@ -579,7 +579,7 @@ $('dlh').onclick=()=>startDownload(false);
 function autoHistory(){
  if(autoDone||download.on||!connected())return;
  autoDone=true; /* une seule fois par connexion : pas de boucle déconnexion/reconnexion */
- startDownload(true).catch(e=>log('Téléchargement automatique impossible : '+(e.message||e)));
+ startDownload(true).catch(e=>{const message='Téléchargement automatique impossible : '+(e.message||e);log(message);recordError(message)});
 }
 
 /* Import tableur */
