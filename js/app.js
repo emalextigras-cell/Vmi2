@@ -31,6 +31,7 @@ import { selectDataRange } from './modules/history-selection.js';
 /** @typedef {import('./types/vmi-types.js').VmiRecord} VmiRecord */
 /** @typedef {import('./types/vmi-types.js').UnknownRecord} UnknownRecord */
 /** @typedef {import('./types/vmi-types.js').EnergyReading} EnergyReading */
+/** @typedef {import('./types/vmi-types.js').EnergyMeterType} EnergyMeterType */
 
 
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{})}
@@ -633,7 +634,7 @@ $('dayPicker').onchange=e=>{if(!(e.currentTarget instanceof HTMLInputElement))re
 $('clearDay').onclick=()=>{selectedDate=null;$('dayPicker').value='';resetChartViews();render()};
 $('prev').onclick=()=>{selectedDate=shiftDay(selectedDate,-1);$('dayPicker').value=selectedDate;resetChartViews();render()};
 $('next').onclick=()=>{selectedDate=shiftDay(selectedDate,1);$('dayPicker').value=selectedDate;resetChartViews();render()};
-document.querySelectorAll<HTMLButtonElement>('[data-days]').forEach(b=>b.onclick=()=>{daysSetting=Number(b.dataset.days);selectedDate=null;$('dayPicker').value='';resetChartViews();render()});
+document.querySelectorAll('[data-days]').forEach(b=>b.onclick=()=>{daysSetting=Number(b.dataset.days);selectedDate=null;$('dayPicker').value='';resetChartViews();render()});
 $('clearLive').onclick=async()=>{if(!confirm('Effacer les relevés en direct ?'))return;try{await persist('live',[],'Effacement des relevés en direct');live=[];$('liveCount').textContent='0';render()}catch{} };
 $('csv').onclick=()=>{
  const keys=['t','st','sh','t1','h1','te','he','rpm','fil','vit','boost','hol'];
@@ -682,7 +683,7 @@ $('expBackup').onclick=()=>{
 };
 $('energyMeterForm').addEventListener('submit',async event=>{
  event.preventDefault();
- const meterType=$('energyMeterType').value;
+ const meterType=/** @type {EnergyMeterType} */ ($('energyMeterType').value);
  const timestamp=new Date($('energyMeterAt').value).getTime();
  const rawKwh=$('energyMeterKwh').value.trim();
  const kwh=rawKwh===''?NaN:Number(rawKwh);
@@ -723,7 +724,7 @@ $('restoreFile').onchange=async e=>{
   $('backupInfo').textContent='Sauvegarde restaurée : '+add+' relevés d’historique ajoutés, '+enriched+' complétés, '+addL+' relevés en direct et '+addEnergy+' index de compteur ajoutés.';
   render();
  }catch(err){$('backupInfo').textContent='Restauration impossible : '+err.message}
- e.target.value='';
+ input.value='';
 };
 /* La VMI ne garde que ~800 relevés : on estime sa capacité en jours d'après le rythme réel des relevés
    et on prévient avant que des relevés non téléchargés soient écrasés. */
