@@ -544,7 +544,8 @@ function finishDownload(reachedCut,timeout=false,interrupted=false){
  if(!download.on)return;
  download.on=false;clearTimeout(download.timeout);
  const count=download.rows.length;
- const complete=!timeout&&!interrupted&&!download.integrityGap&&!(download.invalidRows>0)&&isHistoryStreamComplete(download.historyStream)&&(reachedCut||download.finalSeen===true);
+ const streamComplete=isHistoryStreamComplete(download.historyStream);
+ const complete=!timeout&&!interrupted&&!download.integrityGap&&!(download.invalidRows>0)&&streamComplete&&(reachedCut||download.finalSeen===true);
  const historyPersistence=count
   ?ingest(markHistoryRows(download.rows,complete),'Téléchargement',Date.now(),{allowPre2020RawDates:true})
   :Promise.resolve(true);
@@ -556,7 +557,7 @@ function finishDownload(reachedCut,timeout=false,interrupted=false){
   }).catch(()=>{});
  }
  $('dlh').disabled=false;setCommandsDisabled(false);
- $('dlp').textContent=`Terminé : ${count} nouvelles lignes${download.invalidRows>0?' · lignes rejetées : synchronisation non certifiée, relance nécessaire':download.integrityGap?' · lacune détectée : synchronisation non certifiée, relance nécessaire':interrupted?(download.got?' · transfert interrompu, données partielles conservées ; relance la synchronisation':' · transfert interrompu avant réception') :reachedCut?' · historique à jour':timeout?(download.got?' · arrêt après une pause de 20 s':' · aucune réponse de la VMI'):(download.sigs.size?' · attention : trou possible avant la dernière ligne mémorisée':' · historique complet')}`;
+ $('dlp').textContent=`Terminé : ${count} nouvelles lignes${download.invalidRows>0?' · lignes rejetées : synchronisation non certifiée, relance nécessaire':download.integrityGap?' · lacune détectée : synchronisation non certifiée, relance nécessaire':!streamComplete?' · dernier relevé incomplet : synchronisation non certifiée, relance nécessaire':interrupted?(download.got?' · transfert interrompu, données partielles conservées ; relance la synchronisation':' · transfert interrompu avant réception') :reachedCut?' · historique à jour':timeout?(download.got?' · arrêt après une pause de 20 s':' · aucune réponse de la VMI'):(download.sigs.size?' · attention : trou possible avant la dernière ligne mémorisée':' · historique complet')}`;
  if(reachedCut&&dev&&dev.gatt&&dev.gatt.connected){
   // La VMI ne sait pas arrêter seule le flux historique : cette coupure est volontaire.
   // onDisconnect doit la distinguer d'une vraie perte de liaison.
