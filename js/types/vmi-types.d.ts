@@ -83,7 +83,7 @@ export interface OperatingPeriodsResult {
     bucket: number;
     label: string;
     previous: { id: string; sampleCount: number; dayCount: number; ready: boolean; values: Record<string, { median: number | null; count: number }> };
-    current: { id: string; sampleCount: number; dayCount: number; ready: boolean; values: Record<string, unknown> };
+    current: { id: string; sampleCount: number; dayCount: number; ready: boolean; values: Record<string, { median: number | null; count: number }> };
     comparable: boolean;
     deltas: Record<string, { previous: number; current: number; absolute: number | null; relativePercent: number | null; unit: string } | null>;
   }>;
