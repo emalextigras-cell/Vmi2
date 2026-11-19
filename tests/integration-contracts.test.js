@@ -80,7 +80,7 @@ test('contrat intégré : notification BLE décodée, fragments réassemblés pu
 
 test('contrat intégré : le dernier relevé incomplet ne peut pas certifier la synchronisation', () => {
   const stream = createHistoryStreamState();
-  const firstPayload = ('\\n10/11/2026 16:55:00;1;2;3;4;5;6;7;8;9;10;1234;').padEnd(85, 'x');
+  const firstPayload = ('\n10/11/2026 16:55:00;1;2;3;4;5;6;7;8;9;10;1234;').padEnd(85, 'x');
 
   for (const [chunkIndex, payload] of [
     [0, firstPayload],
