@@ -9,3 +9,8 @@ interface Window {
 }
 /** Alias global exposé par le script SheetJS. */
 declare var XLSX: any;
+
+/** Sélecteurs de commandes VMI : les éléments sont des boutons HTML. */
+interface Document {
+  querySelectorAll(selectors: '[data-r]'): NodeListOf<HTMLButtonElement>;
+}
