@@ -17,7 +17,7 @@ import { parseCell, recFrom, getColumnMapping, findVmiHeaderRowIndex, parseCsvRo
 import { fixClock } from './modules/clock-correction.js';
 import { absoluteHumidity, psychro, validTemp } from './modules/psychrometry.js';
 import { summarizeDataQuality, isPlausibleHumidity, isPlausibleTemperature } from './modules/data-quality.js';
-import { upsertEnergyReading, summarizeEnergyReadings, summarizeMonthlyEnergyReadings, summarizeEnergyClimateContext, ENERGY_METER_LABELS } from './modules/energy-meter.js';
+
 import { summarizeFanEnergyEstimate, summarizeFanEnergyByManualMode } from './modules/energy-estimate.js';
 import { summarizeDailyEnergyClimateContext } from './modules/energy-climate.js';
 import { summarizeWeeklyDiagnostic } from './modules/weekly-diagnostic.js';
@@ -31,7 +31,6 @@ import { selectDataRange } from './modules/history-selection.js';
 /** @typedef {import('./types/vmi-types.js').VmiRecord} VmiRecord */
 /** @typedef {import('./types/vmi-types.js').UnknownRecord} UnknownRecord */
 /** @typedef {import('./types/vmi-types.js').EnergyReading} EnergyReading */
-/** @typedef {import('./types/vmi-types.js').EnergyMeterType} EnergyMeterType */
 
 
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{})}
@@ -681,37 +680,6 @@ $('expBackup').onclick=()=>{
  downloadText(JSON.stringify(makeBackup()),`vmi-sauvegarde-${localDay()}.json`,'application/json',false);
  $('backupInfo').textContent=`Sauvegarde créée : ${hist.length} relevés d’historique, ${live.length} relevés en direct.`;
 };
-$('energyMeterForm').addEventListener('submit',async event=>{
- event.preventDefault();
- const meterType=/** @type {EnergyMeterType} */ ($('energyMeterType').value);
- const timestamp=new Date($('energyMeterAt').value).getTime();
- const rawKwh=$('energyMeterKwh').value.trim();
- const kwh=rawKwh===''?NaN:Number(rawKwh);
- const note=$('energyMeterNote').value;
- const id=meterType+':'+timestamp;
- try{
-  const nextReadings=upsertEnergyReading(energyReadings,{id,meterType,t:timestamp,kwh,note});
-  await dbSetMany([['energyReadings',nextReadings]]);
-  energyReadings=nextReadings;
-  $('energyMeterFormInfo').textContent='Index enregistré. Si un index existait déjà pour ce compteur à cette date, il a été remplacé.';
-  $('energyMeterKwh').value='';
-  $('energyMeterNote').value='';
-  $('energyMeterAt').value=localDateTimeValue();
-  renderEnergyMeterTracking();
- }catch(error){
-  $('energyMeterFormInfo').textContent=error.message;
- }
-});
-$('energyMeterAt').value=localDateTimeValue();
-$('energyMeterHistory').addEventListener('click',async event=>{
- const button=event.target instanceof Element?event.target.closest('[data-energy-delete]'):null;
- if(!button)return;
- const id=button.getAttribute('data-energy-delete');
- const nextReadings=energyReadings.filter(reading=>reading.id!==id);
- await dbSetMany([['energyReadings',nextReadings]]);
- energyReadings=nextReadings;
- renderEnergyMeterTracking();
-});
 $('restoreFile').onchange=async e=>{
  const input=e.currentTarget instanceof HTMLInputElement?e.currentTarget:null;
  if(!input)return;
@@ -1147,7 +1115,6 @@ function renderEnergyReadiness(data){
  referenceHtml+='<div class="advice">La notice indique également une puissance maximale de 169 W sans préchauffage et une puissance maximale de préchauffage de 1 800 W. Ces repères ne permettent pas de reconstituer la consommation réelle de ton historique : le CSV ne fournit pas de mesure électrique vérifiée, et l’état/temps de fonctionnement du préchauffage n’est pas confirmé par les champs disponibles. Ne pas assimiler « Cons Res » à des watts.</div>';
  referenceHtml+='<p class="note">Source : <a href="https://www.vmi-technologies.com/wp-content/uploads/2024/11/FR-VMI%C2%AE-Purevent-Notice-dinstallation-et-de-maintenance-1.pdf" target="_blank" rel="noopener">notice officielle VMI PUREVENT, §2.2–2.3, pages 7–8</a>. Il s’agit d’une référence constructeur, pas d’une mesure de cette installation.</p>';
  $('energyReadiness').innerHTML=volumeHtml+html+temperatureLimitHtml+operatingHtml+modeHtml+rawHtml+referenceHtml+'<div class="advice">'+result.message+' Les valeurs brutes sont conservées ; aucune conversion des champs non documentés en watts, kWh ou rendement n’est appliquée. Le débit exporté VMI+ est exprimé en m³/h.</div>';
- renderEnergyMeterTracking();
 }
 
 function renderFanEnergyEstimate(data){
@@ -1275,95 +1242,6 @@ function renderWeeklyDiagnostic(data){
  html+='<details><summary>Critères et limites de lecture</summary><ul>'+result.limits.map(item=>'<li>'+item+'</li>').join('')+'</ul></details>';
  box.className='advice';
  box.innerHTML=html;
-}
-
-function renderEnergyMeterTracking(){
- const result=summarizeEnergyReadings(energyReadings);
- const climateSummary=summarizeEnergyClimateContext(energyReadings,hist);
- const summary=$('energyMeterSummary'),history=$('energyMeterHistory');
- if(!result.readingCount){
-  summary.className='advice';
-  summary.textContent='Aucun relevé de compteur externe. Le CSV VMI+ ne fournit pas de mesure électrique vérifiée.';
-  history.innerHTML='<p class="note">Ajoute deux index successifs du même compteur pour calculer l’énergie consommée entre ces deux dates.</p>';
-  return;
- }
- summary.className='advice';
- summary.textContent=result.meters.map(meter=>{
-  const latest=[...meter.intervals].reverse().find(interval=>interval.status==='measured');
-  const amount=meter.measuredIntervalCount
-    ? ' · '+fmt(meter.totalKwh)+' kWh cumulés sur les intervalles calculables'
-    : ' · en attente d’un deuxième index';
-  const recent=latest
-    ? ' · dernier intervalle : '+fmt(latest.deltaKwh)+' kWh, puissance moyenne '+fmt(latest.averagePowerW)+' W'
-    : '';
-  return meter.label+' : '+meter.readingCount+' index'+amount+recent;
- }).join(' | ');
- let html='';
- for(const meter of result.meters){
-  html+='<h4>'+meter.label+'</h4>';
-  if(!meter.intervals.length){
-   html+='<p class="note">Un seul index : ajoute un relevé ultérieur pour obtenir un écart.</p>';
-   continue;
-  }
-  html+='<table><thead><tr><th>Du</th><th>Au</th><th>Énergie</th><th>Puissance moyenne</th></tr></thead><tbody>';
-  for(const interval of meter.intervals){
-   if(interval.status==='counter-decreased'){
-    html+='<tr><td>'+fmtShort(interval.from)+'</td><td>'+fmtShort(interval.to)+'</td><td colspan="2">Index en baisse : remise à zéro ou changement de compteur. Écart non calculé.</td></tr>';
-   }else{
-    html+='<tr><td>'+fmtShort(interval.from)+'</td><td>'+fmtShort(interval.to)+'</td><td>'+fmt(interval.deltaKwh)+' kWh</td><td>'+fmt(interval.averagePowerW)+' W</td></tr>';
-   }
-  }
-  html+='</tbody></table>';
-  const monthly=summarizeMonthlyEnergyReadings(energyReadings).find(item=>item.meterType===meter.meterType);
-  html+='<h5>Bilans mensuels mesurés</h5>';
-  if(monthly&&monthly.months.length){
-   html+='<table><thead><tr><th>Mois</th><th>Énergie mesurée</th><th>Intervalles</th></tr></thead><tbody>';
-   for(const month of monthly.months){
-    const parts=month.month.split('-').map(Number);
-    const label=new Date(parts[0],parts[1]-1,1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
-    html+='<tr><td>'+label+'</td><td>'+fmt(month.energyKwh)+' kWh</td><td>'+month.intervalCount+'</td></tr>';
-   }
-   html+='</tbody></table>';
-   html+='<p class="note">Ces totaux regroupent uniquement les intervalles dont les deux index sont dans le même mois. Ils ne représentent pas nécessairement un mois complet.</p>';
-  }else{
-   html+='<p class="note">Pas encore d’intervalle entièrement compris dans un même mois.</p>';
-  }
-  if(monthly&&monthly.crossMonthIntervalCount){
-   html+='<p class="note"> '+monthly.crossMonthIntervalCount+' intervalle(s), soit '+fmt(monthly.crossMonthKwh)+' kWh, traversent une limite de mois : ils restent dans le total global mais ne sont attribués à aucun mois pour éviter une répartition artificielle.</p>';
-  }
-  const climateMeter=climateSummary.meters.find(item=>item.meterType===meter.meterType);
-  html+='<h5>Mise en perspective avec l’historique hygrométrique et thermique</h5>';
-  if(!climateMeter||!climateMeter.intervals.length){
-   html+='<p class="note">Aucun intervalle électrique mesuré à rapprocher des conditions intérieures et extérieures.</p>';
-  }else{
-   html+='<p class="note">Moyennes pondérées dans le temps, calculées uniquement sur les portions d’historique réellement couvertes. Les intervalles insuffisamment couverts restent signalés et ne sont pas interprétés.</p>';
-   html+='<table><thead><tr><th>Période</th><th>Énergie / puissance moyenne</th><th>Conditions moyennes observées</th><th>Couverture</th></tr></thead><tbody>';
-   for(const interval of climateMeter.intervals){
-    const c=interval.context;
-    const value=(v,suffix='')=>v==null?'–':fmt(v)+suffix;
-    const conditions=c.ready
-      ? 'Extérieur : '+value(c.outdoorTemp,' °C')+' · air entrant : '+value(c.incomingTemp,' °C')+' · intérieur : '+value(c.indoorTemp,' °C')+'<br>Humidité relative : intérieur '+value(c.indoorRH,' %')+' · air entrant '+value(c.incomingRH,' %')+'<br>Humidité absolue : intérieur '+value(c.indoorAbsHumidity,' g/m³')+' · air entrant '+value(c.incomingAbsHumidity,' g/m³')+'<br>Écart intérieur − entrant : '+value(c.deltaAbsHumidity,' g/m³')
-      : 'Conditions non interprétées : couverture insuffisante';
-    html+='<tr><td>'+fmtShort(interval.from)+' → '+fmtShort(interval.to)+'</td><td>'+value(interval.deltaKwh,' kWh')+'<br>'+value(interval.averagePowerW,' W')+'</td><td>'+conditions+'</td><td>'+value(c.coveragePercent,' %')+'<br>'+value(c.coverageHours,' h')+'</td></tr>';
-   }
-   html+='</tbody></table>';
-  }
- }
- html+='<details><summary>Limites et méthode</summary><ul>'+result.limits.map(item=>'<li>'+item+'</li>').join('')+'</ul><ul>'+climateSummary.limits.map(item=>'<li>'+item+'</li>').join('')+'</ul></details>';
- const rows=[...energyReadings].filter(item=>item&&Number.isFinite(item.t)).sort((a,b)=>b.t-a.t);
- html+='<h4>Index enregistrés</h4><table><thead><tr><th>Date</th><th>Compteur</th><th>Index</th><th>Note</th><th></th></tr></thead><tbody>';
- for(const reading of rows){
-  const label=ENERGY_METER_LABELS[reading.meterType]||reading.meterType;
-  const id=String(reading.id).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
-  const note=String(reading.note||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  html+='<tr><td>'+fmtShort(reading.t)+'</td><td>'+label+'</td><td>'+fmt(reading.kwh)+' kWh</td><td>'+note+'</td><td><button type="button" class="outline" data-energy-delete="'+id+'">Supprimer</button></td></tr>';
- }
- html+='</tbody></table>';
- history.innerHTML=html;
-}
-function localDateTimeValue(timestamp=Date.now()){
- const date=new Date(timestamp);
- return date.getFullYear()+'-'+pad(date.getMonth()+1)+'-'+pad(date.getDate())+'T'+pad(date.getHours())+':'+pad(date.getMinutes());
 }
 
 function renderSeasonalAdvice(data){
