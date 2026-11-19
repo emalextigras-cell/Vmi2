@@ -544,7 +544,9 @@ function finishDownload(reachedCut,timeout=false,interrupted=false){
  if(!download.on)return;
  download.on=false;clearTimeout(download.timeout);
  const count=download.rows.length;
- const streamComplete=isHistoryStreamComplete(download.historyStream);
+ // En arrêt sur une ligne déjà connue, le parseur vient de terminer la ligne précédente :
+ // le flux courant a déjà commencé la ligne suivante, volontairement incomplète.
+ const streamComplete=reachedCut||isHistoryStreamComplete(download.historyStream);
  const complete=!timeout&&!interrupted&&!download.integrityGap&&!(download.invalidRows>0)&&streamComplete&&(reachedCut||download.finalSeen===true);
  const historyPersistence=count
   ?ingest(markHistoryRows(download.rows,complete),'Téléchargement',Date.now(),{allowPre2020RawDates:true})
