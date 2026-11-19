@@ -26,12 +26,12 @@ L'application fonctionne dans le navigateur. Les analyses sont réalisées local
 
 - **Connexion Bluetooth LE** à la VMI : lecture de l'état, des capteurs et téléchargement de l'historique.
 - **Historique et données en direct** : affichage séparé des relevés historiques et des relevés captés pendant une connexion.
-- **Import VMI+** : fichiers CSV, XLS et XLSX ; le CSV est lu par le parseur natif, les formats Excel utilisent SheetJS.
+- **Import VMI+** : CSV lu par le parseur natif ; XLS et XLSX lus avec SheetJS. Le premier import Excel nécessite une connexion internet pour charger la bibliothèque depuis un CDN.
 - **Graphiques et qualité des données** : visualisation, contrôle des valeurs et de la couverture temporelle.
 - **Analyses hygrométriques** : humidité absolue, point de rosée calculé, évolution dans le temps et comparaison entre salon et air entrant.
 - **Comparaisons de fonctionnement** : profils descriptifs par mode manuel déclaré et comparaison de périodes lorsque les données sont suffisantes.
 - **Assistant intelligent local** : synthèse des analyses, explication des constats, de leur niveau de confiance et de leurs limites.
-- **Suivi électrique** : saisie d'index cumulés en kWh provenant de compteurs externes et calcul des consommations entre deux relevés.
+- **Suivi électrique** : le module de saisie et de calcul des index externes en kWh est présent, mais son formulaire est actuellement masqué dans l'interface ; cette fonction n'est donc pas accessible normalement depuis l'application.
 - **Sauvegarde et restauration** : export JSON des données locales et restauration d'une sauvegarde.
 - **Application installable (PWA)** : manifeste et service worker pour l'utilisation depuis un navigateur compatible.
 
@@ -51,7 +51,7 @@ Pour utiliser le Bluetooth sur Android, ouvrir l'application dans **Chrome** via
 Le dépôt utilise des modules JavaScript natifs et ne nécessite pas de compilation front-end.
 
 - Installer Node.js 22 (version utilisée par la CI).
-- Servir le dossier à l'aide d'un serveur HTTP local ; ne pas ouvrir simplement `index.html` en `file://` si l'on veut tester les fonctions navigateur.
+- Servir le dossier à l'aide d'un serveur HTTP local ; ne pas ouvrir simplement `index.html` en `file://` si l'on veut tester les fonctions navigateur. Aucun `npm install` n'est requis pour les tests Node actuels.
 - Pour les essais Bluetooth, utiliser un contexte sécurisé compatible (HTTPS ou localhost) et un navigateur prenant en charge Web Bluetooth.
 
 Commande de tests :
@@ -80,21 +80,30 @@ Le point d'entrée de l'application est `index.html`, qui charge les styles, le 
 | `index.html` | Structure de l'interface et panneaux de l'application |
 | `css/style.css` | Styles, thèmes et présentation mobile |
 | `js/app.js` | Orchestration, événements, connexion, stockage et rendu de l'application |
+| `js/modules/core.js` et `date-utils.js` | Fonctions communes, dates et formatage |
+| `js/modules/ble.js` et `sync.js` | Paramètres BLE historiques et gestion des délais de téléchargement |
 | `js/modules/bluetooth-protocol.js` | UUID, CRC et construction des commandes/trames BLE |
 | `js/modules/bluetooth-decoder.js` | Décodage des notifications Bluetooth |
 | `js/modules/bluetooth-write-queue.js` | Sérialisation des écritures Bluetooth |
 | `js/modules/bluetooth-session.js` | Contrôle du cycle de vie des séquences BLE |
-| `js/modules/bluetooth-history-stream.js` | Réassemblage et contrôle des fragments d'historique |
+| `js/modules/bluetooth-history-stream.js` et `bluetooth-history-row.js` | Réassemblage, validation et contrôle des fragments/lignes d'historique |
+| `js/modules/bluetooth-autoconnect.js` | Sélection prudente d'un appareil déjà autorisé par le navigateur |
+| `js/modules/clock-correction.js` | Correction des horodatages de l'historique |
 | `js/modules/psychrometry.js` | Calculs psychrométriques |
 | `js/modules/analysis.js` | Analyses, statistiques et comparaisons |
 | `js/modules/weekly-diagnostic.js` | Analyse des tendances sur plusieurs jours |
-| `js/modules/diagnostic-confidence.js` | Qualité, couverture et robustesse des données |
+| `js/modules/data-quality.js` | Plausibilité, complétude et anomalies des mesures |
+| `js/modules/diagnostic-confidence.js` et `live-freshness.js` | Confiance des constats et fraîcheur des flux en direct |
+| `js/modules/seasonal-advice.js` | Conseils saisonniers à partir des données disponibles |
+| `js/modules/history-selection.js` | Sélection des périodes affichées sans modifier l'historique source |
 | `js/modules/assistant-summary.js` et `assistant-renderer.js` | Synthèse et affichage de l'assistant local |
 | `js/modules/dataio.js` | Import et conversion des données |
 | `js/modules/history.js` et `legacy-migration.js` | Traitement et migration des historiques |
 | `js/modules/store.js` | Persistance IndexedDB |
 | `js/modules/backup.js` | Création et fusion des sauvegardes |
 | `js/modules/chart-renderer.js` et `charts.js` | Graphiques et préparation des séries |
+| `js/modules/energy-meter.js`, `energy-estimate.js` et `energy-climate.js` | Index externes, estimation ventilateur et rapprochements énergie/climat |
+| `js/modules/weekly-diagnostic.js` | Comparaison hygrométrique de fenêtres hebdomadaires |
 | `js/modules/energy-*.js` | Estimations indicatives, contexte climatique et suivi par compteurs |
 | `js/types/` et `jsconfig.json` | Types JSDoc et vérification statique |
 | `sw.js` et `manifest.json` | Cache applicatif et installation PWA |
@@ -124,7 +133,7 @@ Les constats sont accompagnés de leurs critères et de leurs limites. Les compa
 
 ### Suivi énergétique
 
-L'application peut calculer une énergie consommée entre deux index successifs saisis depuis un compteur externe. Cette valeur provient du compteur, pas de la VMI.
+Le module sait calculer une énergie consommée entre deux index successifs saisis depuis un compteur externe. Cette valeur provient du compteur, pas de la VMI. **Attention : le formulaire de saisie est actuellement placé dans un conteneur HTML masqué** ; la fonction est conservée dans le code et les sauvegardes, mais n'est pas proposée dans l'interface visible.
 
 La courbe de puissance du ventilateur utilisée par le module d'estimation est une estimation par interpolation issue de la documentation référencée dans l'interface. Elle ne constitue ni une mesure électrique ni une mesure de consommation réelle. Aucun champ brut non documenté (PWM, Cons DP, compteurs internes, etc.) n'est converti arbitrairement en W, kWh ou Pa.
 
