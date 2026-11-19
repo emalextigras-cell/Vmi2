@@ -115,3 +115,35 @@ test('fixClock exclut un horodatage fini mais hors plage JavaScript', () => {
   assert.deepEqual(result.kept, []);
   assert.equal(result.future, 0);
 });
+
+
+test('fixClock recale les dates Bluetooth de 2018 avec un repère récent et rejette celles après la synchronisation', () => {
+  const referenceDate = new Date(2026, 10, 18, 11, 0, 0).getTime();
+  const syncFinishedAt = new Date(2026, 10, 19, 11, 12, 48).getTime();
+  const history = [{ t: referenceDate, d: 194, rk: '18/11/2026 11:00:00' }];
+  const rawRows = [
+    { t: new Date(2018, 4, 18, 13, 47, 41).getTime(), d: 195 },
+    { t: new Date(2018, 4, 18, 12, 48, 29).getTime(), d: 195 },
+    { t: new Date(2018, 4, 18, 11, 48, 29).getTime(), d: 195 },
+    { t: new Date(2018, 4, 18, 10, 48, 29).getTime(), d: 195 },
+    { t: new Date(2018, 4, 18, 9, 48, 28).getTime(), d: 195 }
+  ];
+
+  const result = fixClock(rawRows, history, MIN_VALID, syncFinishedAt, { allowPre2020RawDates: true });
+
+  assert.equal(result.fixed, 2);
+  assert.equal(result.kept.length, 2);
+  assert.equal(result.future, 3);
+  assert.deepEqual(result.kept.map(record => new Date(record.t).getHours()), [10, 9]);
+  assert.ok(result.kept.every(record => new Date(record.t).getFullYear() === 2026));
+  assert.ok(result.kept.every(record => record.fixed === true));
+});
+
+test('fixClock ne recale pas une date Bluetooth ancienne sans repère récent fiable', () => {
+  const oldRecord = { t: new Date(2018, 4, 18, 9, 48, 28).getTime(), d: 195 };
+  const result = fixClock([oldRecord], [], MIN_VALID, Date.now(), { allowPre2020RawDates: true });
+
+  assert.equal(result.fixed, 0);
+  assert.deepEqual(result.kept, []);
+  assert.equal(oldRecord.fixed, undefined);
+});

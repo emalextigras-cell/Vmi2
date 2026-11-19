@@ -507,10 +507,10 @@ const setCommandsDisabled=dis=>document.querySelectorAll('[data-r]').forEach(x=>
 $('clk').onclick=setClock;
 
 /* Correction des dates historiques isolée dans clock-correction.js. */
-function ingest(recs,label,maxTimestamp=Date.now()){
+function ingest(recs,label,maxTimestamp=Date.now(),options={}){
  const future=recs.filter(record=>Number.isFinite(record.t)&&record.t>maxTimestamp);
  if(future.length)log(`${label} : dates futures reçues (${future.map(record=>record.rk+' · +'+Math.round((record.t-maxTimestamp)/1000)+' s').join(' ; ')})`);
- const {fixed,kept,futureDetails}=fixClock(recs,hist,MIN_VALID,maxTimestamp);
+ const {fixed,kept,futureDetails}=fixClock(recs,hist,MIN_VALID,maxTimestamp,options);
  if(futureDetails.length)log(`${label} : dates futures après correction (${futureDetails.map(({record,correctedTimestamp})=>record.rk+' · d='+record.d+' · '+new Date(correctedTimestamp).toLocaleString('fr-FR')).join(' ; ')})`);
  const keptSet=new Set(kept);
  const discarded=recs.filter(record=>!keptSet.has(record));
@@ -545,7 +545,7 @@ function finishDownload(reachedCut,timeout=false,interrupted=false){
  download.on=false;clearTimeout(download.timeout);
  const count=download.rows.length;
  const complete=!timeout&&!interrupted&&!download.integrityGap&&!(download.invalidRows>0)&&(reachedCut||download.finalSeen===true);
- if(count)ingest(markHistoryRows(download.rows,complete),'Téléchargement',Date.now());
+ if(count)ingest(markHistoryRows(download.rows,complete),'Téléchargement',Date.now(),{allowPre2020RawDates:true});
  if(complete){meta.lastSync=Date.now();void persist('meta',meta,'Sauvegarde des métadonnées').catch(()=>{});renderFreshness()}
  $('dlh').disabled=false;setCommandsDisabled(false);
  $('dlp').textContent=`Terminé : ${count} nouvelles lignes${download.invalidRows>0?' · lignes rejetées : synchronisation non certifiée, relance nécessaire':download.integrityGap?' · lacune détectée : synchronisation non certifiée, relance nécessaire':interrupted?(download.got?' · transfert interrompu, données partielles conservées ; relance la synchronisation':' · transfert interrompu avant réception') :reachedCut?' · historique à jour':timeout?(download.got?' · arrêt après une pause de 20 s':' · aucune réponse de la VMI'):(download.sigs.size?' · attention : trou possible avant la dernière ligne mémorisée':' · historique complet')}`;
