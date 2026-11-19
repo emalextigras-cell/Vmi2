@@ -31,10 +31,10 @@ export function renderVmiAssistant(data, {
     });
     renderVmiAssistantView(result, { documentRef });
   } catch (error) {
-    /** @type {AssistantSummary & {status:string}} */
+    /** @type {Omit<AssistantSummary, 'status'> & {status:string}} */
     const failure = {
       status: 'error',
-      title: 'L’assistant n’a pas pu terminer la synthèse.',
+      title: 'L’assistant n’a pas pu terminer la synthèse. Les autres analyses de l’application restent disponibles.',
       overview: 'Erreur de synthèse : ' + String(error?.message || error),
       confidence: '',
       recommendations: [],
