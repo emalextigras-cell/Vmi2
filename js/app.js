@@ -545,7 +545,7 @@ function finishDownload(reachedCut,timeout=false,interrupted=false){
  download.on=false;clearTimeout(download.timeout);
  const count=download.rows.length;
  const complete=!timeout&&!interrupted&&!download.integrityGap&&!(download.invalidRows>0)&&(reachedCut||download.finalSeen===true);
- if(count)ingest(markHistoryRows(download.rows,complete),'Téléchargement',Date.now());
+ if(count)ingest(markHistoryRows(download.rows,complete),'Téléchargement',Date.now(),{allowPre2020RawDates:true});
  if(complete){meta.lastSync=Date.now();void persist('meta',meta,'Sauvegarde des métadonnées').catch(()=>{});renderFreshness()}
  $('dlh').disabled=false;setCommandsDisabled(false);
  $('dlp').textContent=`Terminé : ${count} nouvelles lignes${download.invalidRows>0?' · lignes rejetées : synchronisation non certifiée, relance nécessaire':download.integrityGap?' · lacune détectée : synchronisation non certifiée, relance nécessaire':interrupted?(download.got?' · transfert interrompu, données partielles conservées ; relance la synchronisation':' · transfert interrompu avant réception') :reachedCut?' · historique à jour':timeout?(download.got?' · arrêt après une pause de 20 s':' · aucune réponse de la VMI'):(download.sigs.size?' · attention : trou possible avant la dernière ligne mémorisée':' · historique complet')}`;
