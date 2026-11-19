@@ -320,7 +320,7 @@ function cleanupConnection(){
  if(download.on)finishDownload(false,true,true);
  clearInterval(pollTimer);clearInterval(snapTimer);clearTimeout(reconnectTimer);
  manualCommandPending=false;
- document.querySelectorAll<HTMLButtonElement>('[data-r]').forEach(control=>control.disabled=download.on);
+ document.querySelectorAll('[data-r]').forEach(control=>control.disabled=download.on);
  detachBleListeners();
  chC=null;chT=null;
 }
@@ -466,13 +466,13 @@ $('disc').onclick=()=>{manualDisconnect=true;cleanupConnection();if(dev&&dev.gat
 
 /* Boutons de commande : une commande à la fois, avec vérification de l'état renvoyé par la VMI */
 const EXPECT={24:v=>['vit',v+1,'Vitesse '+(v+1)],25:v=>['boost',v,'Boost '+(v?'activé':'arrêté')],26:v=>['hol',v,'Mode vacances '+(v?'activé':'arrêté')]};
-document.querySelectorAll<HTMLButtonElement>('[data-r]').forEach(b=>b.addEventListener('click',async()=>{
+document.querySelectorAll('[data-r]').forEach(b=>b.addEventListener('click',async()=>{
  if(manualCommandPending||download.on)return;
  if(!connected()){showError('VMI non connectée.');$('cmdResult').textContent='';return}
  manualCommandPending=true;
  const commandToken=bleConnectionGeneration,commandDevice=dev;
  const commandIsCurrent=()=>sessionIsCurrent(commandToken,commandDevice)&&connected();
- const controls=[...document.querySelectorAll<HTMLButtonElement>('[data-r]')];
+ const controls=[...document.querySelectorAll('[data-r]')];
  controls.forEach(x=>x.disabled=true);
  showError('');
  const reg=Number(b.dataset.r),value=Number(b.dataset.v),[key,expected,label]=EXPECT[reg](value);
@@ -502,7 +502,7 @@ document.querySelectorAll<HTMLButtonElement>('[data-r]').forEach(b=>b.addEventLi
   if(commandToken===bleConnectionGeneration){manualCommandPending=false;controls.forEach(x=>x.disabled=download.on)}
  }
 }));
-const setCommandsDisabled=dis=>document.querySelectorAll<HTMLButtonElement>('[data-r]').forEach(x=>x.disabled=dis);
+const setCommandsDisabled=dis=>document.querySelectorAll('[data-r]').forEach(x=>x.disabled=dis);
 $('clk').onclick=setClock;
 
 /* Correction des dates historiques isolée dans clock-correction.js. */
