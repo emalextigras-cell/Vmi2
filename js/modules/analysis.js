@@ -1170,10 +1170,10 @@ function prepareHygrometricRows(inputRows) {
   if(!trendWindowsAreDistinct){
     observations.push({
       code:'trend-insufficient-data',level:'info',
-      basis:{eligibleDays:eligibleTrendDays.length,requiredDays:trendMinimumDays,minimumDailySamples:3,daysPerWindow:trendWindowDays},
+      basis:{eligibleDays:eligibleTrendDays.length,eligibleDaysBeforeLookback,lookbackStartDate,lookbackEndDate,lookbackDays:trendLookbackDays,requiredDays:trendMinimumDays,minimumDailySamples:3,daysPerWindow:trendWindowDays},
       title:'Tendance hygrométrique à confirmer',
-      detail:`Seulement ${eligibleTrendDays.length} jour(s) disposent d’au moins trois relevés valides. Il en faut au moins ${trendMinimumDays}, répartis en deux fenêtres distinctes de ${trendWindowDays} jours, pour distinguer une évolution durable d’une variation ponctuelle.`,
-      recommendation:'Poursuivre l’import de l’historique sans modifier les réglages sur la base d’une journée isolée.'
+      detail:`Sur les ${trendLookbackDays} derniers jours (${lookbackStartDate} au ${lookbackEndDate}), ${eligibleTrendDays.length} jour(s) disposent d’au moins trois relevés valides. Il en faut au moins ${trendMinimumDays}, répartis en deux fenêtres distinctes de ${trendWindowDays} jours, pour distinguer une évolution durable d’une variation ponctuelle.`,
+      recommendation:'L’analyse sélectionne automatiquement les journées disponibles dans les 14 derniers jours ; poursuivre la collecte pour compléter cet échantillon.'
     });
   } else if(!trendWindowsTemporallyCompact){
     observations.push({
