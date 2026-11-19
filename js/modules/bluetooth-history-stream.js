@@ -1,12 +1,13 @@
 /** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
-/** @typedef {{sequence: number|null, expectedChunk: number, skippedSequence: number|null, fragments: Map<string,string>, gapCount: number}} HistoryStreamState */
+/** @typedef {{sequence: number|null, expectedChunk: number, expectedFinalChunk: number|null, skippedSequence: number|null, fragments: Map<string,string>, gapCount: number}} HistoryStreamState */
 
 /**
  * Contrôle l'ordre des fragments d'historique observés dans les notifications VMI.
  * La capture confirme l'index de ligne (octets 9-10) et l'index de fragment
- * (octet 12, par pas de 10). Le parseur historique interprète l'octet 13
- * comme indicateur de fin, mais la capture fournie n'observe aucune valeur 1.
- * Cette garde détecte uniquement les répétitions, trous et désordres observés.
+ * (octet 12, par pas de 10). Les lignes de données CSV observées commencent
+ * par une date et comportent les fragments 0, 10, 20, 30 et 40. Les en-têtes
+ * précédant la première date ne sont pas soumis à cette règle. L'octet 13 est
+ * interprété comme indicateur de fin, mais aucune valeur 1 n'est observée.
  */
 /**
  * createHistoryStreamState — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
@@ -16,6 +17,7 @@ export function createHistoryStreamState() {
   return {
     sequence: null,
     expectedChunk: 0,
+    expectedFinalChunk: null,
     skippedSequence: null,
     fragments: new Map(),
     gapCount: 0
@@ -80,12 +82,16 @@ export function acceptHistoryFragment(state, fragment) {
     state.gapCount++;
     return { accepted: false, duplicate: false, gap: true, resetBuffer: false };
   } else if (sequence > state.sequence) {
-    if (sequence !== state.sequence + 1 || chunkIndex !== 0) gap = true;
+    const previousRecordIncomplete = state.expectedFinalChunk !== null &&
+      state.skippedSequence !== state.sequence &&
+      state.expectedChunk <= state.expectedFinalChunk;
+    if (sequence !== state.sequence + 1 || chunkIndex !== 0 || previousRecordIncomplete) gap = true;
     // Les séquences antérieures sont désormais rejetées par l'ordre du flux :
     // conserver leurs payloads ne ferait qu'accroître la mémoire utilisée.
     state.fragments.clear();
     state.sequence = sequence;
     state.expectedChunk = 0;
+    state.expectedFinalChunk = null;
     state.skippedSequence = null;
     resetBuffer = gap;
   }
@@ -108,6 +114,12 @@ export function acceptHistoryFragment(state, fragment) {
     return { accepted: false, duplicate: false, gap: true, resetBuffer: true };
   }
 
+  // Une ligne CSV de données commence par une date. Dans la capture réelle,
+  // elle utilise cinq fragments (0 à 40) ; le passage à la ligne suivante
+  // permet donc aussi de détecter la perte du dernier fragment.
+  if (chunkIndex === 0 && /^\\r?\\n\\d{1,2}\\/\\d{1,2}\\/\\d{4} \\d{1,2}:\\d{2}:\\d{2};/.test(payload)) {
+    state.expectedFinalChunk = 40;
+  }
   state.fragments.set(key, payload);
   state.expectedChunk += 10;
   return { accepted: true, duplicate: false, gap, resetBuffer };
