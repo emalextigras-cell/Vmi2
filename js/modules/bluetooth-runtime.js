@@ -67,7 +67,7 @@ export function createBluetoothNotificationHandler(deps) {
       download.got = true;
       download.lastPacket = timestamp;
       download.buf += payload;
-      const lines = download.buf.split(/\\r\\n|\\n|\\r(?!$)/);
+      const lines = download.buf.split(/\r\n|\n|\r(?!$)/);
       download.buf = lines.pop();
       lines.forEach(parseDownloadLine);
 
@@ -76,7 +76,7 @@ export function createBluetoothNotificationHandler(deps) {
         armTimer();
         if (decoded.final) {
           if (download.buf.trim()) {
-            const tail = download.buf.split(/\\r\\n|\\n|\\r/);
+            const tail = download.buf.split(/\r\n|\n|\r/);
             download.buf = '';
             tail.filter(line => line.trim()).forEach(parseDownloadLine);
           }
