@@ -339,6 +339,7 @@ export function compareOperatingPeriods(data, {
         };
       });
       const [previous, current] = periodStats;
+      /** @type {Record<string, {previous:number,current:number,absolute:number|null,relativePercent:number|null,unit:string}|null>} */
       const deltas = {};
       if (previous.ready && current.ready) {
         for (const metric of metrics) {
