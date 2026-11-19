@@ -931,7 +931,7 @@ function renderIntelligentDiagnosis(data){
      incomingAbsoluteHumidityChange:'Évolution de l’humidité absolue entrante',indoorMinusIncomingChange:'Évolution de l’écart salon − air entrant',
      baselineIndoorMinusIncomingMedian:'Écart salon − air entrant — fenêtre initiale',
      recentIndoorMinusIncomingMedian:'Écart salon − air entrant — fenêtre récente',
-     eligibleDays:'Jours suffisamment échantillonnés',requiredDays:'Jours minimum requis',
+     eligibleDays:'Jours suffisamment échantillonnés',
      minimumDailySamples:'Relevés minimum par jour',daysPerWindow:'Jours par fenêtre',
      risingDays:'Jours orientés à la hausse',fallingDays:'Jours orientés à la baisse',minimumDirectionalDays:'Jours directionnels minimum',
      change:'Évolution mesurée',timeWindow:'Tranche horaire retenue',
