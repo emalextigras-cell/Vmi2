@@ -5,6 +5,7 @@ import { decodeVmiNotification } from '../js/modules/bluetooth-decoder.js';
 import {
   acceptHistoryFragment,
   createHistoryStreamState,
+  isHistoryStreamComplete,
   markHistoryRows
 } from '../js/modules/bluetooth-history-stream.js';
 import { validateBluetoothHistoryRow } from '../js/modules/bluetooth-history-row.js';
@@ -75,6 +76,36 @@ test('contrat intégré : notification BLE décodée, fragments réassemblés pu
   assert.equal(validatedRows[0].fields[0], '10/11/2026 16:55:00');
   assert.equal(validatedRows[0].fields[11], '1234');
   assert.equal(stream.gapCount, 0);
+});
+
+test('contrat intégré : le dernier relevé incomplet ne peut pas certifier la synchronisation', () => {
+  const stream = createHistoryStreamState();
+  const firstPayload = ('\\n10/11/2026 16:55:00;1;2;3;4;5;6;7;8;9;10;1234;').padEnd(85, 'x');
+
+  for (const [chunkIndex, payload] of [
+    [0, firstPayload],
+    [10, 'fragment-10'],
+    [20, 'fragment-20'],
+    [30, 'fragment-30']
+  ]) {
+    const result = acceptHistoryFragment(stream, {
+      sequence: 25,
+      chunkIndex,
+      payload
+    });
+    assert.equal(result.accepted, true);
+  }
+
+  // Même si le transport annonce sa fin à cet instant, le fragment 40 manque.
+  assert.equal(isHistoryStreamComplete(stream), false);
+
+  const terminal = acceptHistoryFragment(stream, {
+    sequence: 25,
+    chunkIndex: 40,
+    payload: 'fragment-40'
+  });
+  assert.equal(terminal.accepted, true);
+  assert.equal(isHistoryStreamComplete(stream), true);
 });
 
 test('contrat intégré : un transfert partiel fusionné ne dégrade pas un relevé complet déjà stocké', () => {
