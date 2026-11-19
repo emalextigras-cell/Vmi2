@@ -72,6 +72,25 @@ export interface ChartViewModel {
 export type NullableNumber = number | null;
 export type UnknownRecord = Record<string, unknown>;
 
+export interface OperatingPeriodsResult {
+  status: string;
+  periodDays: number;
+  minSamples: number;
+  minDays: number;
+  periods: Array<{ id: string; start: string; end: string; startMs: number; endMs: number }>;
+  comparisons: Array<{
+    mode: number;
+    bucket: number;
+    label: string;
+    previous: { id: string; sampleCount: number; dayCount: number; ready: boolean; values: Record<string, unknown> };
+    current: { id: string; sampleCount: number; dayCount: number; ready: boolean; values: Record<string, unknown> };
+    comparable: boolean;
+    deltas: Record<string, { previous: number; current: number; absolute: number | null; relativePercent: number | null; unit: string } | null>;
+  }>;
+  comparableCount?: number;
+  limits?: string[];
+}
+
 export interface AnalysisOptions {
   minSamples?: number;
   minDays?: number;
