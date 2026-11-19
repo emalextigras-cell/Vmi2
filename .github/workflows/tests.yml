@@ -17,11 +17,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Récupérer le dépôt
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Installer Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
       - name: Vérifier la syntaxe de l’application
         run: find js tests -name '*.js' -print0 | xargs -0 -n1 node --check
       - name: Exécuter les tests
