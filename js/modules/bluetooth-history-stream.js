@@ -108,7 +108,7 @@ export function acceptHistoryFragment(state, fragment) {
     return { accepted: false, duplicate: false, gap: false, resetBuffer: false };
   }
 
-  if (chunkIndex !== state.expectedChunk) {
+  if (chunkIndex !== state.expectedChunk || (state.expectedFinalChunk !== null && chunkIndex > state.expectedFinalChunk)) {
     state.gapCount++;
     state.skippedSequence = sequence;
     return { accepted: false, duplicate: false, gap: true, resetBuffer: true };
@@ -123,6 +123,19 @@ export function acceptHistoryFragment(state, fragment) {
   state.fragments.set(key, payload);
   state.expectedChunk += 10;
   return { accepted: true, duplicate: false, gap, resetBuffer };
+}
+
+/**
+ * Vérifie que la dernière ligne de mesures reçue contient bien tous ses fragments.
+ * Les en-têtes n'ont pas de nombre de fragments imposé ; une ligne de mesures
+ * reconnue au fragment 0 doit aller jusqu'au fragment 40 inclus.
+ * @param {HistoryStreamState|null|undefined} state État du flux historique.
+ * @returns {boolean} true si aucune ligne finale reconnue ne reste incomplète.
+ */
+export function isHistoryStreamComplete(state) {
+  if (!state || state.sequence === null) return true;
+  if (state.skippedSequence === state.sequence) return false;
+  return state.expectedFinalChunk === null || state.expectedChunk > state.expectedFinalChunk;
 }
 
 /** Les relevés issus d'un transfert incomplet ne peuvent pas servir de borne d'arrêt. */
