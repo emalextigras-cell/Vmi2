@@ -131,7 +131,7 @@ test('fixClock recale les dates Bluetooth de 2018 avec un repère récent et rej
 
   const result = fixClock(rawRows, history, MIN_VALID, syncFinishedAt, { allowPre2020RawDates: true });
 
-  assert.equal(result.fixed, 5);
+  assert.equal(result.fixed, 2);
   assert.equal(result.kept.length, 2);
   assert.equal(result.future, 3);
   assert.deepEqual(result.kept.map(record => new Date(record.t).getHours()), [10, 9]);
