@@ -165,8 +165,8 @@ test('contrat intégré : un fragment initial manquant dans le flux BLE condamne
   let integrityGap = false;
   const validatedRows = [];
   const rows = [
-    '11/11/2026 14:00:00;1;2;3;4;5;6;7;8;9;10;1000\\r\\n',
-    '11/11/2026 13:00:00;1;2;3;4;5;6;7;8;9;10;1001\\r\\n'
+    '\n11/11/2026 14:00:00;1;2;3;4;5;6;7;8;9;10;1000\n',
+    '\n11/11/2026 13:00:00;1;2;3;4;5;6;7;8;9;10;1001\n'
   ];
   const fragments = row => [
     row.slice(0, 12),
@@ -190,13 +190,17 @@ test('contrat intégré : un fragment initial manquant dans le flux BLE condamne
     if (result.resetBuffer) buffer = '';
     if (!result.accepted) return;
     buffer += text;
-    const lines = buffer.split(/\\r\\n|\\n|\\r(?!$)/);
+    const lines = buffer.split(/\r\n|\n|\r(?!$)/);
     buffer = lines.pop();
     for (const line of lines) {
       if (line.trim()) validatedRows.push(validateBluetoothHistoryRow(line));
     }
   };
 
+  // Rejoue les séquences de métadonnées précédant les lignes de mesures.
+  for (let sequence = 0; sequence < 77; sequence++) {
+    receive(sequence, 0, 'metadata-' + sequence);
+  }
   // Ligne 77 complète, comme les lignes précédant la perte observée dans la capture.
   fragments(rows[0]).forEach((part, index) => receive(77, index * 10, part));
   // Ligne 78 : le fragment 0 manque ; les fragments restants doivent être ignorés.
