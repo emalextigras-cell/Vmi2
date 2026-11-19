@@ -22,6 +22,7 @@ import { summarizeFanEnergyEstimate, summarizeFanEnergyByManualMode } from './mo
 import { summarizeDailyEnergyClimateContext } from './modules/energy-climate.js';
 import { summarizeWeeklyDiagnostic } from './modules/weekly-diagnostic.js';
 import { chooseAuthorizedDevice } from './modules/bluetooth-autoconnect.js';
+import { createBluetoothNotificationHandler, createReconnectHandler } from './modules/bluetooth-runtime.js';
 import { buildLiveFreshnessText } from './modules/live-freshness.js';
 import { formatDiagnosisConfidence } from './modules/diagnostic-confidence.js';
 import { analyzeSeasonalVentilation } from './modules/seasonal-advice.js';
@@ -196,61 +197,24 @@ function writeFrame(bytes){return bleWriteQueue.write(bytes)}
 const send=(reg,val)=>writeFrame(frame(reg,val));
 async function setClock(){if(!chC){showError('Connecte-toi d’abord à la VMI.');return false}const d=new Date();const ok=await writeFrame(timeFrame(d));$('dlp').textContent=ok?'Heure envoyée : '+d.toLocaleString('fr-FR'):'Heure non envoyée.';return ok}
 
+const handleNotification = createBluetoothNotificationHandler({
+ decodeVmiNotification,
+ getDownload:()=>download,
+ getCur:()=>cur,
+ getLastSeen:()=>lastSeen,
+ acceptHistoryFragment,
+ markHistoryStreamInvalid,
+ parseDownloadLine,
+ incrementDlFrames:()=>++dlFrames,
+ armTimer,
+ finishDownload,
+ updateLiveMetrics,
+ log,
+ hex,
+ $
+});
 function onNotification(ev){
  try{handleNotification(ev)}catch(e){log('Erreur de décodage d’une trame : '+(e.message||e));recordError('Décodage d’une trame : '+(e.message||e))}
-}
-function handleNotification(ev){
- const v=ev.target.value;
- const a=new Uint8Array(v.buffer,v.byteOffset,v.byteLength);
- const decoded=decodeVmiNotification(a);
- if(!decoded)return;
- const now=Date.now();
- if(decoded.kind==='history'){
-  if(!download.on)return;
-  if(!decoded.valid){
-   markHistoryStreamInvalid(download.historyStream);
-   download.integrityGap=true;
-   download.buf='';
-   log('Trame d’historique trop courte : transfert marqué incomplet, synchronisation à relancer.');
-   return;
-  }
-  const payload=new TextDecoder('latin1').decode(decoded.payload);
-  const integrity=acceptHistoryFragment(download.historyStream,{sequence:decoded.sequence,chunkIndex:decoded.chunkIndex,payload});
-  if(integrity.duplicate)return;
-  if(integrity.gap){download.integrityGap=true;if(integrity.resetBuffer)download.buf='';log('Lacune ou désordre dans le flux historique : fragment incomplet écarté.');}
-  if(!integrity.accepted)return;
-  dlFrames++;if(dlFrames%200===1)log(`< trames d’historique reçues : ${dlFrames}`);
-  download.got=true;download.lastPacket=now;
-  download.buf+=payload;
-  const lines=download.buf.split(/\r\n|\n|\r(?!$)/);download.buf=lines.pop();lines.forEach(parseDownloadLine);
-  if(download.on){
-   $('dlp').textContent=`${download.rows.length} nouvelles lignes (index historique ${decoded.sequence+1} / ${download.total||'?'})`;
-   armTimer();
-   if(decoded.final){if(download.buf.trim()){const tail=download.buf.split(/\r\n|\n|\r/);download.buf='';tail.filter(line=>line.trim()).forEach(parseDownloadLine)}if(download.on){download.finalSeen=true;finishDownload(false)}}
-  }
-  return;
- }
- log('< '+hex(a));
- if(decoded.kind==='state'){
-  cur.filtre=decoded.filter;cur.jours=decoded.days;cur.vol=decoded.volume;cur.tmax=decoded.maxTemperature;
-  cur.vit=decoded.rawSpeed+1; // code brut VMI : ne jamais le traiter comme niveau manuel
-  cur.boost=decoded.boost;cur.hol=decoded.holiday;cur.rpm=null;
-  lastSeen.state=now;
-  $('fi').textContent=cur.filtre;$('jf').textContent=cur.jours;$('vo').textContent=cur.vol;$('tm').textContent=cur.tmax;
-  $('sp').textContent=cur.vit;$('bo').textContent=cur.boost?'Actif':'Arrêté';$('ho').textContent=cur.hol?'Actif':'Arrêté';
- }
- else if(decoded.kind==='room'){
-  cur.sal_t=decoded.temperature;cur.sal_h=decoded.humidity;lastSeen.salon=now;
-  $('tp').textContent=cur.sal_t;$('hp').textContent=cur.sal_h;
- }
- else if(decoded.kind==='probes'){
-  cur.s1_t=decoded.firstTemperature;cur.s1_h=decoded.firstHumidity;
-  cur.s2_t=decoded.secondTemperature;cur.s2_h=decoded.secondHumidity;lastSeen.probes=now;
-  $('ti').textContent=cur.s1_t;$('hi').textContent=cur.s1_h;$('t2').textContent=cur.s2_t;$('h2').textContent=cur.s2_h;
- }
- else if(decoded.kind==='history-total'){download.total=decoded.total;return}
- else return;
- updateLiveMetrics();
 }
 function updateLiveMetrics(){
  $('sampleAge').textContent=buildLiveFreshnessText(lastSeen);
@@ -451,16 +415,18 @@ async function autoConnectAuthorizedDevice(){
   setStatus('Reconnexion automatique impossible. Appuie sur « Se connecter ».');
  }
 }
-async function reconnect(){
- // Une reconnexion automatique ne doit jamais démarrer pendant le sélecteur manuel.
- if(manualDisconnect||!dev||connectionRequestPending)return;
- const intent=connectionIntentGeneration;
- try{await connectDevice(dev,intent)}
- catch(e){
-  if(intent!==connectionIntentGeneration||connectionRequestPending)return;
-  log('Reconnexion échouée : '+e.message);clearTimeout(reconnectTimer);reconnectTimer=setTimeout(reconnect,7000);
- }
-}
+const reconnect=createReconnectHandler({
+ isManualDisconnect:()=>manualDisconnect,
+ getDevice:()=>dev,
+ isConnectionRequestPending:()=>connectionRequestPending,
+ getConnectionIntentGeneration:()=>connectionIntentGeneration,
+ connectDevice,
+ log,
+ clearTimeout,
+ setTimeout,
+ getReconnectTimer:()=>reconnectTimer,
+ setReconnectTimer:timer=>{reconnectTimer=timer}
+});
 $('conn').onclick=connectBLE;
 $('disc').onclick=()=>{manualDisconnect=true;cleanupConnection();if(dev&&dev.gatt&&dev.gatt.connected)dev.gatt.disconnect();setStatus('Déconnexion demandée.')};
 
