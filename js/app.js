@@ -28,6 +28,10 @@ import { analyzeSeasonalVentilation } from './modules/seasonal-advice.js';
 import { renderVmiAssistant } from './modules/assistant-renderer.js';
 import { selectDataRange } from './modules/history-selection.js';
 
+/** @typedef {import('./types/vmi-types.js').VmiRecord} VmiRecord */
+/** @typedef {import('./types/vmi-types.js').UnknownRecord} UnknownRecord */
+/** @typedef {import('./types/vmi-types.js').EnergyReading} EnergyReading */
+
 
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{})}
 
@@ -59,7 +63,11 @@ let dev=null,chC=null,chT=null,pollTimer=null,snapTimer=null,reconnectTimer=null
 let bleConnectionGeneration=0,connectionIntentGeneration=0,connectionRequestPending=false;
 let manualDisconnect=false,intentionalDisconnect=false,manualCommandPending=false,pollingSessionToken=null,autoDone=false;
 let bleNotificationHandler=null,bleNotificationCharacteristics=[],bleDisconnectHandler=null;
-let meta={},cur={},lastSeen={},live=[],hist=[],energyReadings=[],source='hist',selectedDate=null,daysSetting=30;
+/** @type {UnknownRecord} */ let meta={};
+let cur={},lastSeen={};
+/** @type {VmiRecord[]} */ let live=[],hist=[];
+/** @type {EnergyReading[]} */ let energyReadings=[];
+let source='hist',selectedDate=null,daysSetting=30;
 let logLines=[],dlFrames=0;
 let download={on:false,rows:[],buf:'',total:0,sigs:new Set(),got:false,lastPacket:0,timeout:null,historyStream:createHistoryStreamState(),integrityGap:false,dataStarted:false};
 const DB='VMI_PUREVENT_DB_TEST',STORE='data';
@@ -118,7 +126,7 @@ async function init(){
  const snapshot=normalizeStoreSnapshot({
   history:storedHistory,live:storedLive,energyReadings:storedEnergyReadings,meta:storedMeta
  });
- live=snapshot.live;hist=snapshot.history;meta=snapshot.meta;energyReadings=snapshot.energyReadings;
+ live=/** @type {VmiRecord[]} */ (snapshot.live);hist=/** @type {VmiRecord[]} */ (snapshot.history);meta=snapshot.meta;energyReadings=/** @type {EnergyReading[]} */ (snapshot.energyReadings);
  const migrated=await dbGet('migrated');
  // Le marqueur est l'unique preuve d'une migration achevée. Des données déjà présentes
  // ne doivent pas empêcher une nouvelle tentative après une migration interrompue.
@@ -312,7 +320,7 @@ function cleanupConnection(){
  if(download.on)finishDownload(false,true,true);
  clearInterval(pollTimer);clearInterval(snapTimer);clearTimeout(reconnectTimer);
  manualCommandPending=false;
- document.querySelectorAll('[data-r]').forEach(control=>control.disabled=download.on);
+ document.querySelectorAll<HTMLButtonElement>('[data-r]').forEach(control=>control.disabled=download.on);
  detachBleListeners();
  chC=null;chT=null;
 }
@@ -458,13 +466,13 @@ $('disc').onclick=()=>{manualDisconnect=true;cleanupConnection();if(dev&&dev.gat
 
 /* Boutons de commande : une commande à la fois, avec vérification de l'état renvoyé par la VMI */
 const EXPECT={24:v=>['vit',v+1,'Vitesse '+(v+1)],25:v=>['boost',v,'Boost '+(v?'activé':'arrêté')],26:v=>['hol',v,'Mode vacances '+(v?'activé':'arrêté')]};
-document.querySelectorAll('[data-r]').forEach(b=>b.addEventListener('click',async()=>{
+document.querySelectorAll<HTMLButtonElement>('[data-r]').forEach(b=>b.addEventListener('click',async()=>{
  if(manualCommandPending||download.on)return;
  if(!connected()){showError('VMI non connectée.');$('cmdResult').textContent='';return}
  manualCommandPending=true;
  const commandToken=bleConnectionGeneration,commandDevice=dev;
  const commandIsCurrent=()=>sessionIsCurrent(commandToken,commandDevice)&&connected();
- const controls=[...document.querySelectorAll('[data-r]')];
+ const controls=[...document.querySelectorAll<HTMLButtonElement>('[data-r]')];
  controls.forEach(x=>x.disabled=true);
  showError('');
  const reg=Number(b.dataset.r),value=Number(b.dataset.v),[key,expected,label]=EXPECT[reg](value);
@@ -494,7 +502,7 @@ document.querySelectorAll('[data-r]').forEach(b=>b.addEventListener('click',asyn
   if(commandToken===bleConnectionGeneration){manualCommandPending=false;controls.forEach(x=>x.disabled=download.on)}
  }
 }));
-const setCommandsDisabled=dis=>document.querySelectorAll('[data-r]').forEach(x=>x.disabled=dis);
+const setCommandsDisabled=dis=>document.querySelectorAll<HTMLButtonElement>('[data-r]').forEach(x=>x.disabled=dis);
 $('clk').onclick=setClock;
 
 /* Correction des dates historiques isolée dans clock-correction.js. */
@@ -594,7 +602,9 @@ function loadXLSX(){
  return xlsxPromise;
 }
 $('fx').onchange=async e=>{
- const file=e.target.files&&e.target.files[0];if(!file)return;showError('');
+ const input=e.currentTarget instanceof HTMLInputElement?e.currentTarget:null;
+ if(!input)return;
+ const file=input.files&&input.files[0];if(!file)return;showError('');
  try{
   let rows,spreadsheet=null;
   if(isCsvFile(file.name)){
@@ -614,16 +624,16 @@ $('fx').onchange=async e=>{
   const recs=[];for(let i=headerIndex+1;i<rows.length;i++){const r=recFrom(rows[i],spreadsheet,columnMapping);if(r)recs.push(r)}
   ingest(recs,'Import');
  }catch(err){showError('Import impossible : '+err.message)}
- e.target.value='';
+ input.value='';
 };
 $('clearImport').onclick=async()=>{if(!confirm('Effacer tout l’historique importé ?'))return;try{await persist('hist',[],'Effacement de l’historique');hist=[];$('importInfo').textContent='';render()}catch{} };
 $('histBtn').onclick=()=>{source='hist';render()};
 $('liveBtn').onclick=()=>{source='live';render()};
-$('dayPicker').onchange=e=>{selectedDate=e.target.value||null;resetChartViews();render()};
+$('dayPicker').onchange=e=>{if(!(e.currentTarget instanceof HTMLInputElement))return;selectedDate=e.currentTarget.value||null;resetChartViews();render()};
 $('clearDay').onclick=()=>{selectedDate=null;$('dayPicker').value='';resetChartViews();render()};
 $('prev').onclick=()=>{selectedDate=shiftDay(selectedDate,-1);$('dayPicker').value=selectedDate;resetChartViews();render()};
 $('next').onclick=()=>{selectedDate=shiftDay(selectedDate,1);$('dayPicker').value=selectedDate;resetChartViews();render()};
-document.querySelectorAll('[data-days]').forEach(b=>b.onclick=()=>{daysSetting=Number(b.dataset.days);selectedDate=null;$('dayPicker').value='';resetChartViews();render()});
+document.querySelectorAll<HTMLButtonElement>('[data-days]').forEach(b=>b.onclick=()=>{daysSetting=Number(b.dataset.days);selectedDate=null;$('dayPicker').value='';resetChartViews();render()});
 $('clearLive').onclick=async()=>{if(!confirm('Effacer les relevés en direct ?'))return;try{await persist('live',[],'Effacement des relevés en direct');live=[];$('liveCount').textContent='0';render()}catch{} };
 $('csv').onclick=()=>{
  const keys=['t','st','sh','t1','h1','te','he','rpm','fil','vit','boost','hol'];
@@ -649,10 +659,11 @@ function histToCsv(rows){
  return lines.join('\r\n');
 }
 function makeBackup(){return createBackupSnapshot({hist,live,meta,energyReadings})}
+/** @param {UnknownRecord} obj Sauvegarde JSON validée comme objet. */
 async function restoreBackup(obj){
  const result=mergeBackupData({backup:obj,currentHist:hist,currentLive:live,currentMeta:meta,currentEnergyReadings:energyReadings,minValid:MIN_VALID});
  const nextHist=pruneHistory(result.hist,HIST_MAX).records;
- const entries=[['hist',nextHist],['live',result.live],['energyReadings',result.energyReadings]];
+ const entries=/** @type {Array<[IDBValidKey, unknown]>} */ ([['hist',nextHist],['live',result.live],['energyReadings',result.energyReadings]]);
  if(result.meta.lastSync!==meta.lastSync)entries.push(['meta',result.meta]);
  // Ne modifier l'état en mémoire qu'après validation atomique du stockage local.
  await dbSetMany(entries);
@@ -692,7 +703,7 @@ $('energyMeterForm').addEventListener('submit',async event=>{
 });
 $('energyMeterAt').value=localDateTimeValue();
 $('energyMeterHistory').addEventListener('click',async event=>{
- const button=event.target.closest('[data-energy-delete]');
+ const button=event.target instanceof Element?event.target.closest('[data-energy-delete]'):null;
  if(!button)return;
  const id=button.getAttribute('data-energy-delete');
  const nextReadings=energyReadings.filter(reading=>reading.id!==id);
@@ -701,9 +712,13 @@ $('energyMeterHistory').addEventListener('click',async event=>{
  renderEnergyMeterTracking();
 });
 $('restoreFile').onchange=async e=>{
- const file=e.target.files&&e.target.files[0];if(!file)return;
+ const input=e.currentTarget instanceof HTMLInputElement?e.currentTarget:null;
+ if(!input)return;
+ const file=input.files&&input.files[0];if(!file)return;
  try{
-  const obj=JSON.parse(await file.text());
+  const parsed=JSON.parse(await file.text());
+  if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))throw new Error('Fichier de sauvegarde invalide : objet attendu.');
+  const obj=/** @type {UnknownRecord} */ (parsed);
   const {add,enriched,addL,addEnergy}=await restoreBackup(obj);
   $('backupInfo').textContent='Sauvegarde restaurée : '+add+' relevés d’historique ajoutés, '+enriched+' complétés, '+addL+' relevés en direct et '+addEnergy+' index de compteur ajoutés.';
   render();
@@ -1409,8 +1424,8 @@ function render(){
  const quality=summarizeDataQuality(analysisData);
  renderVmiAssistant(analysisData,{targetRH:Number($('targetRH').value),minSamples:Number($('minSamples').value),energyReadings,meterHistory:hist,onError:log});
  const qualityBox=$('dataQuality');
- const coreCoverage=quality.fieldCoverage.filter(field=>quality.coreSensorKeys.includes(field.key));
- const missingDetails=coreCoverage.filter(field=>field.missingCount>0)
+ const coreCoverage=quality.fieldCoverage.filter(field=>quality.coreSensorKeys.includes(String(field.key)));
+ const missingDetails=coreCoverage.filter(field=>Number(field.missingCount)>0)
   .map(field=>`${field.label} : ${field.missingCount} absent(s)`);
  const invalidDetails=quality.fields.map(field=>`${field.label} : ${field.invalidCount} aberrant(s)`);
  const coverageText=quality.total
