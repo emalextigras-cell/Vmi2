@@ -297,7 +297,7 @@ test('détecte un dernier fragment manquant au passage à la ligne suivante', ()
     assert.equal(result.accepted, true);
   }
 
-  const rowStart = '\\n12/11/2026 14:31:00;35;337;1;04;00;28;25;09,3;1;6.4.2;';
+  const rowStart = '\n12/11/2026 14:31:00;35;337;1;04;00;28;25;09,3;1;6.4.2;'
   const send = (sequence, chunkIndex, payload) =>
     acceptHistoryFragment(state, { sequence, chunkIndex, payload });
 
