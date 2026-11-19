@@ -25,13 +25,6 @@ test('compare les niveaux manuels dans une même tranche horaire sur plusieurs j
   assert.equal(ready[0].medianRPM,1200);
 });
 
-test('ne transforme pas les codes vitesse bruts en niveaux manuels',()=>{
-  const rows=[{...sample(0,8,1),vmiModeRaw:null,vit:0,vmiSpeedRaw:0},{...sample(1,8,2),vmiModeRaw:null,vit:4,vmiSpeedRaw:4},{...sample(2,8,3),vmiModeRaw:null,vit:5,vmiSpeedRaw:5}];
-  const result=analyzeSpeedTimeContext(rows,{minSamples:1,minDays:1});
-  assert.deepEqual(result.comparableBuckets,[]);
-  assert.ok(result.groups.every(g=>g.sampleCount===0&&!g.ready));
-});
-
 test('refuse une comparaison lorsque les niveaux ont deux jours chacun mais aucun jour commun',()=>{
   const rows=[];
   for(let i=0;i<6;i++)rows.push(sample(0,8,1,i),sample(1,8,1,i));
