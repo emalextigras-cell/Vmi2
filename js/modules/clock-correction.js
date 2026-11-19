@@ -28,8 +28,9 @@ const modeOf = values => {
 
 /**
  * Corrige en place les relevés antérieurs à MIN_VALID à partir du compteur
- * « jours de fonctionnement ». Les dates brutes antérieures à 2020 sont
- * considérées comme des données historiques invalides et ne sont jamais recalées.
+ * « jours de fonctionnement ». Les dates brutes antérieures à 2020 restent
+ * exclues par défaut ; le téléchargement Bluetooth peut autoriser leur recalage
+ * uniquement lorsqu'un repère fiable existe dans l'historique récent.
  * Retourne { fixed, future, kept }.
  * Les règles de regroupement et le seuil horaire sont volontairement conservés.
  */
@@ -39,9 +40,10 @@ const modeOf = values => {
  * @param {VmiRecord[]} history Paramètre history.
  * @param {number} minValid Timestamp minimal accepté.
  * @param {number} maxTimestamp Timestamp maximal accepté, ou Infinity.
+ * @param {{allowPre2020RawDates?: boolean}} [options] Autorise les dates brutes anciennes pour un flux Bluetooth identifié.
  * @returns {{fixed:number, future:number, futureDetails:Array<{record:VmiRecord, correctedTimestamp:number}>, kept:VmiRecord[]}} Résultat de la correction.
  */
-export function fixClock(records, history = [], minValid = MIN_VALID, maxTimestamp = Infinity) {
+export function fixClock(records, history = [], minValid = MIN_VALID, maxTimestamp = Infinity, { allowPre2020RawDates = false } = {}) {
   // Les relevés entrants assez récents doivent rester disponibles pendant cette
   // fonction : leur compteur de jours peut permettre de reconstruire leur date.
   // L'historique déjà stocké, lui, reste filtré pour ne servir que de référence fiable.
@@ -55,7 +57,8 @@ export function fixClock(records, history = [], minValid = MIN_VALID, maxTimesta
     new Date(record.t).getHours() >= 10
   );
   const epochOffset = modeOf(known.map(record => dayNumber(record.t) - record.d));
-  const bad = records.filter(record => record.t < minValid && record.t >= MIN_RECONSTRUCTABLE_RAW)
+  const minimumRawDate = allowPre2020RawDates ? Date.UTC(2010, 0, 1) : MIN_RECONSTRUCTABLE_RAW;
+  const bad = records.filter(record => record.t < minValid && record.t >= minimumRawDate)
     .sort((a, b) => a.t - b.t);
   let fixed = 0;
   const futureRecords = new Set();
