@@ -57,7 +57,7 @@ Action recommandée : vérifier les imports et les fonctions publiques testées 
 
 ## Décision de nettoyage
 
-Aucun test n'est supprimé dans cette première passe.
+Cette PR ne supprime aucun fichier de test. Elle retire toutefois un scénario autonome de `speed-time-context.test.js`, dont le cas est repris et renforcé dans `energy-readiness.test.js`. La première version de la PR avait aussi retiré des assertions de résultats dans deux tests de `analysis-contracts.test.js` ; cette perte de couverture a été identifiée pendant la revue et les assertions sont restaurées dans la correction.
 
 La revue a identifié des candidats à simplification, mais les informations actuellement disponibles ne permettent pas de prouver qu'un scénario est impossible sur le matériel Purevent. Supprimer un test parce qu'il semble rare serait risqué, en particulier pour les erreurs d'horloge, les transferts interrompus et les fichiers incomplets.
 
