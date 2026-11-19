@@ -1,4 +1,4 @@
-import { DAY, pad, localDay, dayStart, shiftDay, fmt, num, MIN_VALID, HIST_MAX } from './modules/date-utils.js';
+import { DAY, pad, localDay, shiftDay, fmt, num, MIN_VALID, HIST_MAX } from './modules/date-utils.js';
 import { pruneHistory, mergeImportedHistory } from './modules/history.js';
 import { createBackupSnapshot, mergeBackupData } from './modules/backup.js';
 import { $, sleep, APP_VERSION } from './modules/core.js';
