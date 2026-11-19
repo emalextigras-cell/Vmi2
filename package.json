@@ -3,6 +3,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --check js/app.js && node --check js/modules/chart-renderer.js && node --test"
+    "test": "node scripts/check-js-syntax.js && node --test"
   }
 }
