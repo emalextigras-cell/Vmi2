@@ -156,7 +156,7 @@ async function init(){
   // marquer la migration comme terminée : elle pourra être retentée au prochain démarrage.
   await dbSet('hist',hist);if(live.length)await dbSet('live',live);
  }
- $('liveCount').textContent=live.length;render();
+ $('liveCount').textContent=String(live.length);render();
 }
 function pruneHist(){
  const result=pruneHistory(hist,HIST_MAX);
@@ -270,7 +270,7 @@ function takeSnapshot(){
  if(!Number.isFinite(row.st)&&!Number.isFinite(row.sh))return;
  live.push(row);
  if(live.length>10000)live.splice(0,live.length-10000);
- void persist('live',live,'Sauvegarde des relevés en direct').catch(()=>{});$('liveCount').textContent=live.length;
+ void persist('live',live,'Sauvegarde des relevés en direct').catch(()=>{});$('liveCount').textContent=String(live.length);
  if(source==='live')render();
 }
 
@@ -525,7 +525,7 @@ function parseDownloadLine(line){
   return;
  }
  const validation=validateBluetoothHistoryRow(line);
- if(!validation.valid){download.invalidRows=(download.invalidRows||0)+1;log('Ligne historique Bluetooth rejetée ('+validation.reason+') · date brute : '+String(line).split(';',1)[0]);return}
+ if(!validation.valid){download.invalidRows=(download.invalidRows||0)+1;const reason='reason' in validation?validation.reason:'motif non précisé';log('Ligne historique Bluetooth rejetée ('+reason+') · date brute : '+String(line).split(';',1)[0]);return}
  const f=validation.fields,p=parseCell(f[0]);if(!p)return;
  if(download.sigs.size&&download.sigs.has(p.rk+'|'+num(f[11]))){finishDownload(true);return}
  const rec=recFrom(f);if(rec)download.rows.push(rec);
@@ -1401,7 +1401,7 @@ function render(){
  dashboardData.textContent=analysisData.length?`${analysisData.length} relevés historiques dans la période sélectionnée.`:'Aucun relevé historique exploitable dans la période sélectionnée. Importe un export VMI+.';
  const dashboardDiagnosis=buildHygrometricDiagnosis(analysisData);
  dashboardAnalysis.textContent=dashboardDiagnosis.status==='analysis-available'?'Des constats hygrométriques peuvent être établis à partir de l’historique.':'Historique encore insuffisant pour établir un diagnostic fiable.';
- $('liveCount').textContent=live.length;
+ $('liveCount').textContent=String(live.length);
  const rangeLabel=selectedDate?'jour '+selectedDate:(daysSetting?daysSetting+' derniers jours':'toute la période');
  $('historyStatus').textContent=`Graphiques : ${data.length} relevés · ${source==='live'?'enregistrement direct facultatif':'historique importé / VMI'} · ${rangeLabel}. Analyses et diagnostics : historique importé / VMI uniquement.`;
  const lastRpm=[...hist].reverse().find(r=>Number.isFinite(r.rpm));
