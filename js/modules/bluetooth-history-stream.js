@@ -118,7 +118,7 @@ export function acceptHistoryFragment(state, fragment) {
   // elle utilise cinq fragments (0 à 40) ; le passage à la ligne suivante
   // permet donc aussi de détecter la perte du dernier fragment.
   if (chunkIndex === 0 && /^\\r?\\n\\d{1,2}\\/\\d{1,2}\\/\\d{4} \\d{1,2}:\\d{2}:\\d{2};/.test(payload)) {
-    state.expectedFinalChunk = 40;
+  if (chunkIndex === 0 && /^\r?\n\d{1,2}\/\d{1,2}\/\d{4} \d{1,2}:\d{2}:\d{2};/.test(payload)) {
   }
   state.fragments.set(key, payload);
   state.expectedChunk += 10;
