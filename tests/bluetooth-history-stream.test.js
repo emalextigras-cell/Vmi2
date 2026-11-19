@@ -284,3 +284,48 @@ test('condamne la ligne en cours lorsque la séquence reçue est une chaîne', (
   assert.equal(remaining.accepted, false);
   assert.equal(state.skippedSequence, 0);
 });
+
+
+test('détecte un dernier fragment manquant au passage à la ligne suivante', () => {
+  const state = createHistoryStreamState();
+
+  // Les 25 séquences initiales sont des métadonnées, pas des lignes de mesures.
+  for (let sequence = 0; sequence < 25; sequence++) {
+    const result = acceptHistoryFragment(state, {
+      sequence, chunkIndex: 0, payload: 'metadata-' + sequence
+    });
+    assert.equal(result.accepted, true);
+  }
+
+  const rowStart = '\n12/11/2026 14:31:00;35;337;1;04;00;28;25;09,3;1;6.4.2;'
+  const send = (sequence, chunkIndex, payload) =>
+    acceptHistoryFragment(state, { sequence, chunkIndex, payload });
+
+  // Une première ligne complète établit le format observé (fragments 0 à 40).
+  assert.equal(send(25, 0, rowStart).accepted, true);
+  for (const chunkIndex of [10, 20, 30, 40]) {
+    assert.equal(send(25, chunkIndex, 'fragment-' + chunkIndex).accepted, true);
+  }
+
+  // La ligne suivante perd son dernier fragment 40 : les fragments 0 à 30 arrivent.
+  assert.equal(send(26, 0, rowStart).accepted, true);
+  for (const chunkIndex of [10, 20, 30]) {
+    assert.equal(send(26, chunkIndex, 'fragment-' + chunkIndex).accepted, true);
+  }
+
+  // L'arrivée de la ligne suivante révèle la perte terminale et impose de vider le buffer.
+  const nextRow = send(27, 0, rowStart);
+  assert.equal(nextRow.accepted, true);
+  assert.equal(nextRow.gap, true);
+  assert.equal(nextRow.resetBuffer, true);
+  assert.equal(state.gapCount, 1);
+
+  // La ligne suivante reste exploitable et sa complétude est reconnue.
+  for (const chunkIndex of [10, 20, 30, 40]) {
+    assert.equal(send(27, chunkIndex, 'fragment-' + chunkIndex).accepted, true);
+  }
+  const followingRow = send(28, 0, rowStart);
+  assert.equal(followingRow.accepted, true);
+  assert.equal(followingRow.gap, false);
+  assert.equal(state.gapCount, 1);
+});

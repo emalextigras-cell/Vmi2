@@ -10,9 +10,9 @@ import { SVC_C, CH_C, SVC_T, CH_T, frame, timeFrame, hex } from './modules/ble.j
 import { decodeVmiNotification } from './modules/bluetooth-decoder.js';
 import { createBleWriteQueue } from './modules/bluetooth-write-queue.js';
 import { runBleSessionSequence } from './modules/bluetooth-session.js';
-import { acceptHistoryFragment, createHistoryStreamState, isHistorySyncBaseline, markHistoryRows, markHistoryStreamInvalid } from './modules/bluetooth-history-stream.js';
+import { acceptHistoryFragment, createHistoryStreamState, isHistoryStreamComplete, isHistorySyncBaseline, markHistoryRows, markHistoryStreamInvalid } from './modules/bluetooth-history-stream.js';
 import { validateBluetoothHistoryRow } from './modules/bluetooth-history-row.js';
-import { armDownloadTimeout } from './modules/sync.js';
+import { armDownloadTimeout, persistCompletedHistorySync } from './modules/sync.js';
 import { parseCell, recFrom, getColumnMapping, findVmiHeaderRowIndex, parseCsvRows, isCsvFile } from './modules/dataio.js';
 import { fixClock } from './modules/clock-correction.js';
 import { absoluteHumidity, psychro, validTemp } from './modules/psychrometry.js';
@@ -515,12 +515,13 @@ function ingest(recs,label,maxTimestamp=Date.now(),options={}){
  const discarded=recs.filter(record=>!keptSet.has(record));
  if(discarded.length)log(`${label} : lignes écartées (${discarded.map(record=>record.rk+' · d='+record.d+' · brut='+new Date(record.t).toLocaleString('fr-FR')).join(' ; ')})`);
  hist=mergeImportedHistory(hist,kept,maxTimestamp);
- pruneHist();void persist('hist',hist,'Sauvegarde de l’historique').catch(()=>{});source='hist';
+ pruneHist();const historyPersistence=persist('hist',hist,'Sauvegarde de l’historique').then(()=>true).catch(()=>false);source='hist';
  // Conserver le jour choisi : une synchronisation en arrière-plan ne doit pas réinitialiser les graphiques.
  const lost=recs.length-kept.length;
  $('importInfo').textContent=`${label} : ${recs.length} relevés lus${fixed?`, dont ${fixed} dont la date a été corrigée (horloge de la VMI fausse)`:''}${lost?`, ${lost} écartés (date invalide ou postérieure à la synchronisation)`:''}.`;
  log($('importInfo').textContent);
  render();
+ return historyPersistence;
 }
 
 /* Téléchargement de l’historique : on s'arrête au premier relevé déjà connu, puis on coupe la connexion
@@ -543,11 +544,22 @@ function finishDownload(reachedCut,timeout=false,interrupted=false){
  if(!download.on)return;
  download.on=false;clearTimeout(download.timeout);
  const count=download.rows.length;
- const complete=!timeout&&!interrupted&&!download.integrityGap&&!(download.invalidRows>0)&&(reachedCut||download.finalSeen===true);
- if(count)ingest(markHistoryRows(download.rows,complete),'Téléchargement',Date.now(),{allowPre2020RawDates:true});
- if(complete){meta.lastSync=Date.now();void persist('meta',meta,'Sauvegarde des métadonnées').catch(()=>{});renderFreshness()}
+ // En arrêt sur une ligne déjà connue, le parseur vient de terminer la ligne précédente :
+ // le flux courant a déjà commencé la ligne suivante, volontairement incomplète.
+ const streamComplete=reachedCut||isHistoryStreamComplete(download.historyStream);
+ const complete=!timeout&&!interrupted&&!download.integrityGap&&!(download.invalidRows>0)&&streamComplete&&(reachedCut||download.finalSeen===true);
+ const historyPersistence=count
+  ?ingest(markHistoryRows(download.rows,complete),'Téléchargement',Date.now(),{allowPre2020RawDates:true})
+  :Promise.resolve(true);
+ if(complete){
+  const nextMeta={...meta,lastSync:Date.now()};
+  void persistCompletedHistorySync({
+   saveHistory:()=>historyPersistence,
+   saveMetadata:()=>persist('meta',nextMeta,'Sauvegarde des métadonnées').then(()=>{meta=nextMeta;renderFreshness()})
+  }).catch(()=>{});
+ }
  $('dlh').disabled=false;setCommandsDisabled(false);
- $('dlp').textContent=`Terminé : ${count} nouvelles lignes${download.invalidRows>0?' · lignes rejetées : synchronisation non certifiée, relance nécessaire':download.integrityGap?' · lacune détectée : synchronisation non certifiée, relance nécessaire':interrupted?(download.got?' · transfert interrompu, données partielles conservées ; relance la synchronisation':' · transfert interrompu avant réception') :reachedCut?' · historique à jour':timeout?(download.got?' · arrêt après une pause de 20 s':' · aucune réponse de la VMI'):(download.sigs.size?' · attention : trou possible avant la dernière ligne mémorisée':' · historique complet')}`;
+ $('dlp').textContent=`Terminé : ${count} nouvelles lignes${download.invalidRows>0?' · lignes rejetées : synchronisation non certifiée, relance nécessaire':download.integrityGap?' · lacune détectée : synchronisation non certifiée, relance nécessaire':!streamComplete?' · dernier relevé incomplet : synchronisation non certifiée, relance nécessaire':interrupted?(download.got?' · transfert interrompu, données partielles conservées ; relance la synchronisation':' · transfert interrompu avant réception') :reachedCut?' · historique à jour':timeout?(download.got?' · arrêt après une pause de 20 s':' · aucune réponse de la VMI'):(download.sigs.size?' · attention : trou possible avant la dernière ligne mémorisée':' · historique complet')}`;
  if(reachedCut&&dev&&dev.gatt&&dev.gatt.connected){
   // La VMI ne sait pas arrêter seule le flux historique : cette coupure est volontaire.
   // onDisconnect doit la distinguer d'une vraie perte de liaison.
