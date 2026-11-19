@@ -3,7 +3,7 @@
 /**
  * Projection pure du résultat de l'assistant vers le DOM.
  * Ce module ne calcule aucun diagnostic et ne dépend ni du Bluetooth ni du stockage.
- * @param {AssistantSummary & {status:string}} result Résultat métier déjà calculé.
+ * @param {Omit<AssistantSummary, 'status'> & {status:string}} result Résultat métier déjà calculé.
  * @param {{documentRef?: Document}} [options] Document cible, injectable pour les tests.
  * @returns {void}
  */
