@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import { decodeVmiNotification } from '../js/modules/bluetooth-decoder.js';
+import { createBluetoothNotificationHandler } from '../js/modules/bluetooth-runtime.js';
 
-test('les états Boost et Vacances restent décodés après la vitesse brute', async () => {
+test('les états Boost et Vacances restent décodés après la vitesse brute', () => {
   const bytes = new Uint8Array(54);
   bytes[0] = 0xA5;
   bytes[1] = 0xB6;
@@ -18,7 +18,32 @@ test('les états Boost et Vacances restent décodés après la vitesse brute', a
   assert.equal(decoded.boost, 0);
   assert.equal(decoded.holiday, 1);
 
-  const source = await readFile(new URL('../js/app.js', import.meta.url), 'utf8');
-  assert.ok(source.includes('cur.vit=decoded.rawSpeed+1;'));
-  assert.ok(source.includes('cur.boost=decoded.boost;cur.hol=decoded.holiday;cur.rpm=null;'));
+  const cur = {};
+  const elements = new Map();
+  const handler = createBluetoothNotificationHandler({
+    decodeVmiNotification: () => decoded,
+    getDownload: () => ({ on: false }),
+    getCur: () => cur,
+    getLastSeen: () => ({}),
+    acceptHistoryFragment: () => ({ accepted: true }),
+    markHistoryStreamInvalid: () => {},
+    parseDownloadLine: () => {},
+    incrementDlFrames: () => 0,
+    armTimer: () => {},
+    finishDownload: () => {},
+    updateLiveMetrics: () => {},
+    log: () => {},
+    hex: () => '',
+    $: id => {
+      if (!elements.has(id)) elements.set(id, { textContent: '' });
+      return elements.get(id);
+    },
+    now: () => 1
+  });
+
+  handler({ target: { value: new DataView(bytes.buffer) } });
+  assert.equal(cur.vit, 2);
+  assert.equal(cur.boost, 0);
+  assert.equal(cur.hol, 1);
+  assert.equal(elements.get('sp').textContent, 2);
 });
