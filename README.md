@@ -103,7 +103,6 @@ Le point d'entrée de l'application est `index.html`, qui charge les styles, le 
 | `js/modules/backup.js` | Création et fusion des sauvegardes |
 | `js/modules/chart-renderer.js` et `charts.js` | Graphiques et préparation des séries |
 | `js/modules/energy-meter.js`, `energy-estimate.js` et `energy-climate.js` | Index externes, estimation ventilateur et rapprochements énergie/climat |
-| `js/modules/weekly-diagnostic.js` | Comparaison hygrométrique de fenêtres hebdomadaires |
 | `js/modules/energy-*.js` | Estimations indicatives, contexte climatique et suivi par compteurs |
 | `js/types/` et `jsconfig.json` | Types JSDoc et vérification statique |
 | `sw.js` et `manifest.json` | Cache applicatif et installation PWA |
