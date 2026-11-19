@@ -567,7 +567,7 @@ test('trend accepts the maximum four-day span inside each three-day window',()=>
 
 test('trend compares only days inside the last fourteen calendar days',()=>{
  const rows=[];
- [1,2,3,9,10,11,12,13,14,15,16].forEach((day,index)=>{
+ [1,2,9,10,11,12,13,14,15,16].forEach((day,index)=>{
   for(let i=0;i<4;i++) rows.push({
    t:new Date(2026,10,day,8,i*30,0).getTime(),
    st:20,sh:index<3?45:day<=11?45:75,te:10,he:40
