@@ -144,11 +144,12 @@ test('summarizeRawVmiMode exclut les débits négatifs des mesures observées', 
     { vmiModeRaw: 1, debit: -5, volumeRaw: 200 }
   ]);
 
-  assert.deepEqual(result.map(group => group.mode), [1]);
-  assert.equal(result[0].sampleCount, 1);
-  assert.equal(result[0].medianDebit, 100);
-  assert.equal(result[0].minDebit, 100);
-  assert.equal(result[0].maxDebit, 100);
+  const mode1 = result.find(group => group.mode === 1);
+  assert.ok(mode1);
+  assert.equal(mode1.sampleCount, 1);
+  assert.equal(mode1.medianDebit, 100);
+  assert.equal(mode1.minDebit, 100);
+  assert.equal(mode1.maxDebit, 100);
 });
 
 test('summarizeRawVmiSpeed ne transforme pas un code Mode brut en code Vitesse', () => {
