@@ -9,6 +9,7 @@
 /** @overload @param {'energyMeterType'|'targetRH'|'minSamples'} id @returns {HTMLSelectElement|null} */
 /** @overload @param {'energyMeterNote'} id @returns {HTMLInputElement|null} */
 /** @overload @param {'energyMeterForm'} id @returns {HTMLFormElement|null} */
+/** @overload @param {string} id @returns {HTMLElement|null} */
 /** @param {string} id Identifiant HTML.
  * @returns {HTMLElement|null} Élément trouvé ou null.
  */
