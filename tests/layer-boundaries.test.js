@@ -61,7 +61,9 @@ test('les modules de calcul et de décodage restent indépendants du DOM et des 
   ];
   for (const path of paths) {
     const source = await readFile(new URL('../' + path, import.meta.url), 'utf8');
-    assert.doesNotMatch(source, /\b(?:document|window|navigator|indexedDB|localStorage)\b/,
+    // Les mots présents dans la documentation JSDoc ne sont pas des dépendances d’exécution.
+    const executableSource = source.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
+    assert.doesNotMatch(executableSource, /\b(?:document|window|navigator|indexedDB|localStorage)\b/,
       path + ' ne doit pas dépendre du DOM, du stockage ou des API navigateur matérielles');
   }
 });
