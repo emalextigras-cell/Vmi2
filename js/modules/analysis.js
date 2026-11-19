@@ -265,7 +265,7 @@ export function analyzeSpeedTimeContext(data, { minSamples = 5, minDays = 2 } = 
  * compareOperatingPeriods — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
  * @param {VmiRecord[]} data Historique des relevés VMI.
  * @param {AnalysisOptions} options Paramètres de fenêtre et de couverture.
- * @returns {UnknownRecord} Comparaison des périodes successives.
+ * @returns {import('../types/vmi-types.js').OperatingPeriodsResult} Comparaison des périodes successives.
  */
 export function compareOperatingPeriods(data, {
   periodDays = 7, minSamples = 12, minDays = 3
