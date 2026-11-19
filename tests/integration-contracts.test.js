@@ -157,3 +157,63 @@ test('contrat intégré : la synthèse métier produit un modèle directement af
   assert.equal(elements.get('assistantSections').children.length, summary.sections.length);
   assert.equal(elements.get('assistantLimits').children.length, summary.limits.length);
 });
+
+
+test('contrat intégré : un fragment initial manquant dans le flux BLE condamne la ligne sans bloquer la suivante', () => {
+  const stream = createHistoryStreamState();
+  let buffer = '';
+  let integrityGap = false;
+  const validatedRows = [];
+  const rows = [
+    '11/11/2026 14:00:00;1;2;3;4;5;6;7;8;9;10;1000\\r\\n',
+    '11/11/2026 13:00:00;1;2;3;4;5;6;7;8;9;10;1001\\r\\n'
+  ];
+  const fragments = row => [
+    row.slice(0, 12),
+    row.slice(12, 24),
+    row.slice(24, 36),
+    row.slice(36, 48),
+    row.slice(48)
+  ];
+
+  const receive = (sequence, chunkIndex, payload) => {
+    const decoded = decodeVmiNotification(makeHistoryNotification(sequence, chunkIndex, payload));
+    assert.equal(decoded?.kind, 'history');
+    assert.equal(decoded.valid, true);
+    const text = new TextDecoder('latin1').decode(decoded.payload);
+    const result = acceptHistoryFragment(stream, {
+      sequence: decoded.sequence,
+      chunkIndex: decoded.chunkIndex,
+      payload: text
+    });
+    if (result.gap) integrityGap = true;
+    if (result.resetBuffer) buffer = '';
+    if (!result.accepted) return;
+    buffer += text;
+    const lines = buffer.split(/\\r\\n|\\n|\\r(?!$)/);
+    buffer = lines.pop();
+    for (const line of lines) {
+      if (line.trim()) validatedRows.push(validateBluetoothHistoryRow(line));
+    }
+  };
+
+  // Ligne 77 complète, comme les lignes précédant la perte observée dans la capture.
+  fragments(rows[0]).forEach((part, index) => receive(77, index * 10, part));
+  // Ligne 78 : le fragment 0 manque ; les fragments restants doivent être ignorés.
+  fragments(rows[0]).slice(1).forEach((part, index) => receive(78, (index + 1) * 10, part));
+  // Ligne 79 : la ligne suivante complète doit redevenir exploitable.
+  fragments(rows[1]).forEach((part, index) => receive(79, index * 10, part));
+
+  assert.equal(integrityGap, true);
+  assert.equal(validatedRows.length, 2);
+  assert.equal(validatedRows[0].valid, true);
+  assert.equal(validatedRows[1].valid, true);
+  assert.equal(validatedRows[1].fields[0], '11/11/2026 13:00:00');
+  assert.equal(stream.gapCount, 1);
+
+  const savedRows = markHistoryRows(
+    validatedRows.filter(result => result.valid).map(result => ({ rk: result.fields[0] })),
+    !integrityGap
+  );
+  assert.ok(savedRows.every(row => row.syncPartial === true));
+});
