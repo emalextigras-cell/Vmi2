@@ -8,6 +8,7 @@ on:
       - audit/bluetooth-hardening
       - chore/jsdoc-strict-typing
       - chore/test-first-hardening
+      - chore/npm-test-syntax-parity
   pull_request:
     branches:
       - main
