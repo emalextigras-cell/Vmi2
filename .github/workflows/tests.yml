@@ -22,9 +22,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Vérifier la syntaxe de l’application
-        run: find js tests -name '*.js' -print0 | xargs -0 -n1 node --check
-      - name: Exécuter les tests
+      - name: Vérifier la syntaxe et exécuter les tests
         run: npm test
       - name: Vérifier les types JSDoc
         run: npx --yes --package typescript@5.9.3 -- tsc --noEmit -p jsconfig.json
