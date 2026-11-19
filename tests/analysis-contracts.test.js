@@ -138,18 +138,22 @@ test('summarizeOperatingReference conserve les groupes bruts et exige plusieurs 
   assert.match(result.limits.join(' '), /aucun code brut n’est converti/);
 });
 
-test('summarizeRawVmiMode exclut les débits négatifs des mesures observées', () => {
+test('summarizeRawVmiMode garde la référence mode 3 distincte des mesures observées', () => {
   const result = summarizeRawVmiMode([
     { vmiModeRaw: 1, debit: 100, volumeRaw: 200 },
-    { vmiModeRaw: 1, debit: -5, volumeRaw: 200 }
+    { vmiModeRaw: 1, debit: -5, volumeRaw: 200 },
+    { vmiModeRaw: 3, debit: 150, volumeRaw: 300 }
   ]);
 
-  const mode1 = result.find(group => group.mode === 1);
-  assert.ok(mode1);
-  assert.equal(mode1.sampleCount, 1);
-  assert.equal(mode1.medianDebit, 100);
-  assert.equal(mode1.minDebit, 100);
-  assert.equal(mode1.maxDebit, 100);
+  assert.deepEqual(result.map(group => group.mode), [1, 3]);
+  assert.equal(result[0].sampleCount, 1);
+  assert.equal(result[0].medianDebit, 100);
+  assert.equal(result[0].referenceDebit, null);
+  assert.equal(result[1].sampleCount, 1);
+  assert.equal(result[1].medianDebit, 150);
+  assert.equal(result[1].referenceDebit, 184);
+  assert.equal(result[1].referenceRenewalRate, 184 / 337);
+  assert.equal(result[1].medianRenewalRate, 0.5);
 });
 
 test('summarizeRawVmiSpeed ne transforme pas un code Mode brut en code Vitesse', () => {
@@ -161,6 +165,12 @@ test('summarizeRawVmiSpeed ne transforme pas un code Mode brut en code Vitesse',
   ]);
 
   assert.deepEqual(result.map(group => group.code), [1, 2]);
+  assert.equal(result[0].sampleCount, 1);
+  assert.equal(result[0].medianDebit, 90);
+  assert.equal(result[1].sampleCount, 2);
+  assert.equal(result[1].medianDebit, 130);
+  assert.equal(result[1].minDebit, 120);
+  assert.equal(result[1].maxDebit, 140);
 });
 
 

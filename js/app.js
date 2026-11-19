@@ -28,6 +28,11 @@ import { analyzeSeasonalVentilation } from './modules/seasonal-advice.js';
 import { renderVmiAssistant } from './modules/assistant-renderer.js';
 import { selectDataRange } from './modules/history-selection.js';
 
+/** @typedef {import('./types/vmi-types.js').VmiRecord} VmiRecord */
+/** @typedef {import('./types/vmi-types.js').UnknownRecord} UnknownRecord */
+/** @typedef {import('./types/vmi-types.js').EnergyReading} EnergyReading */
+/** @typedef {import('./types/vmi-types.js').EnergyMeterType} EnergyMeterType */
+
 
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{})}
 
@@ -59,7 +64,11 @@ let dev=null,chC=null,chT=null,pollTimer=null,snapTimer=null,reconnectTimer=null
 let bleConnectionGeneration=0,connectionIntentGeneration=0,connectionRequestPending=false;
 let manualDisconnect=false,intentionalDisconnect=false,manualCommandPending=false,pollingSessionToken=null,autoDone=false;
 let bleNotificationHandler=null,bleNotificationCharacteristics=[],bleDisconnectHandler=null;
-let meta={},cur={},lastSeen={},live=[],hist=[],energyReadings=[],source='hist',selectedDate=null,daysSetting=30;
+/** @type {UnknownRecord} */ let meta={};
+let cur={},lastSeen={};
+/** @type {VmiRecord[]} */ let live=[],hist=[];
+/** @type {EnergyReading[]} */ let energyReadings=[];
+let source='hist',selectedDate=null,daysSetting=30;
 let logLines=[],dlFrames=0;
 let download={on:false,rows:[],buf:'',total:0,sigs:new Set(),got:false,lastPacket:0,timeout:null,historyStream:createHistoryStreamState(),integrityGap:false,dataStarted:false};
 const DB='VMI_PUREVENT_DB_TEST',STORE='data';
@@ -118,7 +127,7 @@ async function init(){
  const snapshot=normalizeStoreSnapshot({
   history:storedHistory,live:storedLive,energyReadings:storedEnergyReadings,meta:storedMeta
  });
- live=snapshot.live;hist=snapshot.history;meta=snapshot.meta;energyReadings=snapshot.energyReadings;
+ live=/** @type {VmiRecord[]} */ (snapshot.live);hist=/** @type {VmiRecord[]} */ (snapshot.history);meta=snapshot.meta;energyReadings=/** @type {EnergyReading[]} */ (snapshot.energyReadings);
  const migrated=await dbGet('migrated');
  // Le marqueur est l'unique preuve d'une migration achevée. Des données déjà présentes
  // ne doivent pas empêcher une nouvelle tentative après une migration interrompue.
@@ -156,7 +165,7 @@ async function init(){
   // marquer la migration comme terminée : elle pourra être retentée au prochain démarrage.
   await dbSet('hist',hist);if(live.length)await dbSet('live',live);
  }
- $('liveCount').textContent=live.length;render();
+ $('liveCount').textContent=String(live.length);render();
 }
 function pruneHist(){
  const result=pruneHistory(hist,HIST_MAX);
@@ -270,7 +279,7 @@ function takeSnapshot(){
  if(!Number.isFinite(row.st)&&!Number.isFinite(row.sh))return;
  live.push(row);
  if(live.length>10000)live.splice(0,live.length-10000);
- void persist('live',live,'Sauvegarde des relevés en direct').catch(()=>{});$('liveCount').textContent=live.length;
+ void persist('live',live,'Sauvegarde des relevés en direct').catch(()=>{});$('liveCount').textContent=String(live.length);
  if(source==='live')render();
 }
 
@@ -525,7 +534,7 @@ function parseDownloadLine(line){
   return;
  }
  const validation=validateBluetoothHistoryRow(line);
- if(!validation.valid){download.invalidRows=(download.invalidRows||0)+1;log('Ligne historique Bluetooth rejetée ('+validation.reason+') · date brute : '+String(line).split(';',1)[0]);return}
+ if(!validation.valid){download.invalidRows=(download.invalidRows||0)+1;const reason='reason' in validation?validation.reason:'motif non précisé';log('Ligne historique Bluetooth rejetée ('+reason+') · date brute : '+String(line).split(';',1)[0]);return}
  const f=validation.fields,p=parseCell(f[0]);if(!p)return;
  if(download.sigs.size&&download.sigs.has(p.rk+'|'+num(f[11]))){finishDownload(true);return}
  const rec=recFrom(f);if(rec)download.rows.push(rec);
@@ -555,7 +564,7 @@ async function startDownload(auto=false){
   if(download.on)finishDownload(false,true,true);
  };
  showError('');dlFrames=0;
- download={on:true,rows:[],buf:'',total:0,sigs:new Set(hist.filter(r=>isHistorySyncBaseline(r)&&r.rk&&Number.isFinite(r.d)).map(sigOf)),got:false,lastPacket:Date.now(),timeout:null,historyStream:createHistoryStreamState(),integrityGap:false};
+ download={on:true,rows:[],buf:'',total:0,sigs:new Set(hist.filter(r=>isHistorySyncBaseline(r)&&r.rk&&Number.isFinite(r.d)).map(sigOf)),got:false,lastPacket:Date.now(),timeout:null,historyStream:createHistoryStreamState(),integrityGap:false,dataStarted:false};
  $('dlh').disabled=true;setCommandsDisabled(true);
  $('dlp').textContent=auto?'Téléchargement automatique de l’historique…':'Démarrage du téléchargement…';
  const sequenceOk=await runBleSessionSequence({
@@ -594,7 +603,9 @@ function loadXLSX(){
  return xlsxPromise;
 }
 $('fx').onchange=async e=>{
- const file=e.target.files&&e.target.files[0];if(!file)return;showError('');
+ const input=e.currentTarget instanceof HTMLInputElement?e.currentTarget:null;
+ if(!input)return;
+ const file=input.files&&input.files[0];if(!file)return;showError('');
  try{
   let rows,spreadsheet=null;
   if(isCsvFile(file.name)){
@@ -614,12 +625,12 @@ $('fx').onchange=async e=>{
   const recs=[];for(let i=headerIndex+1;i<rows.length;i++){const r=recFrom(rows[i],spreadsheet,columnMapping);if(r)recs.push(r)}
   ingest(recs,'Import');
  }catch(err){showError('Import impossible : '+err.message)}
- e.target.value='';
+ input.value='';
 };
 $('clearImport').onclick=async()=>{if(!confirm('Effacer tout l’historique importé ?'))return;try{await persist('hist',[],'Effacement de l’historique');hist=[];$('importInfo').textContent='';render()}catch{} };
 $('histBtn').onclick=()=>{source='hist';render()};
 $('liveBtn').onclick=()=>{source='live';render()};
-$('dayPicker').onchange=e=>{selectedDate=e.target.value||null;resetChartViews();render()};
+$('dayPicker').onchange=e=>{if(!(e.currentTarget instanceof HTMLInputElement))return;selectedDate=e.currentTarget.value||null;resetChartViews();render()};
 $('clearDay').onclick=()=>{selectedDate=null;$('dayPicker').value='';resetChartViews();render()};
 $('prev').onclick=()=>{selectedDate=shiftDay(selectedDate,-1);$('dayPicker').value=selectedDate;resetChartViews();render()};
 $('next').onclick=()=>{selectedDate=shiftDay(selectedDate,1);$('dayPicker').value=selectedDate;resetChartViews();render()};
@@ -649,10 +660,11 @@ function histToCsv(rows){
  return lines.join('\r\n');
 }
 function makeBackup(){return createBackupSnapshot({hist,live,meta,energyReadings})}
+/** @param {UnknownRecord} obj Sauvegarde JSON validée comme objet. */
 async function restoreBackup(obj){
  const result=mergeBackupData({backup:obj,currentHist:hist,currentLive:live,currentMeta:meta,currentEnergyReadings:energyReadings,minValid:MIN_VALID});
  const nextHist=pruneHistory(result.hist,HIST_MAX).records;
- const entries=[['hist',nextHist],['live',result.live],['energyReadings',result.energyReadings]];
+ const entries=/** @type {Array<[IDBValidKey, unknown]>} */ ([['hist',nextHist],['live',result.live],['energyReadings',result.energyReadings]]);
  if(result.meta.lastSync!==meta.lastSync)entries.push(['meta',result.meta]);
  // Ne modifier l'état en mémoire qu'après validation atomique du stockage local.
  await dbSetMany(entries);
@@ -671,7 +683,7 @@ $('expBackup').onclick=()=>{
 };
 $('energyMeterForm').addEventListener('submit',async event=>{
  event.preventDefault();
- const meterType=$('energyMeterType').value;
+ const meterType=/** @type {EnergyMeterType} */ ($('energyMeterType').value);
  const timestamp=new Date($('energyMeterAt').value).getTime();
  const rawKwh=$('energyMeterKwh').value.trim();
  const kwh=rawKwh===''?NaN:Number(rawKwh);
@@ -692,7 +704,7 @@ $('energyMeterForm').addEventListener('submit',async event=>{
 });
 $('energyMeterAt').value=localDateTimeValue();
 $('energyMeterHistory').addEventListener('click',async event=>{
- const button=event.target.closest('[data-energy-delete]');
+ const button=event.target instanceof Element?event.target.closest('[data-energy-delete]'):null;
  if(!button)return;
  const id=button.getAttribute('data-energy-delete');
  const nextReadings=energyReadings.filter(reading=>reading.id!==id);
@@ -701,14 +713,18 @@ $('energyMeterHistory').addEventListener('click',async event=>{
  renderEnergyMeterTracking();
 });
 $('restoreFile').onchange=async e=>{
- const file=e.target.files&&e.target.files[0];if(!file)return;
+ const input=e.currentTarget instanceof HTMLInputElement?e.currentTarget:null;
+ if(!input)return;
+ const file=input.files&&input.files[0];if(!file)return;
  try{
-  const obj=JSON.parse(await file.text());
+  const parsed=JSON.parse(await file.text());
+  if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))throw new Error('Fichier de sauvegarde invalide : objet attendu.');
+  const obj=/** @type {UnknownRecord} */ (parsed);
   const {add,enriched,addL,addEnergy}=await restoreBackup(obj);
   $('backupInfo').textContent='Sauvegarde restaurée : '+add+' relevés d’historique ajoutés, '+enriched+' complétés, '+addL+' relevés en direct et '+addEnergy+' index de compteur ajoutés.';
   render();
  }catch(err){$('backupInfo').textContent='Restauration impossible : '+err.message}
- e.target.value='';
+ input.value='';
 };
 /* La VMI ne garde que ~800 relevés : on estime sa capacité en jours d'après le rythme réel des relevés
    et on prévient avant que des relevés non téléchargés soient écrasés. */
@@ -931,7 +947,7 @@ function renderIntelligentDiagnosis(data){
      incomingAbsoluteHumidityChange:'Évolution de l’humidité absolue entrante',indoorMinusIncomingChange:'Évolution de l’écart salon − air entrant',
      baselineIndoorMinusIncomingMedian:'Écart salon − air entrant — fenêtre initiale',
      recentIndoorMinusIncomingMedian:'Écart salon − air entrant — fenêtre récente',
-     eligibleDays:'Jours suffisamment échantillonnés',requiredDays:'Jours minimum requis',
+     eligibleDays:'Jours suffisamment échantillonnés',
      minimumDailySamples:'Relevés minimum par jour',daysPerWindow:'Jours par fenêtre',
      risingDays:'Jours orientés à la hausse',fallingDays:'Jours orientés à la baisse',minimumDirectionalDays:'Jours directionnels minimum',
      change:'Évolution mesurée',timeWindow:'Tranche horaire retenue',
@@ -1401,7 +1417,7 @@ function render(){
  dashboardData.textContent=analysisData.length?`${analysisData.length} relevés historiques dans la période sélectionnée.`:'Aucun relevé historique exploitable dans la période sélectionnée. Importe un export VMI+.';
  const dashboardDiagnosis=buildHygrometricDiagnosis(analysisData);
  dashboardAnalysis.textContent=dashboardDiagnosis.status==='analysis-available'?'Des constats hygrométriques peuvent être établis à partir de l’historique.':'Historique encore insuffisant pour établir un diagnostic fiable.';
- $('liveCount').textContent=live.length;
+ $('liveCount').textContent=String(live.length);
  const rangeLabel=selectedDate?'jour '+selectedDate:(daysSetting?daysSetting+' derniers jours':'toute la période');
  $('historyStatus').textContent=`Graphiques : ${data.length} relevés · ${source==='live'?'enregistrement direct facultatif':'historique importé / VMI'} · ${rangeLabel}. Analyses et diagnostics : historique importé / VMI uniquement.`;
  const lastRpm=[...hist].reverse().find(r=>Number.isFinite(r.rpm));
@@ -1409,8 +1425,8 @@ function render(){
  const quality=summarizeDataQuality(analysisData);
  renderVmiAssistant(analysisData,{targetRH:Number($('targetRH').value),minSamples:Number($('minSamples').value),energyReadings,meterHistory:hist,onError:log});
  const qualityBox=$('dataQuality');
- const coreCoverage=quality.fieldCoverage.filter(field=>quality.coreSensorKeys.includes(field.key));
- const missingDetails=coreCoverage.filter(field=>field.missingCount>0)
+ const coreCoverage=quality.fieldCoverage.filter(field=>quality.coreSensorKeys.includes(String(field.key)));
+ const missingDetails=coreCoverage.filter(field=>Number(field.missingCount)>0)
   .map(field=>`${field.label} : ${field.missingCount} absent(s)`);
  const invalidDetails=quality.fields.map(field=>`${field.label} : ${field.invalidCount} aberrant(s)`);
  const coverageText=quality.total

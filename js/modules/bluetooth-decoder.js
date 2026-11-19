@@ -1,14 +1,15 @@
-/** @typedef {import('../types/vmi-types.js').UnknownRecord} UnknownRecord */
-
 /**
  * Décodage pur des notifications VMI observées.
  * Les offsets et seuils de longueur reprennent strictement le parseur historique.
  * Aucune interprétation physique ni correction de valeur n'est ajoutée ici.
  */
 /**
- * decodeVmiNotification — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
- * @param {Uint8Array|ArrayBuffer|number[]} input Paramètre input.
- * @returns {UnknownRecord|null} Résultat de decodeVmiNotification.
+ * @typedef {{kind:'history',valid:false,length:number}|{kind:'history',valid:true,payload:Uint8Array,sequence:number,chunkIndex:number,received:number,final:boolean}|{kind:'state',filter:number,days:number,volume:number,maxTemperature:number,rawSpeed:number,boost:number,holiday:number}|{kind:'room',temperature:number,humidity:number}|{kind:'probes',firstTemperature:number,firstHumidity:number,secondTemperature:number,secondHumidity:number}|{kind:'history-total',total:number}|{kind:'unknown',type:number,length:number}} VmiNotification
+ */
+/**
+ * decodeVmiNotification — contrat discriminé d'entrée/sortie pour l'analyse statique.
+ * @param {Uint8Array|ArrayBuffer|number[]} input Trame Bluetooth brute.
+ * @returns {VmiNotification|null} Notification décodée.
  */
 export function decodeVmiNotification(input) {
   if (!input) return null;

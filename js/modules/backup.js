@@ -1,6 +1,7 @@
 /** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
 /** @typedef {import('../types/vmi-types.js').UnknownRecord} UnknownRecord */
 /** @typedef {import('../types/vmi-types.js').EnergyReading} EnergyReading */
+/** @typedef {{hist:VmiRecord[],live:VmiRecord[],meta:UnknownRecord,energyReadings:EnergyReading[],addedHistory:number,enrichedHistory:number,addedLive:number,addedEnergyReadings:number}} BackupMergeResult */
 
 /** Fonctions pures de création et de restauration des sauvegardes. */
 import { mergeRecordFields, isRawDateEligible } from './history.js';
@@ -28,7 +29,7 @@ export function createBackupSnapshot({ hist, live, meta, energyReadings, exporte
 /**
  * Fusionne une sauvegarde dans les données locales en préservant les champs existants.
  * @param {{backup: UnknownRecord, currentHist?: VmiRecord[], currentLive?: VmiRecord[], currentMeta?: UnknownRecord, currentEnergyReadings?: EnergyReading[], minValid: number, maxLive?: number, maxTimestamp?: number}} options Sauvegarde et état local à fusionner.
- * @returns {UnknownRecord} Données fusionnées et compteurs d'import.
+ * @returns {BackupMergeResult} Données fusionnées et compteurs d'import.
  */
 export function mergeBackupData({
   backup, currentHist = [], currentLive = [], currentMeta = {},
