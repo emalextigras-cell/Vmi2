@@ -1,0 +1,159 @@
+/**
+ * Runtime Bluetooth de l'application.
+ *
+ * Les dépendances navigateur, l'état applicatif et le rendu sont injectés :
+ * le comportement peut ainsi être testé sans charger app.js ni piloter une VMI.
+ */
+
+/**
+ * Construit le traitement des notifications Bluetooth.
+ * Les objets d'état sont récupérés à chaque notification car download est remplacé
+ * lors du démarrage d'une nouvelle synchronisation.
+ */
+export function createBluetoothNotificationHandler(deps) {
+  const {
+    decodeVmiNotification,
+    getDownload,
+    getCur,
+    getLastSeen,
+    acceptHistoryFragment,
+    markHistoryStreamInvalid,
+    parseDownloadLine,
+    incrementDlFrames,
+    armTimer,
+    finishDownload,
+    updateLiveMetrics,
+    log,
+    hex,
+    $,
+    now = Date.now
+  } = deps;
+
+  return function handleNotification(ev) {
+    const value = ev.target.value;
+    const bytes = new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+    const decoded = decodeVmiNotification(bytes);
+    if (!decoded) return;
+
+    const timestamp = now();
+    const download = getDownload();
+
+    if (decoded.kind === 'history') {
+      if (!download.on) return;
+      if (!decoded.valid) {
+        markHistoryStreamInvalid(download.historyStream);
+        download.integrityGap = true;
+        download.buf = '';
+        log('Trame d’historique trop courte : transfert marqué incomplet, synchronisation à relancer.');
+        return;
+      }
+
+      const payload = new TextDecoder('latin1').decode(decoded.payload);
+      const integrity = acceptHistoryFragment(download.historyStream, {
+        sequence: decoded.sequence,
+        chunkIndex: decoded.chunkIndex,
+        payload
+      });
+      if (integrity.duplicate) return;
+      if (integrity.gap) {
+        download.integrityGap = true;
+        if (integrity.resetBuffer) download.buf = '';
+        log('Lacune ou désordre dans le flux historique : fragment incomplet écarté.');
+      }
+      if (!integrity.accepted) return;
+
+      const frameCount = incrementDlFrames();
+      if (frameCount % 200 === 1) log(`< trames d’historique reçues : ${frameCount}`);
+      download.got = true;
+      download.lastPacket = timestamp;
+      download.buf += payload;
+      const lines = download.buf.split(/\r\n|\n|\r(?!$)/);
+      download.buf = lines.pop();
+      lines.forEach(parseDownloadLine);
+
+      if (download.on) {
+        $('dlp').textContent = `${download.rows.length} nouvelles lignes (index historique ${decoded.sequence + 1} / ${download.total || '?'})`;
+        armTimer();
+        if (decoded.final) {
+          if (download.buf.trim()) {
+            const tail = download.buf.split(/\r\n|\n|\r/);
+            download.buf = '';
+            tail.filter(line => line.trim()).forEach(parseDownloadLine);
+          }
+          if (download.on) {
+            download.finalSeen = true;
+            finishDownload(false);
+          }
+        }
+      }
+      return;
+    }
+
+    log('< ' + hex(bytes));
+    const cur = getCur();
+    const lastSeen = getLastSeen();
+
+    if (decoded.kind === 'state') {
+      cur.filtre = decoded.filter;
+      cur.jours = decoded.days;
+      cur.vol = decoded.volume;
+      cur.tmax = decoded.maxTemperature;
+      cur.vit = decoded.rawSpeed + 1; // code brut VMI : ne jamais le traiter comme niveau manuel
+      cur.boost = decoded.boost;
+      cur.hol = decoded.holiday;
+      cur.rpm = null;
+      lastSeen.state = timestamp;
+      $('fi').textContent = cur.filtre;
+      $('jf').textContent = cur.jours;
+      $('vo').textContent = cur.vol;
+      $('tm').textContent = cur.tmax;
+      $('sp').textContent = cur.vit;
+      $('bo').textContent = cur.boost ? 'Actif' : 'Arrêté';
+      $('ho').textContent = cur.hol ? 'Actif' : 'Arrêté';
+    } else if (decoded.kind === 'room') {
+      cur.sal_t = decoded.temperature;
+      cur.sal_h = decoded.humidity;
+      lastSeen.salon = timestamp;
+      $('tp').textContent = cur.sal_t;
+      $('hp').textContent = cur.sal_h;
+    } else if (decoded.kind === 'probes') {
+      cur.s1_t = decoded.firstTemperature;
+      cur.s1_h = decoded.firstHumidity;
+      cur.s2_t = decoded.secondTemperature;
+      cur.s2_h = decoded.secondHumidity;
+      lastSeen.probes = timestamp;
+      $('ti').textContent = cur.s1_t;
+      $('hi').textContent = cur.s1_h;
+      $('t2').textContent = cur.s2_t;
+      $('h2').textContent = cur.s2_h;
+    } else if (decoded.kind === 'history-total') {
+      download.total = decoded.total;
+      return;
+    } else {
+      return;
+    }
+
+    updateLiveMetrics();
+  };
+}
+
+/**
+ * Construit la reconnexion automatique.
+ * La gestion du timer reste injectable pour pouvoir tester les délais et annulations.
+ */
+export function createReconnectHandler(deps) {
+  async function reconnect() {
+    if (deps.isManualDisconnect() || !deps.getDevice() || deps.isConnectionRequestPending()) return;
+
+    const intent = deps.getConnectionIntentGeneration();
+    try {
+      await deps.connectDevice(deps.getDevice(), intent);
+    } catch (error) {
+      if (intent !== deps.getConnectionIntentGeneration() || deps.isConnectionRequestPending()) return;
+      deps.log('Reconnexion échouée : ' + error.message);
+      deps.clearTimeout(deps.getReconnectTimer());
+      deps.setReconnectTimer(deps.setTimeout(reconnect, 7000));
+    }
+  }
+  return reconnect;
+}

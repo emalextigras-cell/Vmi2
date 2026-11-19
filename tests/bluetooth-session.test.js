@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { runBleSessionSequence } from '../js/modules/bluetooth-session.js';
+import { createReconnectHandler } from '../js/modules/bluetooth-runtime.js';
 
 test('arrête la séquence dès que la session BLE change', async () => {
   let token = 1;
@@ -57,11 +58,11 @@ test('les scrutations et notifications sont liées à leur session BLE', async (
   assert.ok(source.includes('if(ev.target!==characteristicT&&ev.target!==characteristicC)return;'));
   assert.ok(source.includes('if(sessionIsCurrent(token,device)&&connected())autoHistory()'));
   assert.ok(source.includes('const commandIsCurrent=()=>sessionIsCurrent(commandToken,commandDevice)&&connected()'));
-  assert.ok(source.includes('if(!commandIsCurrent()){result.textContent=\'Connexion interrompue : l’état de la commande n’a pas pu être vérifié.\';return}'));
+  assert.ok(source.includes("if(!commandIsCurrent()){result.textContent='Connexion interrompue : l’état de la commande n’a pas pu être vérifié.';return}"));
   assert.ok(source.includes('if(pollingSessionToken===token||!connected()||download.on'));
-  assert.ok(source.includes('manualCommandPending=false;\n document.querySelectorAll(\'[data-r]\').forEach(control=>control.disabled=download.on)'));
+  assert.ok(source.includes("manualCommandPending=false;\n document.querySelectorAll('[data-r]').forEach(control=>control.disabled=download.on)"));
   assert.ok(source.includes('if(commandToken===bleConnectionGeneration){manualCommandPending=false;controls.forEach(x=>x.disabled=download.on)}'));
-  assert.ok(source.includes('removeEventListener(\'characteristicvaluechanged\',bleNotificationHandler)'));
+  assert.ok(source.includes("removeEventListener('characteristicvaluechanged',bleNotificationHandler)"));
   assert.ok(source.includes('if(connectionRequestPending)return;'));
   assert.ok(source.includes('const intent=++connectionIntentGeneration;'));
   assert.ok(source.includes('if(intent!==connectionIntentGeneration||connectionRequestPending)return;'));
@@ -78,25 +79,46 @@ test('installe les écouteurs de notification avant d’activer les notification
   assert.ok(connection.indexOf("addEventListener('characteristicvaluechanged'") < connection.indexOf('await characteristicC.startNotifications()'));
 });
 
+function reconnectDeps(overrides = {}) {
+  return {
+    isManualDisconnect: () => false,
+    getDevice: () => ({ id: 'vmi' }),
+    isConnectionRequestPending: () => false,
+    getConnectionIntentGeneration: () => 1,
+    connectDevice: async () => true,
+    log: () => {},
+    clearTimeout: () => {},
+    setTimeout: () => 1,
+    getReconnectTimer: () => null,
+    setReconnectTimer: () => {},
+    ...overrides
+  };
+}
 
 test('une reconnexion automatique en attente ne démarre pas pendant le sélecteur manuel', async () => {
-  const source = await readFile(new URL('../js/app.js', import.meta.url), 'utf8');
-  const start = source.indexOf('async function reconnect()');
-  const end = source.indexOf("$('conn').onclick=connectBLE", start);
-  const reconnect = source.slice(start, end);
-  assert.match(reconnect, /if\(manualDisconnect\|\|!dev\|\|connectionRequestPending\)return/);
+  let connectCalls = 0;
+  const reconnect = createReconnectHandler(reconnectDeps({
+    isConnectionRequestPending: () => true,
+    connectDevice: async () => { connectCalls++; }
+  }));
+  await reconnect();
+  assert.equal(connectCalls, 0);
 });
 
-
 test('une reconnexion déjà engagée est invalidée par une nouvelle intention utilisateur', async () => {
-  const source = await readFile(new URL('../js/app.js', import.meta.url), 'utf8');
-  const connect = source.slice(source.indexOf('async function connectDevice('), source.indexOf('async function connectBLE('));
-  assert.match(connect, /async function connectDevice\(device,intent=connectionIntentGeneration\)/);
-  assert.match(connect, /intent===connectionIntentGeneration/);
-  assert.match(connect, /if\(!connectionIsCurrent\(\)\)\{if\(sessionIsCurrent\(token,device\)\)cleanupConnection\(\);return false\}/);
-  const reconnectStart = source.indexOf('async function reconnect()');
-  const reconnectEnd = source.indexOf("$('conn').onclick=connectBLE", reconnectStart);
-  const reconnect = source.slice(reconnectStart, reconnectEnd);
-  assert.match(reconnect, /const intent=connectionIntentGeneration/);
-  assert.match(reconnect, /connectDevice\(dev,intent\)/);
+  let intent = 4;
+  let scheduled = false;
+  let logged = false;
+  const reconnect = createReconnectHandler(reconnectDeps({
+    getConnectionIntentGeneration: () => intent,
+    connectDevice: async () => {
+      intent++;
+      throw new Error('connexion annulée');
+    },
+    log: () => { logged = true; },
+    setTimeout: () => { scheduled = true; return 1; }
+  }));
+  await reconnect();
+  assert.equal(logged, false);
+  assert.equal(scheduled, false);
 });

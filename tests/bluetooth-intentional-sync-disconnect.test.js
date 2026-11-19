@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const source = await readFile(new URL('../js/app.js', import.meta.url), 'utf8');
+const runtime = await readFile(new URL('../js/modules/bluetooth-runtime.js', import.meta.url), 'utf8');
 
 test('la fin de synchronisation marque la déconnexion comme volontaire avant disconnect()', () => {
   const finish = source.slice(source.indexOf('function finishDownload('), source.indexOf('async function startDownload('));
@@ -39,9 +40,8 @@ test('signale les lignes rejetées au lieu d’annoncer un historique à jour', 
   assert.match(finish, /lignes rejetées/);
 });
 
-
 test('sépare les lignes historiques sur CR et LF du flux VMI+', () => {
-  assert.ok(source.includes('download.buf.split(/\\r\\n|\\n|\\r(?!$)/)'));
+  assert.match(runtime, /download\.buf\.split\(\/\\r\\n\|\\n\|\\r\(\?!\$\)\/\)/);
 });
 
 test('ignore le préambule et l’en-tête VMI+ avant les lignes de relevés', () => {
