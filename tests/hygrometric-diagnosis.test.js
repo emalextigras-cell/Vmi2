@@ -46,7 +46,7 @@ function makeUnevenHourlyRows(groups) {
 test('diagnostic exposes its thresholds and the measured basis of each finding',()=>{
  const result=buildHygrometricDiagnosis(makeRows());
  assert.deepEqual(result.methodology,{
-  version:'hygrometric-diagnostic-v7',
+  version:'hygrometric-diagnostic-v8',
   dryDeltaThreshold:1,
   dryDeltaThresholdKind:'heuristic',
   dominantDurationShareKind:'heuristic',
@@ -54,6 +54,7 @@ test('diagnostic exposes its thresholds and the measured basis of each finding',
   trendMinimumDailySamples:3,
   trendMinimumDays:6,
   trendWindowDays:3,
+  trendLookbackDays:14,
   trendMinimumDirectionalDays:2,
   trendMaximumWindowSpanDays:4,
   trendMaximumComparisonSpanDays:14,
@@ -425,7 +426,7 @@ test('a durable falling trend requires persistence across at least two recent da
 });
 
 
-test('trend is not confirmed when eligible days are too far apart in the calendar',()=>{
+test('trend ignores historical days outside the automatic fourteen-day lookback',()=>{
  const rows=[];
  [1,2,3,20,21,22].forEach((day,index)=>{
   for(let i=0;i<4;i++) rows.push({
@@ -434,9 +435,13 @@ test('trend is not confirmed when eligible days are too far apart in the calenda
   });
  });
  const result=buildHygrometricDiagnosis(rows);
- const finding=result.observations.find(item=>item.code==='trend-calendar-span-limited');
+ const finding=result.observations.find(item=>item.code==='trend-insufficient-data');
  assert.ok(finding);
- assert.equal(finding.basis.totalSpanDays,21);
+ assert.equal(finding.basis.eligibleDays,3);
+ assert.equal(finding.basis.eligibleDaysBeforeLookback,3);
+ assert.equal(finding.basis.lookbackStartDate,'2026-11-09');
+ assert.equal(finding.basis.lookbackEndDate,'2026-11-22');
+ assert.ok(!result.observations.some(item=>item.code==='trend-calendar-span-limited'));
  assert.ok(!result.observations.some(item=>item.code==='indoor-moisture-rising'));
 });
 
@@ -560,18 +565,51 @@ test('trend accepts the maximum four-day span inside each three-day window',()=>
  assert.equal(finding.basis.recentWindowSpanDays,3);
 });
 
-test('trend rejects a comparison spanning more than fourteen calendar days',()=>{
+test('trend compares only days inside the last fourteen calendar days',()=>{
  const rows=[];
- [1,3,5,12,13,16].forEach((day,index)=>{
+ [1,2,9,10,11,12,13,14,15,16].forEach((day,index)=>{
   for(let i=0;i<4;i++) rows.push({
    t:new Date(2026,10,day,8,i*30,0).getTime(),
-   st:20,sh:index<3?45:75,te:10,he:40
+   st:20,sh:index<3?45:day<=11?45:75,te:10,he:40
   });
  });
  const result=buildHygrometricDiagnosis(rows);
- const finding=result.observations.find(item=>item.code==='trend-calendar-span-limited');
+ const finding=result.observations.find(item=>item.code==='indoor-moisture-rising');
  assert.ok(finding);
- assert.equal(finding.basis.totalSpanDays,15);
+ assert.equal(finding.basis.lookbackDays,14);
+ assert.equal(finding.basis.lookbackStartDate,'2026-11-03');
+ assert.equal(finding.basis.lookbackEndDate,'2026-11-16');
+ assert.equal(finding.basis.baselineWindowStartDate,'2026-11-09');
+ assert.equal(finding.basis.baselineWindowEndDate,'2026-11-11');
+ assert.equal(finding.basis.recentWindowStartDate,'2026-11-14');
+ assert.equal(finding.basis.recentWindowEndDate,'2026-11-16');
+ assert.equal(finding.basis.eligibleDaysBeforeLookback,2);
+ assert.ok(finding.basis.totalComparisonSpanDays<=14);
+});
+
+
+
+test('trend requires six valid days within the last fourteen days, not across the full archive',()=>{
+ const rows=[];
+ [1,2,3,4,5,6].forEach(day=>{
+  for(let i=0;i<4;i++) rows.push({
+   t:new Date(2026,9,day,8,i*30,0).getTime(),
+   st:20,sh:45,te:10,he:40
+  });
+ });
+ [18,19,20].forEach(day=>{
+  for(let i=0;i<4;i++) rows.push({
+   t:new Date(2026,9,day,8,i*30,0).getTime(),
+   st:20,sh:75,te:10,he:40
+  });
+ });
+ const result=buildHygrometricDiagnosis(rows);
+ const finding=result.observations.find(item=>item.code==='trend-insufficient-data');
+ assert.ok(finding);
+ assert.equal(finding.basis.eligibleDays,3);
+ assert.equal(finding.basis.eligibleDaysBeforeLookback,6);
+ assert.equal(finding.basis.lookbackStartDate,'2026-10-07');
+ assert.equal(finding.basis.lookbackEndDate,'2026-10-20');
  assert.ok(!result.observations.some(item=>item.code==='indoor-moisture-rising'));
 });
 

@@ -907,8 +907,17 @@ function compareHourlyWindows(rows, hourlyDetails, dayKey) {
  * @returns {object} Fenêtres retenues, indicateurs de couverture et métriques de tendance.
  */
 function analyzeHygrometricTrend(dailyDays, trendDelta) {
-  // Une journée isolée ne suffit pas : chaque fenêtre contient trois jours valides.
-  const eligibleTrendDays=dailyDays.filter(day=>day.sampleCount>=3&&Number.isFinite(day.medianAbsoluteHumidity));
+  // La tendance est toujours calculée sur les 14 derniers jours calendaires
+  // disponibles : les anciennes journées ne doivent jamais élargir la comparaison.
+  const trendLookbackDays=14;
+  const latestAvailableDate=dailyDays.at(-1)?.date??null;
+  const lookbackStartDate=latestAvailableDate
+    ?new Date(Date.parse(latestAvailableDate+'T00:00:00Z')-(trendLookbackDays-1)*86400000).toISOString().slice(0,10)
+    :null;
+  const allEligibleTrendDays=dailyDays.filter(day=>day.sampleCount>=3&&Number.isFinite(day.medianAbsoluteHumidity));
+  const eligibleTrendDays=allEligibleTrendDays.filter(day=>
+    lookbackStartDate&&day.date>=lookbackStartDate&&day.date<=latestAvailableDate
+  );
   const trendWindowDays=3;
   const trendMinimumDays=trendWindowDays*2;
   const firstTrendWindow=eligibleTrendDays.slice(0,trendWindowDays);
@@ -937,7 +946,9 @@ function analyzeHygrometricTrend(dailyDays, trendDelta) {
     falling:lastTrendWindow.filter(day=>day.medianAbsoluteHumidity<baselineTrendMedian).length
   }:null;
   return {
-    eligibleTrendDays,trendWindowDays,trendMinimumDays,
+    eligibleTrendDays,eligibleDaysBeforeLookback:allEligibleTrendDays.length-eligibleTrendDays.length,
+    trendLookbackDays,lookbackStartDate,lookbackEndDate:latestAvailableDate,
+    trendWindowDays,trendMinimumDays,
     firstTrendWindow,lastTrendWindow,trendWindowsAreDistinct,
     trendWindowSpanDays,totalTrendSpanDays,
     maxTrendWindowSpanDays,maxTrendComparisonSpanDays,
@@ -1077,7 +1088,8 @@ function prepareHygrometricRows(inputRows) {
     indoorMinusIncoming:median(values.indoorMinusIncoming)
   }]));
   const {
-    eligibleTrendDays,trendWindowDays,trendMinimumDays,
+    eligibleTrendDays,eligibleDaysBeforeLookback,trendLookbackDays,lookbackStartDate,lookbackEndDate,
+    trendWindowDays,trendMinimumDays,
     firstTrendWindow,lastTrendWindow,trendWindowsAreDistinct,
     trendWindowSpanDays,totalTrendSpanDays,
     maxTrendWindowSpanDays,maxTrendComparisonSpanDays,
@@ -1158,18 +1170,18 @@ function prepareHygrometricRows(inputRows) {
   if(!trendWindowsAreDistinct){
     observations.push({
       code:'trend-insufficient-data',level:'info',
-      basis:{eligibleDays:eligibleTrendDays.length,requiredDays:trendMinimumDays,minimumDailySamples:3,daysPerWindow:trendWindowDays},
+      basis:{eligibleDays:eligibleTrendDays.length,eligibleDaysBeforeLookback,lookbackStartDate,lookbackEndDate,lookbackDays:trendLookbackDays,requiredDays:trendMinimumDays,minimumDailySamples:3,daysPerWindow:trendWindowDays},
       title:'Tendance hygrométrique à confirmer',
-      detail:`Seulement ${eligibleTrendDays.length} jour(s) disposent d’au moins trois relevés valides. Il en faut au moins ${trendMinimumDays}, répartis en deux fenêtres distinctes de ${trendWindowDays} jours, pour distinguer une évolution durable d’une variation ponctuelle.`,
-      recommendation:'Poursuivre l’import de l’historique sans modifier les réglages sur la base d’une journée isolée.'
+      detail:`Sur les ${trendLookbackDays} derniers jours (${lookbackStartDate} au ${lookbackEndDate}), ${eligibleTrendDays.length} jour(s) disposent d’au moins trois relevés valides. Il en faut au moins ${trendMinimumDays}, répartis en deux fenêtres distinctes de ${trendWindowDays} jours, pour distinguer une évolution durable d’une variation ponctuelle.`,
+      recommendation:'L’analyse sélectionne automatiquement les journées disponibles dans les 14 derniers jours ; poursuivre la collecte pour compléter cet échantillon.'
     });
   } else if(!trendWindowsTemporallyCompact){
     observations.push({
       code:'trend-calendar-span-limited',level:'info',
-      basis:{eligibleDays:eligibleTrendDays.length,firstWindowSpanDays:trendWindowSpanDays[0],lastWindowSpanDays:trendWindowSpanDays[1],totalSpanDays:totalTrendSpanDays,maximumWindowSpanDays:maxTrendWindowSpanDays,maximumComparisonSpanDays:maxTrendComparisonSpanDays},
+      basis:{eligibleDays:eligibleTrendDays.length,eligibleDaysBeforeLookback,lookbackStartDate,lookbackEndDate,firstWindowSpanDays:trendWindowSpanDays[0],lastWindowSpanDays:trendWindowSpanDays[1],totalSpanDays:totalTrendSpanDays,maximumWindowSpanDays:maxTrendWindowSpanDays,maximumComparisonSpanDays:maxTrendComparisonSpanDays},
       title:'Jours de mesure trop espacés pour confirmer une tendance',
-      detail:`Les jours retenus couvrent ${totalTrendSpanDays} jours calendaires. Pour éviter de comparer des périodes trop éloignées, chaque fenêtre de ${trendWindowDays} jours échantillonnés doit tenir en ${maxTrendWindowSpanDays} jours calendaires et l’ensemble en ${maxTrendComparisonSpanDays} jours maximum.`,
-      recommendation:'Importer des relevés sur des journées plus rapprochées avant de conclure à une tendance durable.'
+      detail:`Dans les 14 derniers jours (${lookbackStartDate} au ${lookbackEndDate}), les trois journées de l’une des fenêtres sont trop espacées : chaque fenêtre doit tenir en ${maxTrendWindowSpanDays} jours calendaires. Les journées plus anciennes sont automatiquement exclues.`,
+      recommendation:'Attendre des journées de mesure plus rapprochées dans la fenêtre récente avant de conclure à une tendance durable.'
     });
   } else {
     const baselineAirContext=firstTrendWindow.map(day=>dailyAirContextStats.get(day.date));
@@ -1179,7 +1191,7 @@ function prepareHygrometricRows(inputRows) {
     const baselineIndoorMinusIncoming=median(baselineAirContext.map(value=>value?.indoorMinusIncoming));
     const recentIndoorMinusIncoming=median(recentAirContext.map(value=>value?.indoorMinusIncoming));
     const trendContextSentence=`Contexte mesuré sur les mêmes fenêtres : humidité absolue de l’air entrant ${baselineIncomingMedian.toFixed(2)} → ${recentIncomingMedian.toFixed(2)} g/m³ ; écart salon − air entrant ${baselineIndoorMinusIncoming.toFixed(2)} → ${recentIndoorMinusIncoming.toFixed(2)} g/m³. Ces évolutions concomitantes ne démontrent aucun lien causal.`;
-    const trendBasis={firstDate:first.date,lastDate:last.date,baselineWindowStartDate:firstTrendWindow[0].date,baselineWindowEndDate:firstTrendWindow.at(-1).date,recentWindowStartDate:lastTrendWindow[0].date,recentWindowEndDate:lastTrendWindow.at(-1).date,baselineWindowSpanDays:trendWindowSpanDays[0],recentWindowSpanDays:trendWindowSpanDays[1],totalComparisonSpanDays:totalTrendSpanDays,baselineDailyValues:firstTrendWindow.map(day=>`${day.date} : ${day.medianAbsoluteHumidity.toFixed(2)} g/m³ (${day.sampleCount} relevés)`).join(' · '),recentDailyValues:lastTrendWindow.map(day=>`${day.date} : ${day.medianAbsoluteHumidity.toFixed(2)} g/m³ (${day.sampleCount} relevés)`).join(' · '),baselineMedianAbsoluteHumidity:baselineTrendMedian,recentMedianAbsoluteHumidity:recentTrendMedian,baselineMedianRelativeHumidity:median(firstTrendWindow.map(day=>day.medianRH)),recentMedianRelativeHumidity:median(lastTrendWindow.map(day=>day.medianRH)),baselineMedianTemperature:median(firstTrendWindow.map(day=>day.medianTemperature)),recentMedianTemperature:median(lastTrendWindow.map(day=>day.medianTemperature)),baselineIncomingMedianAbsoluteHumidity:median(baselineAirContext.map(value=>value?.incoming)),recentIncomingMedianAbsoluteHumidity:median(recentAirContext.map(value=>value?.incoming)),incomingAbsoluteHumidityChange:median(recentAirContext.map(value=>value?.incoming))-median(baselineAirContext.map(value=>value?.incoming)),baselineIndoorMinusIncomingMedian:median(baselineAirContext.map(value=>value?.indoorMinusIncoming)),recentIndoorMinusIncomingMedian:median(recentAirContext.map(value=>value?.indoorMinusIncoming)),indoorMinusIncomingChange:median(recentAirContext.map(value=>value?.indoorMinusIncoming))-median(baselineAirContext.map(value=>value?.indoorMinusIncoming)),change:trendChange,threshold:trendDelta,eligibleDays:eligibleTrendDays.length,daysPerWindow:trendWindowDays,risingDays:trendDirectionalDays.rising,fallingDays:trendDirectionalDays.falling,minimumDirectionalDays:2,unit:'g/m³'};
+    const trendBasis={firstDate:first.date,lastDate:last.date,lookbackDays:trendLookbackDays,lookbackStartDate,lookbackEndDate,eligibleDaysBeforeLookback,baselineWindowStartDate:firstTrendWindow[0].date,baselineWindowEndDate:firstTrendWindow.at(-1).date,recentWindowStartDate:lastTrendWindow[0].date,recentWindowEndDate:lastTrendWindow.at(-1).date,baselineWindowSpanDays:trendWindowSpanDays[0],recentWindowSpanDays:trendWindowSpanDays[1],totalComparisonSpanDays:totalTrendSpanDays,baselineDailyValues:firstTrendWindow.map(day=>`${day.date} : ${day.medianAbsoluteHumidity.toFixed(2)} g/m³ (${day.sampleCount} relevés)`).join(' · '),recentDailyValues:lastTrendWindow.map(day=>`${day.date} : ${day.medianAbsoluteHumidity.toFixed(2)} g/m³ (${day.sampleCount} relevés)`).join(' · '),baselineMedianAbsoluteHumidity:baselineTrendMedian,recentMedianAbsoluteHumidity:recentTrendMedian,baselineMedianRelativeHumidity:median(firstTrendWindow.map(day=>day.medianRH)),recentMedianRelativeHumidity:median(lastTrendWindow.map(day=>day.medianRH)),baselineMedianTemperature:median(firstTrendWindow.map(day=>day.medianTemperature)),recentMedianTemperature:median(lastTrendWindow.map(day=>day.medianTemperature)),baselineIncomingMedianAbsoluteHumidity:median(baselineAirContext.map(value=>value?.incoming)),recentIncomingMedianAbsoluteHumidity:median(recentAirContext.map(value=>value?.incoming)),incomingAbsoluteHumidityChange:median(recentAirContext.map(value=>value?.incoming))-median(baselineAirContext.map(value=>value?.incoming)),baselineIndoorMinusIncomingMedian:median(baselineAirContext.map(value=>value?.indoorMinusIncoming)),recentIndoorMinusIncomingMedian:median(recentAirContext.map(value=>value?.indoorMinusIncoming)),indoorMinusIncomingChange:median(recentAirContext.map(value=>value?.indoorMinusIncoming))-median(baselineAirContext.map(value=>value?.indoorMinusIncoming)),change:trendChange,threshold:trendDelta,eligibleDays:eligibleTrendDays.length,daysPerWindow:trendWindowDays,risingDays:trendDirectionalDays.rising,fallingDays:trendDirectionalDays.falling,minimumDirectionalDays:2,unit:'g/m³'};
     if(trendChange>=trendDelta&&trendDirectionalDays.rising>=2){
       observations.push({
         code:'indoor-moisture-rising',level:'caution',
@@ -1218,7 +1230,7 @@ function prepareHygrometricRows(inputRows) {
   }
 
   return {
-    methodology:{version:'hygrometric-diagnostic-v7',dryDeltaThreshold:dryDelta,dryDeltaThresholdKind:'heuristic',dominantDurationShareKind:'heuristic',trendDeltaThreshold:trendDelta,trendMinimumDailySamples:3,trendMinimumDays:6,trendWindowDays:3,trendMinimumDirectionalDays:2,trendMaximumWindowSpanDays:4,trendMaximumComparisonSpanDays:14,minimumSamples:minSamples,minimumDistinctDays:2,minimumObservedHours:3,dominantDurationShare:0.6,maximumGapHours:maxGapHours,hourlyBucketHours:6,hourlyMinimumSamples:5,hourlyMinimumDistinctDays:2,hourlyMinimumSharedDays:2,hourlyMinimumDailySamples:3,minimumDailySamplesForConfidence:3,moderateCoveragePercent:20,highCoveragePercent:50,moderateAcceptedShare:0.7,highAcceptedShare:0.9},
+    methodology:{version:'hygrometric-diagnostic-v8',dryDeltaThreshold:dryDelta,dryDeltaThresholdKind:'heuristic',dominantDurationShareKind:'heuristic',trendDeltaThreshold:trendDelta,trendMinimumDailySamples:3,trendMinimumDays:6,trendWindowDays:3,trendLookbackDays:14,trendMinimumDirectionalDays:2,trendMaximumWindowSpanDays:4,trendMaximumComparisonSpanDays:14,minimumSamples:minSamples,minimumDistinctDays:2,minimumObservedHours:3,dominantDurationShare:0.6,maximumGapHours:maxGapHours,hourlyBucketHours:6,hourlyMinimumSamples:5,hourlyMinimumDistinctDays:2,hourlyMinimumSharedDays:2,hourlyMinimumDailySamples:3,minimumDailySamplesForConfidence:3,moderateCoveragePercent:20,highCoveragePercent:50,moderateAcceptedShare:0.7,highAcceptedShare:0.9},
     status:sufficient?'analysis-available':'insufficient-data',
     inputQuality:{
       inputSampleCount:inputRows.length,
