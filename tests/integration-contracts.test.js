@@ -199,7 +199,10 @@ test('contrat intégré : un fragment initial manquant dans le flux BLE condamne
 
   // Rejoue les séquences de métadonnées précédant les lignes de mesures.
   for (let sequence = 0; sequence < 77; sequence++) {
-    receive(sequence, 0, 'metadata-' + sequence);
+    const metadata = acceptHistoryFragment(stream, {
+      sequence, chunkIndex: 0, payload: 'metadata-' + sequence
+    });
+    assert.equal(metadata.accepted, true);
   }
   // Ligne 77 complète, comme les lignes précédant la perte observée dans la capture.
   fragments(rows[0]).forEach((part, index) => receive(77, index * 10, part));
