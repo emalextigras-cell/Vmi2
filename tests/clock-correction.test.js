@@ -189,5 +189,33 @@ test('fixClock ne publie aucun repère concordant lorsque le compteur a reculé'
   assert.equal(result.referenceCount, 0);
   assert.equal(result.concordantCount, 0);
   assert.equal(result.concordanceRate, null);
+  assert.equal(result.referenceSource, 'none');
   assert.equal(result.fixed, 0);
+});
+
+
+test('fixClock reconstruit avec les seuls nouveaux repères après un recul du compteur', () => {
+  const history = [{ t: new Date(2026, 10, 10, 11, 0).getTime(), d: 194 }];
+  const incoming = [
+    { t: new Date(2026, 10, 18, 11, 0).getTime(), d: 3 },
+    { t: new Date(2018, 4, 18, 11, 0).getTime(), d: 3 }
+  ];
+  const result = fixClock(incoming, history, MIN_VALID, Date.now(), { allowPre2020RawDates: true });
+
+  assert.equal(result.counterReset, true);
+  assert.equal(result.referenceSource, 'incoming-only');
+  assert.equal(result.referenceCount, 1);
+  assert.equal(result.fixed, 1);
+  assert.equal(new Date(result.kept.find(record => record.fixed).t).getFullYear(), 2026);
+});
+
+test('fixClock ne réutilise pas l’ancien décalage si aucun nouveau repère fiable existe', () => {
+  const history = [{ t: new Date(2026, 10, 10, 11, 0).getTime(), d: 194 }];
+  const incoming = [{ t: new Date(2018, 4, 18, 11, 0).getTime(), d: 3 }];
+  const result = fixClock(incoming, history, MIN_VALID, Date.now(), { allowPre2020RawDates: true });
+
+  assert.equal(result.counterReset, true);
+  assert.equal(result.referenceSource, 'none');
+  assert.equal(result.fixed, 0);
+  assert.deepEqual(result.kept, []);
 });
