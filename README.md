@@ -50,7 +50,7 @@ Pour utiliser le Bluetooth sur Android, ouvrir l'application dans **Chrome** via
 
 Le dépôt utilise des modules JavaScript natifs et ne nécessite pas de compilation front-end.
 
-- Installer Node.js 22 (version utilisée par la CI).
+- Installer Node.js 24 (version utilisée par la CI).
 - Servir le dossier à l'aide d'un serveur HTTP local ; ne pas ouvrir simplement `index.html` en `file://` si l'on veut tester les fonctions navigateur. Aucun `npm install` n'est requis pour les tests Node actuels.
 - Pour les essais Bluetooth, utiliser un contexte sécurisé compatible (HTTPS ou localhost) et un navigateur prenant en charge Web Bluetooth.
 
