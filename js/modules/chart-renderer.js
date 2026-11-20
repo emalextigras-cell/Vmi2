@@ -30,6 +30,16 @@ export function fillMissing(points){
 export function hasBlockedBetween(points, startTime, endTime){
  return points.some(point=>point.blocked&&point.t>startTime&&point.t<endTime);
 }
+function escapeHtml(value){
+ return String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+}
+function accessibleDataTable(title,series){
+ const rows=series.flatMap(s=>s.points.filter(point=>Number.isFinite(point.v)).slice(-12).map(point=>
+  `<tr><th scope="row">${escapeHtml(s.name)}</th><td>${new Date(point.t).toLocaleString('fr-FR')}</td><td>${point.v.toFixed(2).replace('.',',')}</td></tr>`
+ ));
+ if(!rows.length)return '';
+ return `<details class="chart-data"><summary>Consulter les valeurs du graphique en tableau (12 derniers points par courbe)</summary><div class="chart-table-scroll"><table><caption>${escapeHtml(title)} — valeurs numériques, relevés les plus récents</caption><thead><tr><th scope="col">Série</th><th scope="col">Date et heure</th><th scope="col">Valeur</th></tr></thead><tbody>${rows.join('')}</tbody></table></div></details>`;
+}
 function drawChart(id,title,series,selectedDate,$){
  const el=$(id),all=series.flatMap(s=>s.points.filter(p=>Number.isFinite(p.v)));
  if(!all.length){el.innerHTML='<p class="note">Pas de données disponibles pour cette période.</p>';return}
@@ -70,7 +80,7 @@ function drawChart(id,title,series,selectedDate,$){
   svg+=`<path d="${d}" fill="none" stroke="${s.color}" stroke-width="1.8" stroke-linejoin="round"/>${dots}`;
  }
  const legend=series.map(s=>`<span><i class="dot" style="background:${s.color}"></i>${s.name}</span>`).join('');
- el.innerHTML=`<div class="chart-toolbar"><div class="legend">${legend}</div><div class="zoom-controls"><button type="button" data-zoom="out" aria-label="Dézoomer" ${view.factor<=1?'disabled':''}>−</button><span>${view.factor.toFixed(1).replace('.0','')}×</span><button type="button" data-zoom="in" aria-label="Zoomer" ${view.factor>=20?'disabled':''}>+</button><button type="button" data-zoom="left" aria-label="Déplacer vers la gauche" ${view.factor<=1?'disabled':''}>◀</button><button type="button" data-zoom="right" aria-label="Déplacer vers la droite" ${view.factor<=1?'disabled':''}>▶</button><button type="button" data-zoom="reset" ${view.factor<=1?'disabled':''}>Réinitialiser</button></div></div><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${title}">${svg}<line id="${id}Cur" class="gridline" y1="${T}" y2="${H-B}" x1="0" x2="0" style="display:none"/></svg><div class="tip"></div>`;
+ el.innerHTML=`<div class="chart-toolbar"><div class="legend">${legend}</div><div class="zoom-controls"><button type="button" data-zoom="out" aria-label="Dézoomer" ${view.factor<=1?'disabled':''}>−</button><span>${view.factor.toFixed(1).replace('.0','')}×</span><button type="button" data-zoom="in" aria-label="Zoomer" ${view.factor>=20?'disabled':''}>+</button><button type="button" data-zoom="left" aria-label="Déplacer vers la gauche" ${view.factor<=1?'disabled':''}>◀</button><button type="button" data-zoom="right" aria-label="Déplacer vers la droite" ${view.factor<=1?'disabled':''}>▶</button><button type="button" data-zoom="reset" ${view.factor<=1?'disabled':''}>Réinitialiser</button></div></div><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${title}">${svg}<line id="${id}Cur" class="gridline" y1="${T}" y2="${H-B}" x1="0" x2="0" style="display:none"/></svg><div class="tip" aria-hidden="true"></div>${accessibleDataTable(title,series)}`;
  el.querySelectorAll('[data-zoom]').forEach(button=>button.addEventListener('click',()=>{const action=button.dataset.zoom;if(action==='in'){view.factor=Math.min(20,view.factor*1.6);}else if(action==='out'){view.factor=Math.max(1,view.factor/1.6);if(view.factor===1)view.center=.5;}else if(action==='left'){view.center=Math.max(0,view.center-.18/view.factor);}else if(action==='right'){view.center=Math.min(1,view.center+.18/view.factor);}else{view.factor=1;view.center=.5;}drawChart(id,title,series,selectedDate,$);}));
  /* Recherche dichotomique : évite de parcourir tout l'historique à chaque mouvement du doigt. */
  const nearest=(points,t)=>{let lo=0,hi=points.length;while(lo<hi){const mid=(lo+hi)>>1;if(points[mid].t<t)lo=mid+1;else hi=mid;}let best=null;for(let k=Math.max(0,lo-1);k<Math.min(points.length,lo+2);k++){const p=points[k];if(Number.isFinite(p.v)){const dd=Math.abs(p.t-t);if(!best||dd<best.dd)best={dd,t:p.t,v:p.v};}}return best;};

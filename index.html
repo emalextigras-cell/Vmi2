@@ -10,7 +10,7 @@
 </head>
 <body>
 <main>
-<div class="test-banner" role="status" aria-label="Application de test">APPLICATION DE TEST — VMI-TEST</div>
+<div class="test-banner" aria-label="Application de test">APPLICATION DE TEST — VMI-TEST</div>
 <header>
  <div>
   <h1>VMI Purevent</h1>
@@ -32,7 +32,7 @@
  <div id="err" class="error"></div>
 </details>
 
-<details class="card compact" open><summary>Mesures en direct</summary>
+<details class="card compact"><summary>Mesures en direct</summary>
  <div class="grid cols3">
   <div class="metric"><b id="tp">–</b><span>Salon · température °C</span></div>
   <div class="metric"><b id="hp">–</b><span>Salon · humidité relative %</span></div>
@@ -75,7 +75,7 @@
  <h2>Analyses et diagnostic</h2>
  <section class="assistant-card" id="assistantVmi" aria-labelledby="assistantTitle">
   <div class="assistant-heading"><div><h3 id="assistantTitle">Assistant intelligent VMI</h3><p class="note">Synthèse pédagogique de l’historique et des calculs de l’application. Analyse locale, sans envoi de données.</p></div><span class="pill">Conseils expliqués</span></div>
-  <div id="assistantStatus" class="advice" role="status" aria-live="polite">Préparation de la synthèse…</div>
+  <div id="assistantStatus" class="advice">Préparation de la synthèse…</div>
   <p id="assistantOverview">L’assistant rassemble les résultats dès que l’historique est chargé.</p>
   <h4>Ce que je te conseille</h4>
   <div id="assistantRecommendations" class="diagnosis-list"></div>
@@ -88,7 +88,7 @@
    <ul id="assistantLimits"></ul>
   </details>
  </section>
- <div class="coverage-card" id="coverageCard" role="status" aria-live="polite">
+ <div class="coverage-card" id="coverageCard">
   <div class="coverage-heading">Couverture des relevés</div>
   <div class="coverage-value" id="coverageValue">–</div>
   <p id="coverageDescription">La couverture sera calculée à partir des horodatages de l’historique.</p>
@@ -113,7 +113,7 @@
  <div id="hygroAdvice" class="advice">Les indicateurs apparaîtront lorsque les mesures seront disponibles.</div>
  <h3>Diagnostic intelligent</h3>
  <div id="diagnosisStatus" class="advice" role="status" aria-live="polite">Le diagnostic attend des mesures valides.</div>
- <div id="diagnosisEvidence" class="diagnosis-list" aria-live="polite">Les constats et pistes d’action apparaîtront avec un historique suffisant.</div>
+ <div id="diagnosisEvidence" class="diagnosis-list">Les constats et pistes d’action apparaîtront avec un historique suffisant.</div>
  <details class="diagnosis-limit"><summary>Comprendre les limites du diagnostic</summary><p id="diagnosisLimits" class="note">Le diagnostic est explicable et indicatif ; il ne pilote pas la VMI.</p></details>
  <details class="analysis-details"><summary>Voir les tendances et les détails de l’analyse</summary>
  <div id="hygroPeriods" class="advice">Les durées seront calculées à partir de l’historique disponible.</div>
@@ -162,7 +162,7 @@
  <div id="historyStatus" class="status"></div>
  <div id="fresh" class="advice"></div>
  <div id="importInfo" class="note"></div>
- <div id="dataQuality" class="advice" aria-live="polite"></div>
+ <div id="dataQuality" class="advice"></div>
  <h3>Humidité relative (%)</h3><div id="chartRH" class="chart"></div>
  <h3>Humidité absolue exportée par VMI+ (valeurs brutes, unité différente du calcul g/m³ à confirmer)</h3><div id="chartVmiAbs" class="chart"></div>
  <h3>Humidité absolue calculée (g/m³)</h3><div id="chartHA" class="chart"></div>
@@ -171,27 +171,30 @@
  <h3>Débit VMI+ (m³/h)</h3><div id="chartDebit" class="chart"></div>
 </section>
 
-<details class="card compact"><summary>Sauvegarde et export des données</summary>
- <p class="sub">Ton historique est stocké dans ce navigateur, qui peut le vider. La VMI ne garde que ses 800 derniers relevés (environ 4 semaines) : fais régulièrement une sauvegarde.</p>
- <div class="row"><button class="outline" id="expHist">Exporter l’historique (CSV)</button><button class="outline" id="expBackup">Sauvegarde complète (JSON)</button></div>
- <div class="row"><label for="restoreFile">Restaurer une sauvegarde (.json) :</label><input type="file" id="restoreFile" accept=".json,application/json"></div>
- <div id="backupInfo" class="note"></div>
-</details>
-
-<details class="card compact"><summary>Enregistrement en direct</summary>
- <p class="sub">Un relevé toutes les cinq minutes tant que la page reste ouverte et connectée.</p>
- <div class="row"><b id="liveCount">0</b> relevés <button class="outline" id="csv">Exporter CSV</button><button class="outline" id="clearLive">Effacer les relevés</button></div>
-</details>
-
-<details class="card compact" id="logDetails">
-  <summary>Journal Bluetooth brut</summary>
-  <div class="row"><button class="outline" id="copyLog">Copier le journal</button><button class="outline" id="clearLog">Effacer le journal</button></div>
-  <pre id="log"></pre>
-</details>
-<details class="card compact"><summary>Diagnostic technique (à ouvrir si un problème survient)</summary>
- <p class="sub">En cas de problème : touche « Diagnostic », puis « Copier » et colle le texte dans la conversation. Il contient l’état de l’appli, de ton historique et les erreurs, sans donnée personnelle.</p>
- <div class="row"><button class="outline" id="diagBtn">Diagnostic</button><button class="outline" id="diagCopy">Copier</button></div>
- <pre id="diagOut"></pre>
+<details class="card compact" id="advancedTools">
+ <summary>Avancé</summary>
+  <details class="card compact"><summary>Sauvegarde et export des données</summary>
+  <p class="sub">Ton historique est stocké dans ce navigateur, qui peut le vider. La VMI ne garde que ses 800 derniers relevés (environ 4 semaines) : fais régulièrement une sauvegarde.</p>
+  <div class="row"><button class="outline" id="expHist">Exporter l’historique (CSV)</button><button class="outline" id="expBackup">Sauvegarde complète (JSON)</button></div>
+  <div class="row"><label for="restoreFile">Restaurer une sauvegarde (.json) :</label><input type="file" id="restoreFile" accept=".json,application/json"></div>
+  <div id="backupInfo" class="note"></div>
+ </details>
+ 
+ <details class="card compact"><summary>Enregistrement en direct</summary>
+  <p class="sub">Un relevé toutes les cinq minutes tant que la page reste ouverte et connectée.</p>
+  <div class="row"><b id="liveCount">0</b> relevés <button class="outline" id="csv">Exporter CSV</button><button class="outline" id="clearLive">Effacer les relevés</button></div>
+ </details>
+ 
+ <details class="card compact" id="logDetails">
+   <summary>Journal Bluetooth brut</summary>
+   <div class="row"><button class="outline" id="copyLog">Copier le journal</button><button class="outline" id="clearLog">Effacer le journal</button></div>
+   <pre id="log"></pre>
+ </details>
+ <details class="card compact"><summary>Diagnostic technique (à ouvrir si un problème survient)</summary>
+  <p class="sub">En cas de problème : touche « Diagnostic », puis « Copier » et colle le texte dans la conversation. Il contient l’état de l’appli, de ton historique et les erreurs, sans donnée personnelle.</p>
+  <div class="row"><button class="outline" id="diagBtn">Diagnostic</button><button class="outline" id="diagCopy">Copier</button></div>
+  <pre id="diagOut"></pre>
+ </details>
 </details>
 <footer>VMI Purevent · version 14 · L’heure de la VMI est synchronisée à la connexion et avant chaque téléchargement, comme le fait VMI+ ; les commandes de réglage ne sont envoyées qu’après une action manuelle. Les calculs sont indicatifs et dépendent de la fiabilité des capteurs.</footer>
 </main>
@@ -199,13 +202,39 @@
 <script>
 (() => {
   const settings = document.getElementById('reglages');
+  const nav = document.querySelector('.main-nav');
+  const links = [...(nav?.querySelectorAll('a[href^="#"]') || [])];
+  const sections = links.map(link => document.getElementById(link.hash.slice(1))).filter(Boolean);
+  const setActive = id => {
+    links.forEach(link => {
+      if (link.hash === '#' + id) link.setAttribute('aria-current', 'location');
+      else link.removeAttribute('aria-current');
+    });
+  };
   const openSettingsFromHash = () => {
     if (window.location.hash === '#reglages' && settings) settings.open = true;
+    if (sections.some(section => '#' + section.id === window.location.hash)) setActive(window.location.hash.slice(1));
   };
-  document.querySelector('a[href="#reglages"]')?.addEventListener('click', () => {
-    if (settings) settings.open = true;
-  });
+  links.forEach(link => link.addEventListener('click', () => {
+    const id = link.hash.slice(1);
+    if (id === 'reglages' && settings) settings.open = true;
+    setActive(id);
+  }));
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver(entries => {
+      const visible = entries.filter(entry => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+      if (visible) setActive(visible.target.id);
+    }, { rootMargin: '-18% 0px -68% 0px', threshold: [0, 0.15, 0.4, 0.7] });
+    sections.forEach(section => observer.observe(section));
+  } else {
+    window.addEventListener('scroll', () => {
+      const current = sections.filter(section => section.getBoundingClientRect().top <= window.innerHeight * 0.35)
+        .sort((a, b) => b.getBoundingClientRect().top - a.getBoundingClientRect().top)[0];
+      if (current) setActive(current.id);
+    }, { passive: true });
+  }
   window.addEventListener('hashchange', openSettingsFromHash);
+  setActive('accueil');
   openSettingsFromHash();
 })();
 </script>
