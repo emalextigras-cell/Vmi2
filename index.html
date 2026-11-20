@@ -19,7 +19,7 @@
  <div class="row"><span class="pill" id="ver">v14</span><button class="outline" id="themeBtn" title="Changer le thème">Thème</button></div>
 </header>
 
-<nav class="main-nav" aria-label="Navigation principale"><a href="#accueil">Accueil</a><a href="#analyses">Analyses</a><a href="#historique">Historique</a><a href="#reglages">Réglages</a></nav>
+<nav class="main-nav" aria-label="Navigation principale"><a href="#accueil">Accueil</a><a href="#analyses">Analyses</a><a href="#historique">Historique</a><a href="#reglages">Connexion Bluetooth</a></nav>
 <section class="card dashboard-intro" id="accueil"><h2>Vue d'ensemble</h2><p class="sub">Pas besoin de Bluetooth pour consulter les analyses : elles utilisent l'historique VMI+.</p><div class="dashboard-status"><div><b>Connexion VMI</b><p id="dashboardConnectionStatus">Recherche d’une VMI déjà autorisée…</p></div><div><b>Données disponibles</b><p id="dashboardDataStatus">Chargement de l'historique…</p></div><div><b>Analyse</b><p id="dashboardAnalysisStatus">Préparation du diagnostic…</p></div></div></section>
 <div id="errBanner" class="advice warn" style="display:none"></div>
 
@@ -196,6 +196,19 @@
 <footer>VMI Purevent · version 14 · L’heure de la VMI est synchronisée à la connexion et avant chaque téléchargement, comme le fait VMI+ ; les commandes de réglage ne sont envoyées qu’après une action manuelle. Les calculs sont indicatifs et dépendent de la fiabilité des capteurs.</footer>
 </main>
 
+<script>
+(() => {
+  const settings = document.getElementById('reglages');
+  const openSettingsFromHash = () => {
+    if (window.location.hash === '#reglages' && settings) settings.open = true;
+  };
+  document.querySelector('a[href="#reglages"]')?.addEventListener('click', () => {
+    if (settings) settings.open = true;
+  });
+  window.addEventListener('hashchange', openSettingsFromHash);
+  openSettingsFromHash();
+})();
+</script>
 <script type="module" src="js/app.js"></script>
 </body>
 </html>
