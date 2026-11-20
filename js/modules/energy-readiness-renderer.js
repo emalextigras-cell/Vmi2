@@ -86,7 +86,6 @@ export function renderEnergyReadiness(data, {
         field.min == null ? '–' : fmt(field.min),
         field.max == null ? '–' : fmt(field.max), distinct];
     }));
-  container.append(fields);
 
   const operating = summarizeOperatingReference(rows);
   const operatingSection = element(documentRef, 'section');
@@ -109,7 +108,6 @@ export function renderEnergyReadiness(data, {
       ['Mode', 'Relevés / jours', 'Variable', 'Médiane', 'Plage observée'], operatingRows);
   }
   appendAdvice(documentRef, operatingSection, operating.limits.join(' '));
-  container.append(operatingSection);
 
   const modeGroups = summarizeRawVmiMode(rows);
   const modeSection = element(documentRef, 'section');
@@ -128,7 +126,6 @@ export function renderEnergyReadiness(data, {
         group.medianRenewalRate != null ? fmt(group.medianRenewalRate) + ' vol/h' : group.referenceRenewalRate != null ? fmt(group.referenceRenewalRate) + ' vol/h (théorique)' : '–'
       ]));
   }
-  container.append(modeSection);
 
   const rawGroups = summarizeRawVmiSpeed(rows);
   const rawSection = element(documentRef, 'section');
@@ -147,7 +144,6 @@ export function renderEnergyReadiness(data, {
         group.maxDebit == null ? '–' : fmt(group.maxDebit) + ' m³/h'
       ]));
   }
-  container.append(rawSection);
 
   const volumes = rows.map(row => row?.volumeRaw).filter(value => Number.isFinite(value) && value > 0);
   const volumeValues = [...new Set(volumes)].sort((a, b) => a - b);
@@ -162,7 +158,6 @@ export function renderEnergyReadiness(data, {
       '. Cette donnée correspond au volume du logement déclaré dans la VMI+, pas à un volume d’air réellement renouvelé.';
     appendAdvice(documentRef, volumeSection, volumeText);
   }
-  container.append(volumeSection);
 
   const temperatureLimit = summarizeTemperatureLimit(rows);
   const temperatureSection = element(documentRef, 'section');
@@ -195,7 +190,6 @@ export function renderEnergyReadiness(data, {
   }
   appendAdvice(documentRef, temperatureSection,
     'Lecture prudente : les relevés au-dessus du seuil correspondent à des conditions où la réduction de ventilation peut s’appliquer. Une différence de débit ne démontre pas à elle seule que la régulation en est la cause. Les comparaisons sont séparées par mode et restent descriptives.');
-  container.append(temperatureSection);
 
   const referenceSection = element(documentRef, 'section');
   appendSectionTitle(documentRef, referenceSection,
@@ -215,8 +209,8 @@ export function renderEnergyReadiness(data, {
   link.rel = 'noopener';
   source.append(link, documentRef.createTextNode('. Il s’agit d’une référence constructeur, pas d’une mesure de cette installation.'));
   referenceSection.append(source);
-  container.append(referenceSection);
 
+  container.append(volumeSection, fields, temperatureSection, operatingSection, modeSection, rawSection, referenceSection);
   appendAdvice(documentRef, container,
     result.message + ' Les valeurs brutes sont conservées ; aucune conversion des champs non documentés en watts, kWh ou rendement n’est appliquée. Le débit exporté VMI+ est exprimé en m³/h.');
 }
