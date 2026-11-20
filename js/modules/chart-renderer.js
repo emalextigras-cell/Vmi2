@@ -15,8 +15,8 @@ const fmtPoint=(t,daily)=>{const d=new Date(t);return daily?`${pad(d.getHours())
 /* Conserve les relevés tels quels : aucune valeur manquante n'est interpolée.
    Un point absent ou rejeté crée une interruption visible dans la courbe. */
 /** Normalise les points d'une série en conservant les trous de données.
- * @param {Array<{t:number, v:number|null, blocked?:boolean}>} points Points de la série.
- * @returns {Array<{t:number, v:number|null, blocked:boolean}>} Points normalisés.
+ * @param {Array<{t:number, v:number|null, blocked?:boolean, reason?:string}>} points Points de la série.
+ * @returns {Array<{t:number, v:number|null, blocked:boolean, reason?:string}>} Points normalisés.
  */
 export function fillMissing(points){
  return points.map(p=>({
