@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#245b43">
+<meta http-equiv="Content-Security-Policy" content="script-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; object-src 'none'; base-uri 'self'">
 <title>VMI Purevent – Supervision & optimisation</title>
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="css/style.css">
@@ -199,45 +200,7 @@
 <footer>VMI Purevent · version 14 · L’heure de la VMI est synchronisée à la connexion et avant chaque téléchargement, comme le fait VMI+ ; les commandes de réglage ne sont envoyées qu’après une action manuelle. Les calculs sont indicatifs et dépendent de la fiabilité des capteurs.</footer>
 </main>
 
-<script>
-(() => {
-  const settings = document.getElementById('reglages');
-  const nav = document.querySelector('.main-nav');
-  const links = [...(nav?.querySelectorAll('a[href^="#"]') || [])];
-  const sections = links.map(link => document.getElementById(link.hash.slice(1))).filter(Boolean);
-  const setActive = id => {
-    links.forEach(link => {
-      if (link.hash === '#' + id) link.setAttribute('aria-current', 'location');
-      else link.removeAttribute('aria-current');
-    });
-  };
-  const openSettingsFromHash = () => {
-    if (window.location.hash === '#reglages' && settings) settings.open = true;
-    if (sections.some(section => '#' + section.id === window.location.hash)) setActive(window.location.hash.slice(1));
-  };
-  links.forEach(link => link.addEventListener('click', () => {
-    const id = link.hash.slice(1);
-    if (id === 'reglages' && settings) settings.open = true;
-    setActive(id);
-  }));
-  if ('IntersectionObserver' in window) {
-    const observer = new IntersectionObserver(entries => {
-      const visible = entries.filter(entry => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-      if (visible) setActive(visible.target.id);
-    }, { rootMargin: '-18% 0px -68% 0px', threshold: [0, 0.15, 0.4, 0.7] });
-    sections.forEach(section => observer.observe(section));
-  } else {
-    window.addEventListener('scroll', () => {
-      const current = sections.filter(section => section.getBoundingClientRect().top <= window.innerHeight * 0.35)
-        .sort((a, b) => b.getBoundingClientRect().top - a.getBoundingClientRect().top)[0];
-      if (current) setActive(current.id);
-    }, { passive: true });
-  }
-  window.addEventListener('hashchange', openSettingsFromHash);
-  setActive('accueil');
-  openSettingsFromHash();
-})();
-</script>
+<script type="module" src="js/modules/navigation.js"></script>
 <script type="module" src="js/app.js"></script>
 </body>
 </html>
