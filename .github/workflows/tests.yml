@@ -22,6 +22,8 @@ jobs:
         run: npm ci
       - name: Vérifier la syntaxe de l’application
         run: find js tests -name '*.js' -print0 | xargs -0 -n1 node --check
+      - name: Vérifier les règles ESLint
+        run: npm run lint
       - name: Exécuter les tests
         run: npm test
       - name: Vérifier les types JSDoc

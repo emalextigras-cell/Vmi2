@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "find js tests -name '*.js' -print0 | xargs -0 -n1 node --check && node --test"
+    "test": "find js tests -name '*.js' -print0 | xargs -0 -n1 node --check && node --test",
+    "lint": "npx --yes eslint@9.39.1 js tests"
   },
   "devDependencies": {
     "typescript": "5.9.3"
