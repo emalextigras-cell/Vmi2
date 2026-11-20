@@ -483,7 +483,7 @@ function ingest(recs,label,maxTimestamp=Date.now(),options={}){
  const future=recs.filter(record=>Number.isFinite(record.t)&&record.t>maxTimestamp);
  if(future.length)log(`${label} : dates futures reçues (${future.map(record=>record.rk+' · +'+Math.round((record.t-maxTimestamp)/1000)+' s').join(' ; ')})`);
  const {fixed,kept,futureDetails,counterReset,counterResetDetails,referenceCount,concordantCount,concordanceRate}=fixClock(recs,hist,MIN_VALID,maxTimestamp,options);
- if(counterReset)log(`${label} : recul du compteur d détecté (${counterResetDetails.current} au lieu de ${counterResetDetails.previousMax}) ; ancien historique exclu des repères. ${referenceCount?`Nouveau recalage établi avec ${referenceCount} repère(s) entrant(s).`:'Aucun nouveau repère fiable : les anciennes dates ne sont pas corrigées.'}`);
+ if(counterReset)log(`${label} : discontinuité du compteur d détectée (${counterResetDetails.current} après ${counterResetDetails.previousMax}) ; ancien historique exclu des repères. ${referenceCount?`Nouveau recalage établi avec ${referenceCount} repère(s) entrant(s).`:'Aucun nouveau repère fiable : les anciennes dates ne sont pas corrigées.'}`);
  else if(referenceCount)log(`${label} : repères date/compteur ${concordantCount}/${referenceCount} concordants (${concordanceRate} %).`);
  if(futureDetails.length)log(`${label} : dates futures après correction (${futureDetails.map(({record,correctedTimestamp})=>record.rk+' · d='+record.d+' · '+new Date(correctedTimestamp).toLocaleString('fr-FR')).join(' ; ')})`);
  const keptSet=new Set(kept);
@@ -539,7 +539,7 @@ function finishDownload(reachedCut,timeout=false,interrupted=false){
  $('dlh').disabled=false;setCommandsDisabled(false);
  $('dlp').textContent=`Terminé : ${count} nouvelles lignes${download.invalidRows>0?' · lignes rejetées : synchronisation non certifiée, relance nécessaire':download.integrityGap?' · lacune détectée : synchronisation non certifiée, relance nécessaire':interrupted?(download.got?' · transfert interrompu, données partielles conservées ; relance la synchronisation':' · transfert interrompu avant réception') :reachedCut?' · historique à jour':timeout?(download.got?' · arrêt après une pause de 20 s':' · aucune réponse de la VMI'):(download.sigs.size?' · attention : trou possible avant la dernière ligne mémorisée':' · historique complet')}`;
  if(ingestResult?.counterReset){
-  $('dlp').textContent+=' · ⚠ recul du compteur détecté';
+  $('dlp').textContent+=' · ⚠ discontinuité du compteur détectée';
   $('dlp').textContent+=ingestResult.referenceCount>=2
    ? ` · dates recalées avec ${ingestResult.referenceCount} repères indépendants : vérification conseillée`
    : ' · pas assez de nouveaux repères fiables : dates anciennes laissées non corrigées';
