@@ -48,10 +48,13 @@ test('un trou temporel et une mesure absente peuvent expliquer la même rupture'
   const points = [
     { t: 0, v: 20 },
     { t: 60_000, v: null, blocked: true, reason: 'missing' },
-    { t: 30_000_000, v: 22 }
+    { t: 120_000, v: 21 },
+    { t: 180_000, v: 21 },
+    { t: 14_580_000, v: null, blocked: true, reason: 'invalid' },
+    { t: 36_000_000, v: 22 }
   ];
   const result = analyzeSeriesBreaks(points);
-  assert.deepEqual(result.breaks[0].reasons, ['time-gap', 'missing']);
+  assert.deepEqual(result.breaks.at(-1).reasons, ['time-gap', 'invalid']);
 });
 
 test('fillMissing conserve la cause du point bloqué', () => {
