@@ -28,7 +28,7 @@ test('le rendu énergétique construit le DOM sans innerHTML et conserve les tex
   const all = visit(container);
   assert.ok(all.some(node => node.tagName === 'TABLE'));
   const source = await readFile(new URL('../js/modules/energy-readiness-renderer.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(source, /\\.innerHTML\\b/);
+  assert.doesNotMatch(source, /\.innerHTML\b/);
   assert.match(source, /textContent/);
   assert.match(container.children.map(node => node.textContent).join(' '), /Aucune mesure électrique vérifiée/);
 });
