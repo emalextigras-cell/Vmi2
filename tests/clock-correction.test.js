@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fixClock } from '../js/modules/clock-correction.js';
+import { fixClock, evaluateCounterBaseline } from '../js/modules/clock-correction.js';
 
 const MIN_VALID = new Date(2025, 0, 1).getTime();
 const dayNumber = timestamp => {
@@ -146,4 +146,144 @@ test('fixClock ne recale pas une date Bluetooth ancienne sans repère récent fi
   assert.equal(result.fixed, 0);
   assert.deepEqual(result.kept, []);
   assert.equal(oldRecord.fixed, undefined);
+});
+
+
+test('fixClock ne retient comme repères que les relevés à partir de 10 h', () => {
+  const beforeThreshold = { t: new Date(2026, 10, 10, 9, 59).getTime(), d: 80 };
+  const atThreshold = { t: new Date(2026, 10, 10, 10, 0).getTime(), d: 100 };
+  const afterThreshold = { t: new Date(2026, 10, 10, 11, 0).getTime(), d: 100 };
+
+  const result = fixClock([beforeThreshold, atThreshold, afterThreshold], [], MIN_VALID);
+
+  assert.equal(result.referenceCount, 2);
+  assert.equal(result.concordantCount, 2);
+  assert.equal(result.concordanceRate, 100);
+});
+
+test('fixClock expose le nombre de repères et le taux de concordance du décalage majoritaire', () => {
+  const base = dayNumber(new Date(2026, 10, 10, 10, 0).getTime()) - 100;
+  const records = [
+    { t: new Date(2026, 10, 10, 10, 0).getTime(), d: 100 },
+    { t: new Date(2026, 10, 10, 11, 0).getTime(), d: 100 },
+    { t: new Date(2026, 10, 10, 12, 0).getTime(), d: 100 },
+    { t: new Date(2026, 10, 11, 13, 0).getTime(), d: 100 }
+  ];
+
+  // Le dernier relevé est volontairement discordant d'un jour.
+  const result = fixClock(records, [], MIN_VALID);
+
+  assert.equal(result.referenceCount, 4);
+  assert.equal(result.concordantCount, 3);
+  assert.equal(result.concordanceRate, 75);
+  assert.ok(Number.isFinite(base));
+});
+
+test('fixClock ne publie aucun repère concordant lorsque le compteur a reculé', () => {
+  const history = [{ t: new Date(2026, 10, 10, 11, 0).getTime(), d: 194 }];
+  const incoming = [{ t: new Date(2018, 4, 18, 11, 0).getTime(), d: 12 }];
+  const result = fixClock(incoming, history, MIN_VALID, Date.now(), { allowPre2020RawDates: true });
+
+  assert.equal(result.counterReset, true);
+  assert.deepEqual(result.counterResetDetails, { previousMax: 194, current: 12, reason: 'counter-decreased' });
+  assert.equal(result.referenceCount, 0);
+  assert.equal(result.concordantCount, 0);
+  assert.equal(result.concordanceRate, null);
+  assert.equal(result.referenceSource, 'none');
+  assert.equal(result.fixed, 0);
+});
+
+
+test('fixClock reconstruit avec les seuls nouveaux repères après un recul du compteur', () => {
+  const history = [{ t: new Date(2026, 10, 10, 11, 0).getTime(), d: 194 }];
+  const incoming = [
+    { t: new Date(2026, 10, 18, 11, 0).getTime(), d: 3 },
+    { t: new Date(2026, 10, 19, 11, 0).getTime(), d: 4 },
+    { t: new Date(2018, 4, 18, 11, 0).getTime(), d: 3 }
+  ];
+  const result = fixClock(incoming, history, MIN_VALID, Date.now(), { allowPre2020RawDates: true });
+
+  assert.equal(result.counterReset, true);
+  assert.equal(result.referenceSource, 'incoming-only');
+  assert.equal(result.referenceCount, 2);
+  assert.equal(result.fixed, 1);
+  assert.equal(new Date(result.kept.find(record => record.fixed).t).getFullYear(), 2026);
+});
+
+test('fixClock ne réutilise pas l’ancien décalage si aucun nouveau repère fiable existe', () => {
+  const history = [{ t: new Date(2026, 10, 10, 11, 0).getTime(), d: 194 }];
+  const incoming = [{ t: new Date(2018, 4, 18, 11, 0).getTime(), d: 3 }];
+  const result = fixClock(incoming, history, MIN_VALID, Date.now(), { allowPre2020RawDates: true });
+
+  assert.equal(result.counterReset, true);
+  assert.equal(result.referenceSource, 'none');
+  assert.equal(result.fixed, 0);
+  assert.deepEqual(result.kept, []);
+});
+
+
+test('fixClock exige deux jours de repères indépendants après un recul', () => {
+  const history = [{ t: new Date(2026, 10, 10, 11, 0).getTime(), d: 194 }];
+  const incoming = [
+    { t: new Date(2026, 10, 18, 10, 30).getTime(), d: 3 },
+    { t: new Date(2026, 10, 18, 11, 0).getTime(), d: 3 },
+    { t: new Date(2018, 4, 18, 11, 0).getTime(), d: 3 }
+  ];
+  const result = fixClock(incoming, history, MIN_VALID, Date.now(), { allowPre2020RawDates: true });
+
+  assert.equal(result.counterReset, true);
+  assert.equal(result.referenceCount, 0);
+  assert.equal(result.referenceSource, 'none');
+  assert.equal(result.fixed, 0);
+});
+
+
+test('counter baseline accepte une progression cohérente avec le temps écoulé', () => {
+  const result = evaluateCounterBaseline({
+    baseline: { d: 186, observedAt: Date.UTC(2026, 10, 1, 12) },
+    currentDays: 196,
+    observedAt: Date.UTC(2026, 10, 11, 12)
+  });
+  assert.equal(result.discontinuity, false);
+  assert.equal(result.baseline.d, 196);
+  assert.equal(result.candidate, null);
+});
+
+test('counter baseline détecte un saut supérieur au temps écoulé même si le compteur dépasse l’ancien maximum', () => {
+  const result = evaluateCounterBaseline({
+    baseline: { d: 186, observedAt: Date.UTC(2026, 10, 1, 12) },
+    currentDays: 230,
+    observedAt: Date.UTC(2026, 10, 11, 12)
+  });
+  assert.equal(result.discontinuity, true);
+  assert.equal(result.reason, 'counter-jump');
+  assert.equal(result.previousDays, 186);
+  assert.equal(result.candidate.d, 230);
+  assert.equal(result.baseline.d, 186);
+});
+
+test('counter baseline confirme une nouvelle référence après une seconde progression cohérente', () => {
+  const result = evaluateCounterBaseline({
+    baseline: { d: 186, observedAt: Date.UTC(2026, 10, 1, 12) },
+    candidate: { d: 230, observedAt: Date.UTC(2026, 10, 11, 12) },
+    currentDays: 231,
+    observedAt: Date.UTC(2026, 10, 12, 12)
+  });
+  assert.equal(result.discontinuity, true);
+  assert.equal(result.reason, 'candidate-confirmed');
+  assert.equal(result.baseline.d, 231);
+  assert.equal(result.candidate, null);
+});
+
+test('counter baseline remplace une candidate si sa progression reste incohérente', () => {
+  const result = evaluateCounterBaseline({
+    baseline: { d: 186, observedAt: Date.UTC(2026, 10, 1, 12) },
+    candidate: { d: 230, observedAt: Date.UTC(2026, 10, 11, 12) },
+    currentDays: 280,
+    observedAt: Date.UTC(2026, 10, 12, 12)
+  });
+  assert.equal(result.discontinuity, true);
+  assert.equal(result.reason, 'candidate-replaced');
+  assert.equal(result.candidate.d, 280);
+  assert.equal(result.baseline.d, 186);
 });
