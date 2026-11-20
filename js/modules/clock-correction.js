@@ -41,7 +41,7 @@ const modeOf = values => {
  * @param {number} minValid Timestamp minimal accepté.
  * @param {number} maxTimestamp Timestamp maximal accepté, ou Infinity.
  * @param {{allowPre2020RawDates?: boolean}} [options] Autorise les dates brutes anciennes pour un flux Bluetooth identifié.
- * @returns {{fixed:number, future:number, futureDetails:Array<{record:VmiRecord, correctedTimestamp:number}>, kept:VmiRecord[]}} Résultat de la correction.
+ * @returns {{fixed:number, future:number, futureDetails:Array<{record:VmiRecord, correctedTimestamp:number}>, kept:VmiRecord[], counterReset:boolean, counterResetDetails:{previousMax:number,current:number}|null}} Résultat de la correction.
  */
 export function fixClock(records, history = [], minValid = MIN_VALID, maxTimestamp = Infinity, { allowPre2020RawDates = false } = {}) {
   // Les relevés entrants assez récents doivent rester disponibles pendant cette
@@ -50,13 +50,25 @@ export function fixClock(records, history = [], minValid = MIN_VALID, maxTimesta
   history = filterRawDateHistory(history, minValid).filter(record =>
     !Number.isFinite(maxTimestamp) || record.t <= maxTimestamp
   );
+  // Le flux Bluetooth est transmis du relevé le plus récent vers le plus ancien.
+  // Si son premier compteur d est inférieur au maximum déjà mémorisé, l'ancienne
+  // relation date/d n'est plus fiable (compteur remis à zéro ou historique remplacé).
+  // Dans ce cas, ne jamais reconstruire les dates avec l'ancien décalage majoritaire.
+  const previousMaxDays = history.reduce((max, record) =>
+    Number.isFinite(record.d) ? Math.max(max, record.d) : max, -Infinity);
+  const currentDays = records.find(record => Number.isFinite(record.d))?.d;
+  const counterReset = allowPre2020RawDates && Number.isFinite(previousMaxDays) &&
+    Number.isFinite(currentDays) && currentDays < previousMaxDays;
+  const counterResetDetails = counterReset
+    ? { previousMax: previousMaxDays, current: currentDays }
+    : null;
   const known = history.concat(records).filter(record =>
     isRawDateEligible(record, minValid) && record.t >= minValid &&
     (!Number.isFinite(maxTimestamp) || record.t <= maxTimestamp) &&
     Number.isFinite(record.d) &&
     new Date(record.t).getHours() >= 10
   );
-  const epochOffset = modeOf(known.map(record => dayNumber(record.t) - record.d));
+  const epochOffset = counterReset ? undefined : modeOf(known.map(record => dayNumber(record.t) - record.d));
   const minimumRawDate = allowPre2020RawDates ? Date.UTC(2010, 0, 1) : MIN_RECONSTRUCTABLE_RAW;
   const bad = records.filter(record => record.t < minValid && record.t >= minimumRawDate)
     .sort((a, b) => a.t - b.t);
@@ -110,5 +122,5 @@ export function fixClock(records, history = [], minValid = MIN_VALID, maxTimesta
     }
     return true;
   });
-  return { fixed, future: futureRecords.size, futureDetails, kept };
+  return { fixed, future: futureRecords.size, futureDetails, kept, counterReset, counterResetDetails };
 }
