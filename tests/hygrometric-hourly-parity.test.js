@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildHygrometricDiagnosis } from '../js/modules/analysis.js';
+import { buildHygrometricDiagnosis, analyzeHourlyPatterns } from '../js/modules/analysis.js';
 import { absoluteHumidity } from '../js/modules/psychrometry.js';
 
 function median(values) {
@@ -18,10 +18,7 @@ function dayKey(timestamp) {
 // Référence de l'algorithme antérieur, conservée dans le test pour vérifier
 // que l'indexation ne change ni la sélection ni les diagnostics exposés.
 function legacyHourlyComparison(rows) {
-  const buckets = Array.from({ length: 4 }, (_, index) => ({
-    label: ['00–05 h', '06–11 h', '12–17 h', '18–23 h'][index],
-    startHour: index * 6
-  }));
+  const buckets = analyzeHourlyPatterns(rows, 5).buckets;
   const hourlyDetails = buckets.map(bucket => {
     const bucketRows = rows.filter(row => Math.floor(new Date(row.t).getHours() / 6) === bucket.startHour / 6);
     const dayKeys = [...new Set(bucketRows.map(row => dayKey(row.t)))];
