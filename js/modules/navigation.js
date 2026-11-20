@@ -1,8 +1,14 @@
 (() => {
+  /** @type {HTMLDetailsElement | null} */
   const settings = document.getElementById('reglages');
   const nav = document.querySelector('.main-nav');
-  const links = [...(nav?.querySelectorAll('a[href^="#"]') || [])];
-  const sections = links.map(link => document.getElementById(link.hash.slice(1))).filter(Boolean);
+  /** @type {HTMLAnchorElement[]} */
+  const links = Array.from(nav?.querySelectorAll('a[href^="#"]') ?? []);
+  /** @type {HTMLElement[]} */
+  const sections = links
+    .map(link => document.getElementById(link.hash.slice(1)))
+    .filter((section) => section !== null);
+
   const setActive = id => {
     links.forEach(link => {
       if (link.hash === '#' + id) link.setAttribute('aria-current', 'location');
