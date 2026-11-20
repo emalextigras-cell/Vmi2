@@ -791,11 +791,10 @@ export function detectRapidChanges(data, { maxGapHours = 2, rhJump = 15, absolut
 
 /**
  * Compare les créneaux horaires sur les mêmes dates et avec un poids égal par jour.
- * @param {VmiRecord[]} rows Relevés hygrométriques déjà validés et dédoublonnés.
  * @param {Array<{label:string,startHour:number,sampleCount:number,dayCount:number,dayKeys:string[]}>} hourlyDetails Synthèse des quatre tranches horaires.
- * @param {(timestamp:number)=>string} dayKey Convertit un horodatage en date locale.
+ * @param {Map<number, Map<string, VmiRecord[]>>} byBucketDay Index tranche de six heures -> jour local -> relevés.
  */
-function compareHourlyWindows(rows, hourlyDetails, dayKey) {
+function compareHourlyWindows(hourlyDetails, byBucketDay) {
   const eligibleHours=hourlyDetails.filter(bucket=>bucket.sampleCount>=5&&bucket.dayCount>=2);
   const hourlyPairs=[];
   let candidatePairCount=0;
@@ -804,29 +803,28 @@ function compareHourlyWindows(rows, hourlyDetails, dayKey) {
   for(let i=0;i<eligibleHours.length;i++){
     for(let j=i+1;j<eligibleHours.length;j++){
       const left=eligibleHours[i],right=eligibleHours[j];
+      const leftDays=byBucketDay.get(Math.floor(left.startHour/6))||new Map();
+      const rightDays=byBucketDay.get(Math.floor(right.startHour/6))||new Map();
       candidatePairCount++;
-      const commonDayKeys=left.dayKeys.filter(day=>right.dayKeys.includes(day));
+      const rightDayKeys=new Set(rightDays.keys());
+      const commonDayKeys=[...leftDays.keys()].filter(day=>rightDayKeys.has(day));
       if(commonDayKeys.length>=2)pairsWithTwoCommonDays++;
       // Une date ne contribue que si chaque créneau y compte au moins trois relevés.
       const hourlyMinimumDailySamples=3;
-      const sharedDayKeys=commonDayKeys.filter(day=>[left,right].every(bucket=>
-        rows.filter(r=>
-          Math.floor(new Date(r.t).getHours()/6)===Math.floor(bucket.startHour/6)&&
-          dayKey(r.t)===day
-        ).length>=hourlyMinimumDailySamples
-      ));
+      const sharedDayKeys=commonDayKeys.filter(day=>
+        (leftDays.get(day)?.length||0)>=hourlyMinimumDailySamples&&
+        (rightDays.get(day)?.length||0)>=hourlyMinimumDailySamples
+      );
       if(sharedDayKeys.length<2)continue;
       pairsMeetingDailyMinimum++;
       const pairedStats=[left,right].map(bucket=>{
+        const bucketDays=byBucketDay.get(Math.floor(bucket.startHour/6))||new Map();
         const daily=sharedDayKeys.map(day=>{
-          const daySamples=rows.filter(r=>
-            Math.floor(new Date(r.t).getHours()/6)===Math.floor(bucket.startHour/6)&&
-            dayKey(r.t)===day
-          );
+          const daySamples=bucketDays.get(day)||[];
           return {
             day,
             sampleCount:daySamples.length,
-            medianDelta:median(daySamples.map(r=>absoluteHumidity(r.st,r.sh)-absoluteHumidity(r.te,r.he)))
+            medianDelta:median(daySamples.map(r=>r.delta))
           };
         });
         return {
@@ -1098,12 +1096,24 @@ function prepareHygrometricRows(inputRows) {
   }=analyzeHygrometricTrend(daily.days,trendDelta);
 
   const hourly=analyzeHourlyPatterns(rows,5);
+  // Index unique : tranche de 6 h -> jour local -> relevés.
+  // Toutes les comparaisons horaires réutilisent ces groupes au lieu de filtrer
+  // l'historique complet pour chaque paire et chaque date.
+  const byBucketDay=new Map(Array.from({length:4},(_,bucket)=>[bucket,new Map()]));
+  for(const row of rows){
+    const bucket=Math.floor(new Date(row.t).getHours()/6);
+    const date=dayKey(row.t);
+    const days=byBucketDay.get(bucket);
+    if(!days.has(date))days.set(date,[]);
+    days.get(date).push(row);
+  }
   const hourlyDetails=hourly.buckets.map((bucket,index)=>{
-    const samples=rows.filter(r=>Math.floor(new Date(r.t).getHours()/6)===index);
-    const dayKeys=[...new Set(samples.map(r=>dayKey(r.t)))];
-    return {...bucket,dayCount:dayKeys.length,dayKeys};
+    const days=byBucketDay.get(index);
+    const dayKeys=[...days.keys()];
+    const sampleCount=[...days.values()].reduce((total,samples)=>total+samples.length,0);
+    return {...bucket,sampleCount,dayCount:dayKeys.length,dayKeys};
   });
-  const {bestWindow,diagnostics:hourlyComparisonDiagnostics}=compareHourlyWindows(rows,hourlyDetails,dayKey);
+  const {bestWindow,diagnostics:hourlyComparisonDiagnostics}=compareHourlyWindows(hourlyDetails,byBucketDay);
 
   const coverage=assessHygrometricCoverage({
     inputSampleCount:inputRows.length,
