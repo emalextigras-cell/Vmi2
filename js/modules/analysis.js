@@ -808,7 +808,7 @@ function compareHourlyWindows(hourlyDetails, byBucketDay) {
       const rightDays=byBucketDay.get(Math.floor(right.startHour/6))||new Map();
       candidatePairCount++;
       const rightDayKeys=new Set(rightDays.keys());
-      const commonDayKeys=leftDays.has ? [...leftDays.keys()].filter(day=>rightDayKeys.has(day)) : [];
+      const commonDayKeys=[...leftDays.keys()].filter(day=>rightDayKeys.has(day));
       if(commonDayKeys.length>=2)pairsWithTwoCommonDays++;
       // Une date ne contribue que si chaque créneau y compte au moins trois relevés.
       const hourlyMinimumDailySamples=3;
