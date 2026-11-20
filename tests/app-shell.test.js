@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 async function listJavaScriptFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -15,10 +16,16 @@ async function listJavaScriptFiles(directory) {
 
 test('APP_SHELL contient tous les fichiers JavaScript de js/ et aucun outil de validation', async () => {
   const serviceWorker = await readFile(new URL('../sw.js', import.meta.url), 'utf8');
-  const match = serviceWorker.match(/const APP_SHELL = \\[([\\s\\S]*?)\\n\\];/);
-  assert.ok(match, 'Déclaration APP_SHELL introuvable dans sw.js');
-  const cachedFiles = [...match[1].matchAll(/['"](\\.\\/js\\/[^'"]+\\.js)['"]/g)].map(item => item[1]).sort();
-  const sourceFiles = await listJavaScriptFiles(new URL('../js/', import.meta.url).pathname);
+  const start = serviceWorker.indexOf('const APP_SHELL = [');
+  const end = serviceWorker.indexOf('\\n];', start);
+  assert.notEqual(start, -1, 'Déclaration APP_SHELL introuvable dans sw.js');
+  assert.notEqual(end, -1, 'Fin de la déclaration APP_SHELL introuvable dans sw.js');
+  const declaration = serviceWorker.slice(start, end);
+  const cachedFiles = [...declaration.matchAll(/['"]([^'"]+)['"]/g)]
+    .map(item => item[1])
+    .filter(file => file.startsWith('./js/') && file.endsWith('.js'))
+    .sort();
+  const sourceFiles = await listJavaScriptFiles(fileURLToPath(new URL('../js/', import.meta.url)));
   assert.deepEqual(cachedFiles, sourceFiles, 'APP_SHELL doit correspondre exactement aux fichiers JavaScript de js/');
-  assert.doesNotMatch(match[1], /\\.\\/tests\\//, 'Les pages de test ne doivent pas être dans le cache de production');
+  assert.ok(!declaration.includes('./tests/'), 'Les pages de test ne doivent pas être dans le cache de production');
 });
