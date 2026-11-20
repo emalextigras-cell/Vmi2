@@ -728,7 +728,33 @@ $('diagCopy').onclick=async()=>{
 /* ---------- Graphiques SVG ---------- */
 /* Le direct reste une vue facultative ; toutes les analyses utilisent l’historique importé/téléchargé. */
 function selectedData(){return selectDataRange(source==='live'?live:hist,{selectedDate,daysSetting})}
-function selectedHistoricalData(){return selectDataRange(hist,{selectedDate,daysSetting})}
+let historicalSelectionCache={history:null,selectedDate:null,daysSetting:null,data:null};
+function selectedHistoricalData(){
+ if(historicalSelectionCache.history===hist&&historicalSelectionCache.selectedDate===selectedDate&&historicalSelectionCache.daysSetting===daysSetting){
+  return historicalSelectionCache.data;
+ }
+ const data=selectDataRange(hist,{selectedDate,daysSetting});
+ historicalSelectionCache={history:hist,selectedDate,daysSetting,data};
+ return data;
+}
+const hygrometricDiagnosisCache=new WeakMap();
+function getHygrometricDiagnosis(data){
+ let result=hygrometricDiagnosisCache.get(data);
+ if(!result){
+  result=buildHygrometricDiagnosis(data);
+  hygrometricDiagnosisCache.set(data,result);
+ }
+ return result;
+}
+const dataQualityCache=new WeakMap();
+function getDataQuality(data){
+ let result=dataQualityCache.get(data);
+ if(!result){
+  result=summarizeDataQuality(data);
+  dataQualityCache.set(data,result);
+ }
+ return result;
+}
 function formatDuration(ms){
  const minutes=Math.round(ms/60000),hours=Math.floor(minutes/60),days=Math.floor(hours/24);
  if(days)return days+' j '+(hours%24)+' h';
@@ -1168,14 +1194,14 @@ function render(){
  const dashboardData=$('dashboardDataStatus');
  const dashboardAnalysis=$('dashboardAnalysisStatus');
  dashboardData.textContent=analysisData.length?`${analysisData.length} relevés historiques dans la période sélectionnée.`:'Aucun relevé historique exploitable dans la période sélectionnée. Importe un export VMI+.';
- const dashboardDiagnosis=buildHygrometricDiagnosis(analysisData);
+ const dashboardDiagnosis=getHygrometricDiagnosis(analysisData);
  dashboardAnalysis.textContent=dashboardDiagnosis.status==='analysis-available'?'Des constats hygrométriques peuvent être établis à partir de l’historique.':'Historique encore insuffisant pour établir un diagnostic fiable.';
  $('liveCount').textContent=String(live.length);
  const rangeLabel=selectedDate?'jour '+selectedDate:(daysSetting?daysSetting+' derniers jours':'toute la période');
  $('historyStatus').textContent=`Graphiques : ${data.length} relevés · ${source==='live'?'enregistrement direct facultatif':'historique importé / VMI'} · ${rangeLabel}. Analyses et diagnostics : historique importé / VMI uniquement.`;
  const lastRpm=[...hist].reverse().find(r=>Number.isFinite(r.rpm));
  $('rpm').textContent=lastRpm?lastRpm.rpm:'–';
- const quality=summarizeDataQuality(analysisData);
+ const quality=getDataQuality(analysisData);
  renderVmiAssistant(analysisData,{targetRH:Number($('targetRH').value),minSamples:Number($('minSamples').value),energyReadings,meterHistory:hist,onError:log});
  const qualityBox=$('dataQuality');
  const coreCoverage=quality.fieldCoverage.filter(field=>quality.coreSensorKeys.includes(String(field.key)));
