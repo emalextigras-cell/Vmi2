@@ -84,8 +84,13 @@ export function fixClock(records, history = [], minValid = MIN_VALID, maxTimesta
     ? [...new Map(known.map(record => [`${dayNumber(record.t)}|${record.d}`, record])).values()]
     : known;
   const offsets = independentKnown.map(record => dayNumber(record.t) - record.d);
-  const epochOffset = counterReset && independentKnown.length < 2 ? undefined : modeOf(offsets);
-  const concordantCount = epochOffset === undefined ? 0 : offsets.filter(offset => offset === epochOffset).length;
+  let epochOffset = counterReset && independentKnown.length < 2 ? undefined : modeOf(offsets);
+  let concordantCount = epochOffset === undefined ? 0 : offsets.filter(offset => offset === epochOffset).length;
+  // En cas de recul, un simple ex-aequo entre deux décalages ne suffit pas.
+  if (counterReset && epochOffset !== undefined && concordantCount <= independentKnown.length / 2) {
+    epochOffset = undefined;
+    concordantCount = 0;
+  }
   // Les compteurs ne sont annoncés que si un décalage a effectivement été retenu.
   const referenceCount = epochOffset === undefined ? 0 : independentKnown.length;
   const concordanceRate = referenceCount
