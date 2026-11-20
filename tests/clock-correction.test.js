@@ -147,3 +147,47 @@ test('fixClock ne recale pas une date Bluetooth ancienne sans repère récent fi
   assert.deepEqual(result.kept, []);
   assert.equal(oldRecord.fixed, undefined);
 });
+
+
+test('fixClock ne retient comme repères que les relevés à partir de 10 h', () => {
+  const beforeThreshold = { t: new Date(2026, 10, 10, 9, 59).getTime(), d: 80 };
+  const atThreshold = { t: new Date(2026, 10, 10, 10, 0).getTime(), d: 100 };
+  const afterThreshold = { t: new Date(2026, 10, 10, 11, 0).getTime(), d: 100 };
+
+  const result = fixClock([beforeThreshold, atThreshold, afterThreshold], [], MIN_VALID);
+
+  assert.equal(result.referenceCount, 2);
+  assert.equal(result.concordantCount, 2);
+  assert.equal(result.concordanceRate, 100);
+});
+
+test('fixClock expose le nombre de repères et le taux de concordance du décalage majoritaire', () => {
+  const base = dayNumber(new Date(2026, 10, 10, 10, 0).getTime()) - 100;
+  const records = [
+    { t: new Date(2026, 10, 10, 10, 0).getTime(), d: 100 },
+    { t: new Date(2026, 10, 10, 11, 0).getTime(), d: 100 },
+    { t: new Date(2026, 10, 10, 12, 0).getTime(), d: 100 },
+    { t: new Date(2026, 10, 11, 13, 0).getTime(), d: 100 }
+  ];
+
+  // Le dernier relevé est volontairement discordant d'un jour.
+  const result = fixClock(records, [], MIN_VALID);
+
+  assert.equal(result.referenceCount, 4);
+  assert.equal(result.concordantCount, 3);
+  assert.equal(result.concordanceRate, 75);
+  assert.ok(Number.isFinite(base));
+});
+
+test('fixClock ne publie aucun repère concordant lorsque le compteur a reculé', () => {
+  const history = [{ t: new Date(2026, 10, 10, 11, 0).getTime(), d: 194 }];
+  const incoming = [{ t: new Date(2018, 4, 18, 11, 0).getTime(), d: 12 }];
+  const result = fixClock(incoming, history, MIN_VALID, Date.now(), { allowPre2020RawDates: true });
+
+  assert.equal(result.counterReset, true);
+  assert.deepEqual(result.counterResetDetails, { previousMax: 194, current: 12 });
+  assert.equal(result.referenceCount, 0);
+  assert.equal(result.concordantCount, 0);
+  assert.equal(result.concordanceRate, null);
+  assert.equal(result.fixed, 0);
+});
