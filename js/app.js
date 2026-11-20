@@ -14,7 +14,7 @@ import { acceptHistoryFragment, createHistoryStreamState, isHistorySyncBaseline,
 import { validateBluetoothHistoryRow } from './modules/bluetooth-history-row.js';
 import { armDownloadTimeout } from './modules/sync.js';
 import { parseCell, recFrom, getColumnMapping, findVmiHeaderRowIndex, parseCsvRows, isCsvFile } from './modules/dataio.js';
-import { fixClock } from './modules/clock-correction.js';
+import { fixClock, evaluateCounterBaseline } from './modules/clock-correction.js';
 import { absoluteHumidity, psychro, validTemp } from './modules/psychrometry.js';
 import { summarizeDataQuality, isPlausibleHumidity, isPlausibleTemperature } from './modules/data-quality.js';
 
@@ -158,6 +158,12 @@ async function init(){
  const bad=hist.filter(r=>!(r&&r.t>=MIN_VALID)).length;
  if(bad){hist=hist.filter(r=>r&&r.t>=MIN_VALID);$('importInfo').textContent=`${bad} anciens relevés à date invalide ont été retirés. Réimporte ton export VMI+ ou récupère l’historique : ils reviendront avec la bonne date.`}
  hist.sort((a,b)=>a.t-b.t);
+ // Initialiser une seule fois la référence persistante à partir du dernier relevé daté.
+ // Elle sera ensuite actualisée uniquement après une synchronisation Bluetooth complète.
+ if(!meta.counterBaseline){
+  const baselineRecord=[...hist].reverse().find(record=>Number.isFinite(record.d)&&Number.isFinite(record.t));
+  if(baselineRecord){meta.counterBaseline={d:baselineRecord.d,observedAt:baselineRecord.t};await dbSet('meta',meta)}
+ }
  if(migrationPending&&migrationCompleted){
   // Les données fusionnées et le marqueur sont validés ensemble : un échec permet une nouvelle tentative.
   await dbSetMany([['hist',hist],['live',live],['migrated',true]]);
@@ -514,8 +520,22 @@ function finishDownload(reachedCut,timeout=false,interrupted=false){
  download.on=false;clearTimeout(download.timeout);
  const count=download.rows.length;
  const complete=!timeout&&!interrupted&&!download.integrityGap&&!(download.invalidRows>0)&&(reachedCut||download.finalSeen===true);
- const ingestResult=count?ingest(markHistoryRows(download.rows,complete),'Téléchargement',Date.now(),{allowPre2020RawDates:true}):null;
- if(complete){meta.lastSync=Date.now();void persist('meta',meta,'Sauvegarde des métadonnées').catch(()=>{});renderFreshness()}
+ const syncObservedAt=Date.now();
+ const newestCounterRecord=download.rows.find(record=>Number.isFinite(record.d));
+ const counterAssessment=newestCounterRecord
+  ? evaluateCounterBaseline({baseline:meta.counterBaseline,candidate:meta.counterCandidate,currentDays:newestCounterRecord.d,observedAt:syncObservedAt})
+  : null;
+ const ingestResult=count?ingest(markHistoryRows(download.rows,complete),'Téléchargement',syncObservedAt,{
+  allowPre2020RawDates:true,
+  forceCounterReset:counterAssessment?.discontinuity===true,
+  counterResetReason:counterAssessment?.reason,
+  counterPreviousDays:counterAssessment?.previousDays
+ }):null;
+ if(complete){
+  meta.lastSync=syncObservedAt;
+  if(counterAssessment){meta.counterBaseline=counterAssessment.baseline;meta.counterCandidate=counterAssessment.candidate}
+  void persist('meta',meta,'Sauvegarde des métadonnées').catch(()=>{});renderFreshness()
+ }
  $('dlh').disabled=false;setCommandsDisabled(false);
  $('dlp').textContent=`Terminé : ${count} nouvelles lignes${download.invalidRows>0?' · lignes rejetées : synchronisation non certifiée, relance nécessaire':download.integrityGap?' · lacune détectée : synchronisation non certifiée, relance nécessaire':interrupted?(download.got?' · transfert interrompu, données partielles conservées ; relance la synchronisation':' · transfert interrompu avant réception') :reachedCut?' · historique à jour':timeout?(download.got?' · arrêt après une pause de 20 s':' · aucune réponse de la VMI'):(download.sigs.size?' · attention : trou possible avant la dernière ligne mémorisée':' · historique complet')}`;
  if(ingestResult?.counterReset){
