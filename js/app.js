@@ -795,8 +795,7 @@ function renderTemporalAnalysis(data){
 }
 
 
-function renderIntelligentDiagnosis(data){
- const result=buildHygrometricDiagnosis(data);
+function renderIntelligentDiagnosis(result){
  const box=$('diagnosisStatus'), evidence=$('diagnosisEvidence'), limits=$('diagnosisLimits');
  const coverageValue=$('coverageValue'), coverageDescription=$('coverageDescription'), coverageMethod=$('coverageMethod');
  const available=result.status==='analysis-available';
@@ -1198,7 +1197,7 @@ function render(){
  qualityBox.className=quality.hasAnomalies||quality.transientSpikes.count?'advice warn':'advice';
  qualityBox.textContent='Contrôle qualité de l’historique analysé : '+coverageText+missingText+invalidText+spikeText+' Les données manquantes réduisent la couverture ; elles ne sont pas considérées comme des anomalies.';
  renderCharts(data,selectedDate,$);
- renderRecommendation(analysisData);renderSeasonalAdvice(analysisData);renderHygrometricPeriods(analysisData);renderIntelligentDiagnosis(analysisData);
+ renderRecommendation(analysisData);renderSeasonalAdvice(analysisData);renderHygrometricPeriods(analysisData);renderIntelligentDiagnosis(dashboardDiagnosis);
  renderTemporalAnalysis(analysisData);analyzeSpeeds(analysisData);renderEnergyReadiness(analysisData);renderFanEnergyEstimate(analysisData);renderDailyEnergyClimateContext(analysisData);renderWeeklyDiagnostic(analysisData);renderFreshness();
 }
 $('targetRH').onchange=render;$('minSamples').onchange=render;
