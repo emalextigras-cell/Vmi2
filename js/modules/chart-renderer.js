@@ -15,11 +15,16 @@ const fmtPoint=(t,daily)=>{const d=new Date(t);return daily?`${pad(d.getHours())
 /* Conserve les relevés tels quels : aucune valeur manquante n'est interpolée.
    Un point absent ou rejeté crée une interruption visible dans la courbe. */
 /** Normalise les points d'une série en conservant les trous de données.
- * @param {Array<{t:number, v:number|null, blocked?:boolean}>} points Points de la série.
- * @returns {Array<{t:number, v:number|null, blocked:boolean}>} Points normalisés.
+ * @param {Array<{t:number, v:number|null, blocked?:boolean, reason?:string}>} points Points de la série.
+ * @returns {Array<{t:number, v:number|null, blocked:boolean, reason?:string}>} Points normalisés.
  */
 export function fillMissing(points){
- return points.map(p=>({t:p.t,v:Number.isFinite(p.v)?p.v:null,blocked:!!p.blocked||!Number.isFinite(p.v)}));
+ return points.map(p=>({
+  t:p.t,
+  v:Number.isFinite(p.v)?p.v:null,
+  blocked:!!p.blocked||!Number.isFinite(p.v),
+  ...(p.reason?{reason:p.reason}:{})
+ }));
 }
 /** Indique si un intervalle contient un point marqué comme manquant.
  * @param {Array<{t:number, blocked?:boolean}>} points Points horodatés.
@@ -29,6 +34,57 @@ export function fillMissing(points){
  */
 export function hasBlockedBetween(points, startTime, endTime){
  return points.some(point=>point.blocked&&point.t>startTime&&point.t<endTime);
+}
+
+/** Analyse les causes des ruptures sans modifier les points ni la règle de tracé.
+ * @param {Array<{t:number,v:number|null,blocked?:boolean,reason?:string}>} points Série chronologique.
+ * @returns {{thresholdMs:number,breaks:Array<{from:number,to:number,gapMs:number,reasons:string[]}>}}
+ */
+export function analyzeSeriesBreaks(points){
+ const dts=[];
+ for(let i=1;i<points.length&&dts.length<400;i++){
+  const delta=points[i].t-points[i-1].t;
+  if(Number.isFinite(delta)&&delta>0)dts.push(delta);
+ }
+ dts.sort((a,b)=>a-b);
+ const thresholdMs=Math.max(4*3600000,6*(dts.length?dts[Math.floor(dts.length/2)]:0));
+ const valid=[];
+ points.forEach((point,index)=>{if(Number.isFinite(point.v))valid.push({point,index});});
+ const breaks=[];
+ for(let i=1;i<valid.length;i++){
+  const previous=valid[i-1],current=valid[i],gapMs=current.point.t-previous.point.t;
+  const reasons=[];
+  if(gapMs>thresholdMs)reasons.push('time-gap');
+  for(let j=previous.index+1;j<current.index;j++){
+   const point=points[j];
+   if(!point.blocked)continue;
+   const reason=['placeholder','invalid','missing'].includes(point.reason)?point.reason:'missing';
+   if(!reasons.includes(reason))reasons.push(reason);
+  }
+  if(reasons.length)breaks.push({from:previous.point.t,to:current.point.t,gapMs,reasons});
+ }
+ return {thresholdMs,breaks};
+}
+
+function continuityDiagnostics(series){
+ const labels={ 'time-gap':'intervalle temporel trop long', placeholder:'trame de remplacement 20 °C / 50 %', invalid:'valeur hors plage plausible', missing:'mesure absente' };
+ const entries=series.map(item=>({item,analysis:analyzeSeriesBreaks(item.points)}))
+  .filter(entry=>entry.analysis.breaks.length);
+ if(!entries.length)return '';
+ const total=entries.reduce((sum,entry)=>sum+entry.analysis.breaks.length,0);
+ const content=entries.map(({item,analysis})=>{
+  const counts={};
+  analysis.breaks.forEach(entry=>entry.reasons.forEach(reason=>{counts[reason]=(counts[reason]||0)+1;}));
+  const summary=Object.entries(counts).map(([reason,count])=>`${count} × ${labels[reason]}`).join(' ; ');
+  const examples=analysis.breaks.slice(0,5).map(entry=>{
+   const start=new Date(entry.from).toLocaleString('fr-FR'),end=new Date(entry.to).toLocaleString('fr-FR');
+   const hours=(entry.gapMs/3600000).toFixed(1).replace('.',',');
+   return `<li>${escapeHtml(start)} → ${escapeHtml(end)} (${hours} h) : ${entry.reasons.map(reason=>labels[reason]).join(' + ')}</li>`;
+  }).join('');
+  const more=analysis.breaks.length>5?`<li>… et ${analysis.breaks.length-5} autre(s) interruption(s)</li>`:'';
+  return `<section><strong>${escapeHtml(item.name)}</strong><p>${summary}</p><ul>${examples}${more}</ul></section>`;
+ }).join('');
+ return `<details class="chart-data chart-continuity"><summary>Comprendre les interruptions (${total})</summary><div class="chart-table-scroll">${content}<p>Une interruption n'est pas corrigée ni interpolée : les relevés bruts restent inchangés.</p></div></details>`;
 }
 function escapeHtml(value){
  return String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
@@ -80,7 +136,7 @@ function drawChart(id,title,series,selectedDate,$){
   svg+=`<path d="${d}" fill="none" stroke="${s.color}" stroke-width="1.8" stroke-linejoin="round"/>${dots}`;
  }
  const legend=series.map(s=>`<span><i class="dot" style="background:${s.color}"></i>${s.name}</span>`).join('');
- el.innerHTML=`<div class="chart-toolbar"><div class="legend">${legend}</div><div class="zoom-controls"><button type="button" data-zoom="out" aria-label="Dézoomer" ${view.factor<=1?'disabled':''}>−</button><span>${view.factor.toFixed(1).replace('.0','')}×</span><button type="button" data-zoom="in" aria-label="Zoomer" ${view.factor>=20?'disabled':''}>+</button><button type="button" data-zoom="left" aria-label="Déplacer vers la gauche" ${view.factor<=1?'disabled':''}>◀</button><button type="button" data-zoom="right" aria-label="Déplacer vers la droite" ${view.factor<=1?'disabled':''}>▶</button><button type="button" data-zoom="reset" ${view.factor<=1?'disabled':''}>Réinitialiser</button></div></div><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${title}">${svg}<line id="${id}Cur" class="gridline" y1="${T}" y2="${H-B}" x1="0" x2="0" style="display:none"/></svg><div class="tip" aria-hidden="true"></div>${accessibleDataTable(title,series)}`;
+ el.innerHTML=`<div class="chart-toolbar"><div class="legend">${legend}</div><div class="zoom-controls"><button type="button" data-zoom="out" aria-label="Dézoomer" ${view.factor<=1?'disabled':''}>−</button><span>${view.factor.toFixed(1).replace('.0','')}×</span><button type="button" data-zoom="in" aria-label="Zoomer" ${view.factor>=20?'disabled':''}>+</button><button type="button" data-zoom="left" aria-label="Déplacer vers la gauche" ${view.factor<=1?'disabled':''}>◀</button><button type="button" data-zoom="right" aria-label="Déplacer vers la droite" ${view.factor<=1?'disabled':''}>▶</button><button type="button" data-zoom="reset" ${view.factor<=1?'disabled':''}>Réinitialiser</button></div></div><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${title}">${svg}<line id="${id}Cur" class="gridline" y1="${T}" y2="${H-B}" x1="0" x2="0" style="display:none"/></svg><div class="tip" aria-hidden="true"></div>${accessibleDataTable(title,series)}${continuityDiagnostics(series)}`;
  el.querySelectorAll('[data-zoom]').forEach(button=>button.addEventListener('click',()=>{const action=button.dataset.zoom;if(action==='in'){view.factor=Math.min(20,view.factor*1.6);}else if(action==='out'){view.factor=Math.max(1,view.factor/1.6);if(view.factor===1)view.center=.5;}else if(action==='left'){view.center=Math.max(0,view.center-.18/view.factor);}else if(action==='right'){view.center=Math.min(1,view.center+.18/view.factor);}else{view.factor=1;view.center=.5;}drawChart(id,title,series,selectedDate,$);}));
  /* Recherche dichotomique : évite de parcourir tout l'historique à chaque mouvement du doigt. */
  const nearest=(points,t)=>{let lo=0,hi=points.length;while(lo<hi){const mid=(lo+hi)>>1;if(points[mid].t<t)lo=mid+1;else hi=mid;}let best=null;for(let k=Math.max(0,lo-1);k<Math.min(points.length,lo+2);k++){const p=points[k];if(Number.isFinite(p.v)){const dd=Math.abs(p.t-t);if(!best||dd<best.dd)best={dd,t:p.t,v:p.v};}}return best;};
@@ -105,7 +161,13 @@ function drawChart(id,title,series,selectedDate,$){
  svgEl.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse'){tip.style.display='none';cursor.style.display='none'}});
 }
 function seriesFor(data,key,name,color,derive=null,invalid=null){
- const points=data.map(r=>({t:r.t,v:isPlaceholderSensorRecord(r)?null:(derive?derive(r):r[key]),blocked:isPlaceholderSensorRecord(r)||(invalid?invalid(r):false)}));
+ const points=data.map(r=>{
+  const placeholder=isPlaceholderSensorRecord(r);
+  const value=placeholder?null:(derive?derive(r):r[key]);
+  const isInvalid=!placeholder&&(invalid?invalid(r):false);
+  const reason=placeholder?'placeholder':isInvalid?'invalid':!Number.isFinite(value)?'missing':null;
+  return {t:r.t,v:value,blocked:!!reason,reason};
+ });
  return {name,color,points:fillMissing(points)};
 }
 /**
