@@ -31,8 +31,12 @@ const modeOf = values => {
  * « jours de fonctionnement ». Les dates brutes antérieures à 2020 restent
  * exclues par défaut ; le téléchargement Bluetooth peut autoriser leur recalage
  * uniquement lorsqu'un repère fiable existe dans l'historique récent.
- * Retourne { fixed, future, kept }.
- * Les règles de regroupement et le seuil horaire sont volontairement conservés.
+ * Les repères sont limités aux relevés à partir de 10 h : les observations du
+ * compteur montrent son changement quotidien dans une fenêtre approximative de
+ * 2 h à 6 h. Le seuil de 10 h laisse une marge après cette transition ; il évite
+ * de mélanger deux journées de compteur, sans prétendre que cette fenêtre est
+ * une garantie constructeur valable pour tous les appareils.
+ * Retourne aussi les métriques de concordance des repères date/compteur.
  */
 /**
  * fixClock — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
@@ -41,7 +45,7 @@ const modeOf = values => {
  * @param {number} minValid Timestamp minimal accepté.
  * @param {number} maxTimestamp Timestamp maximal accepté, ou Infinity.
  * @param {{allowPre2020RawDates?: boolean}} [options] Autorise les dates brutes anciennes pour un flux Bluetooth identifié.
- * @returns {{fixed:number, future:number, futureDetails:Array<{record:VmiRecord, correctedTimestamp:number}>, kept:VmiRecord[], counterReset:boolean, counterResetDetails:{previousMax:number,current:number}|null}} Résultat de la correction.
+ * @returns {{fixed:number, future:number, futureDetails:Array<{record:VmiRecord, correctedTimestamp:number}>, kept:VmiRecord[], counterReset:boolean, counterResetDetails:{previousMax:number,current:number}|null, referenceCount:number, concordantCount:number, concordanceRate:number|null}} Résultat de la correction.
  */
 export function fixClock(records, history = [], minValid = MIN_VALID, maxTimestamp = Infinity, { allowPre2020RawDates = false } = {}) {
   // Les relevés entrants assez récents doivent rester disponibles pendant cette
@@ -62,13 +66,22 @@ export function fixClock(records, history = [], minValid = MIN_VALID, maxTimesta
   const counterResetDetails = counterReset
     ? { previousMax: previousMaxDays, current: currentDays }
     : null;
+  // Le seuil de 10 h écarte les relevés proches du changement de compteur
+  // observé entre 2 h et 6 h ; getHours() utilise l'heure locale du navigateur.
   const known = history.concat(records).filter(record =>
     isRawDateEligible(record, minValid) && record.t >= minValid &&
     (!Number.isFinite(maxTimestamp) || record.t <= maxTimestamp) &&
     Number.isFinite(record.d) &&
     new Date(record.t).getHours() >= 10
   );
-  const epochOffset = counterReset ? undefined : modeOf(known.map(record => dayNumber(record.t) - record.d));
+  const offsets = known.map(record => dayNumber(record.t) - record.d);
+  const epochOffset = counterReset ? undefined : modeOf(offsets);
+  const concordantCount = epochOffset === undefined ? 0 : offsets.filter(offset => offset === epochOffset).length;
+  // Les compteurs ne sont annoncés que si un décalage a effectivement été retenu.
+  const referenceCount = epochOffset === undefined ? 0 : known.length;
+  const concordanceRate = referenceCount
+    ? Math.round((concordantCount / referenceCount) * 1000) / 10
+    : null;
   const minimumRawDate = allowPre2020RawDates ? Date.UTC(2010, 0, 1) : MIN_RECONSTRUCTABLE_RAW;
   const bad = records.filter(record => record.t < minValid && record.t >= minimumRawDate)
     .sort((a, b) => a.t - b.t);
@@ -90,6 +103,7 @@ export function fixClock(records, history = [], minValid = MIN_VALID, maxTimesta
     if (current.length) episodes.push(current);
 
     for (const episode of episodes) {
+      // Même seuil de 10 h pour les repères propres à chaque épisode.
       const offset = modeOf(episode
         .filter(record => Number.isFinite(record.d) && new Date(record.t).getHours() >= 10)
         .map(record => epochOffset + record.d - dayNumber(record.t)));
@@ -122,5 +136,9 @@ export function fixClock(records, history = [], minValid = MIN_VALID, maxTimesta
     }
     return true;
   });
-  return { fixed, future: futureRecords.size, futureDetails, kept, counterReset, counterResetDetails };
+  return {
+    fixed, future: futureRecords.size, futureDetails, kept,
+    counterReset, counterResetDetails,
+    referenceCount, concordantCount, concordanceRate
+  };
 }
