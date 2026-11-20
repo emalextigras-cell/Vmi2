@@ -589,26 +589,20 @@ export function summarizeTemperatureLimit(data, {
  * @param {{threshold?: number, maxGapHours?: number}} options Seuils de regroupement temporel.
  * @returns {import('../types/vmi-types.js').HygrometricPeriodsResult} Périodes hygrométriques détectées.
  */
-export function analyzeHygrometricPeriods(data, { threshold = 1, maxGapHours = 2 } = {}) {
+/**
+ * Agrège des relevés déjà normalisés et triés chronologiquement.
+ * Évite de recalculer les validations, les humidités absolues et l'index des
+ * horodatages lorsque le diagnostic complet a déjà préparé ces relevés.
+ * @param {Array<{t:number,delta:number}>} rows Relevés valides, uniques et triés.
+ * @param {{threshold?:number,maxGapHours?:number}} options Seuils temporels.
+ */
+function summarizePreparedHygrometricPeriods(rows, { threshold = 1, maxGapHours = 2 } = {}) {
   if(!Number.isFinite(threshold)||threshold<=0){
     throw new RangeError('threshold doit être un nombre fini strictement positif.');
   }
   if(!Number.isFinite(maxGapHours)||maxGapHours<=0){
     throw new RangeError('maxGapHours doit être un nombre fini strictement positif.');
   }
-  // Même horodatage = une seule observation. Une ligne invalide ne peut pas
-  // effacer une ligne valide ; parmi les doublons valides, la dernière prévaut.
-  const unique=new Map();
-  for(const r of Array.isArray(data)?data:[]){
-    if(!Number.isFinite(r?.t)||!Number.isFinite(new Date(r.t).getTime())||
-      !Number.isFinite(r.st)||!isPlausibleTemperature(r.st)||
-      !Number.isFinite(r.sh)||!isPlausibleHumidity(r.sh)||
-      !Number.isFinite(r.te)||!isPlausibleTemperature(r.te)||
-      !Number.isFinite(r.he)||!isPlausibleHumidity(r.he))continue;
-    const delta=absoluteHumidity(r.st,r.sh)-absoluteHumidity(r.te,r.he);
-    if(Number.isFinite(delta))unique.set(r.t,{t:r.t,delta});
-  }
-  const rows=[...unique.values()].sort((a,b)=>a.t-b.t);
   const result={sampleCount:rows.length,intervalCount:0,gapCount:0,medianDelta:median(rows.map(r=>r.delta)),
     threshold,maxGapHours,observedDurationMs:0,dryDurationMs:0,humidDurationMs:0,
     neutralDurationMs:0,longestDryMs:0,longestHumidMs:0};
@@ -652,6 +646,32 @@ export function analyzeHygrometricPeriods(data, { threshold = 1, maxGapHours = 2
   }
   closeStreak();
   return result;
+}
+
+/**
+ * Analyse autonome de la différence d'humidité absolue salon - air entrant.
+ * Les durées sont estimées entre deux mesures successives par interpolation ;
+ * les intervalles supérieurs à maxGapHours ne sont jamais extrapolés.
+ */
+/**
+ * analyzeHygrometricPeriods — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
+ * @param {VmiRecord[]} data Historique des relevés hygrométriques.
+ * @param {{threshold?: number, maxGapHours?: number}} options Seuils de regroupement temporel.
+ * @returns {import('../types/vmi-types.js').HygrometricPeriodsResult} Périodes hygrométriques détectées.
+ */
+export function analyzeHygrometricPeriods(data, options = {}) {
+  const unique=new Map();
+  for(const r of Array.isArray(data)?data:[]){
+    if(!Number.isFinite(r?.t)||!Number.isFinite(new Date(r.t).getTime())||
+      !Number.isFinite(r.st)||!isPlausibleTemperature(r.st)||
+      !Number.isFinite(r.sh)||!isPlausibleHumidity(r.sh)||
+      !Number.isFinite(r.te)||!isPlausibleTemperature(r.te)||
+      !Number.isFinite(r.he)||!isPlausibleHumidity(r.he))continue;
+    const delta=absoluteHumidity(r.st,r.sh)-absoluteHumidity(r.te,r.he);
+    if(Number.isFinite(delta))unique.set(r.t,{t:r.t,delta});
+  }
+  const rows=[...unique.values()].sort((a,b)=>a.t-b.t);
+  return summarizePreparedHygrometricPeriods(rows,options);
 }
 
 function validHygroRow(r) {
@@ -1055,17 +1075,23 @@ function prepareHygrometricRows(inputRows) {
     const key=dayKey(row.t);
     dailySampleCounts.set(key,(dailySampleCounts.get(key)||0)+1);
   }
-  const periods=analyzeHygrometricPeriods(rows,{threshold:dryDelta,maxGapHours});
+  const periods=summarizePreparedHygrometricPeriods(rows,{threshold:dryDelta,maxGapHours});
   const observedHours=periods.observedDurationMs/3600000;
-  const intervalMs=rows.slice(1).map((r,i)=>r.t-rows[i].t).filter(gap=>gap>0);
   const maxGapMs=maxGapHours*3600000;
-  const acceptedIntervals=intervalMs.filter(gap=>gap<=maxGapMs);
-  const excludedIntervals=intervalMs.filter(gap=>gap>maxGapMs);
+  const acceptedIntervals=[];
+  let excludedGapCount=0,largestExcludedGapMs=0;
+  for(let i=1;i<rows.length;i++){
+    const gap=rows[i].t-rows[i-1].t;
+    if(!(gap>0))continue;
+    if(gap<=maxGapMs)acceptedIntervals.push(gap);
+    else{
+      excludedGapCount++;
+      if(gap>largestExcludedGapMs)largestExcludedGapMs=gap;
+    }
+  }
   const medianAcceptedIntervalMs=median(acceptedIntervals);
   const medianSampleIntervalMinutes=medianAcceptedIntervalMs==null?null:medianAcceptedIntervalMs/60000;
-  const largestExcludedGapHours=excludedIntervals.length
-    ?excludedIntervals.reduce((maximum,gap)=>Math.max(maximum,gap),-Infinity)/3600000
-    :0;
+  const largestExcludedGapHours=largestExcludedGapMs/3600000;
   const coverageSpanHours=rows.length>1?(rows.at(-1).t-rows[0].t)/3600000:0;
   // Part de la période premier→dernier relevé couverte par des intervalles exploitables.
   const observedCoveragePercent=coverageSpanHours>0
@@ -1264,7 +1290,7 @@ function prepareHygrometricRows(inputRows) {
     coverageSpanHours,
     observedCoveragePercent,
     medianSampleIntervalMinutes:Number.isFinite(medianSampleIntervalMinutes)?medianSampleIntervalMinutes:null,
-    excludedGapCount:excludedIntervals.length,
+    excludedGapCount,
     largestExcludedGapHours,
     maxGapHours,
     medianIndoorRH:median(rows.map(r=>r.sh)),
