@@ -173,6 +173,8 @@ Une CI verte confirme les contrôles automatisés ; elle ne certifie pas le fonc
 
 ## Documentation complémentaire
 
+- [Journal des modifications](CHANGELOG.md) — historique des évolutions par version et convention de mise à jour des numéros de version et du cache.
+
 - [Comprendre le fonctionnement de la VMI Purevent Vision'R](docs/comprendre-la-vmi.md) — matériel, données disponibles, interprétations et inconnues.
 - [Référence matérielle Purevent Vision'R](docs/reference-materiel-purevent-vision-r.md) — caractéristiques explicitement documentées.
 - [Audit de la capture Bluetooth](docs/audit-bluetooth-capture.md) — observations issues de la capture HCI et limites de preuve.
