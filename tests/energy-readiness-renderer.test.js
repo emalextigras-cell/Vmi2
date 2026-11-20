@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { renderEnergyReadiness } from '../js/modules/energy-readiness-renderer.js';
@@ -14,7 +15,7 @@ function makeElement(tag = 'div') {
   };
 }
 
-test('le rendu énergétique construit le DOM sans innerHTML et conserve les textes comme du texte', () => {
+test('le rendu énergétique construit le DOM sans innerHTML et conserve les textes comme du texte', async () => {
   const container = makeElement('div');
   const documentRef = {
     getElementById: () => container,
@@ -26,7 +27,9 @@ test('le rendu énergétique construit le DOM sans innerHTML et conserve les tex
   const visit = node => [node, ...(node.children || []).flatMap(visit)];
   const all = visit(container);
   assert.ok(all.some(node => node.tagName === 'TABLE'));
-  assert.ok(all.every(node => !('innerHTML' in node)));
+  const source = await readFile(new URL('../js/modules/energy-readiness-renderer.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /\\.innerHTML\\b/);
+  assert.match(source, /textContent/);
   assert.match(container.children.map(node => node.textContent).join(' '), /Aucune mesure électrique vérifiée/);
 });
 
