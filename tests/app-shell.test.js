@@ -11,7 +11,8 @@ async function listJavaScriptFiles(directory) {
     if (entry.isDirectory()) return listJavaScriptFiles(fullPath);
     return entry.isFile() && entry.name.endsWith('.js') ? [fullPath] : [];
   }));
-  return files.flat().map(file => './' + file.split(path.sep).join('/')).sort();
+  const repositoryRoot = fileURLToPath(new URL('../', import.meta.url));
+  return files.flat().map(file => './' + path.relative(repositoryRoot, file).split(path.sep).join('/')).sort();
 }
 
 test('APP_SHELL contient tous les fichiers JavaScript de js/ et aucun outil de validation', async () => {
