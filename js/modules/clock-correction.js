@@ -31,9 +31,9 @@ const modeOf = values => {
  * « jours de fonctionnement ». Les dates brutes antérieures à 2020 restent
  * exclues par défaut ; le téléchargement Bluetooth peut autoriser leur recalage
  * uniquement lorsqu'un repère fiable existe dans l'historique récent.
- * Les repères sont limités aux relevés à partir de 10 h : les observations du
- * compteur montrent son changement quotidien dans une fenêtre approximative de
- * 2 h à 6 h. Le seuil de 10 h laisse une marge après cette transition ; il évite
+ * Les repères sont limités aux relevés à partir de 10 h : les observations fournies
+ * montrent des changements quotidiens entre environ 2 h et 8 h 35. Le seuil de
+ * 10 h laisse une marge après cette transition ; il évite
  * de mélanger deux journées de compteur, sans prétendre que cette fenêtre est
  * une garantie constructeur valable pour tous les appareils.
  * Retourne aussi les métriques de concordance des repères date/compteur.
@@ -45,7 +45,7 @@ const modeOf = values => {
  * @param {number} minValid Timestamp minimal accepté.
  * @param {number} maxTimestamp Timestamp maximal accepté, ou Infinity.
  * @param {{allowPre2020RawDates?: boolean}} [options] Autorise les dates brutes anciennes pour un flux Bluetooth identifié.
- * @returns {{fixed:number, future:number, futureDetails:Array<{record:VmiRecord, correctedTimestamp:number}>, kept:VmiRecord[], counterReset:boolean, counterResetDetails:{previousMax:number,current:number}|null, referenceCount:number, concordantCount:number, concordanceRate:number|null}} Résultat de la correction.
+ * @returns {{fixed:number, future:number, futureDetails:Array<{record:VmiRecord, correctedTimestamp:number}>, kept:VmiRecord[], counterReset:boolean, counterResetDetails:{previousMax:number,current:number}|null, referenceCount:number, concordantCount:number, concordanceRate:number|null, referenceSource:'incoming-only'|'history-and-incoming'|'none'}} Résultat de la correction.
  */
 export function fixClock(records, history = [], minValid = MIN_VALID, maxTimestamp = Infinity, { allowPre2020RawDates = false } = {}) {
   // Les relevés entrants assez récents doivent rester disponibles pendant cette
@@ -66,16 +66,20 @@ export function fixClock(records, history = [], minValid = MIN_VALID, maxTimesta
   const counterResetDetails = counterReset
     ? { previousMax: previousMaxDays, current: currentDays }
     : null;
-  // Le seuil de 10 h écarte les relevés proches du changement de compteur
-  // observé entre 2 h et 6 h ; getHours() utilise l'heure locale du navigateur.
-  const known = history.concat(records).filter(record =>
+  // Après un recul, l'ancien historique ne doit plus servir d'ancrage.
+  // On tente alors un recalage autonome avec les seuls nouveaux relevés entrants
+  // dont la date est déjà valide. Sans ces repères, aucune date ancienne n'est corrigée.
+  // Le seuil de 10 h laisse une marge sur les transitions observées entre 2 h et 8 h 35.
+  // getHours() utilise l'heure locale du navigateur.
+  const referenceRecords = counterReset ? records : history.concat(records);
+  const known = referenceRecords.filter(record =>
     isRawDateEligible(record, minValid) && record.t >= minValid &&
     (!Number.isFinite(maxTimestamp) || record.t <= maxTimestamp) &&
     Number.isFinite(record.d) &&
     new Date(record.t).getHours() >= 10
   );
   const offsets = known.map(record => dayNumber(record.t) - record.d);
-  const epochOffset = counterReset ? undefined : modeOf(offsets);
+  const epochOffset = modeOf(offsets);
   const concordantCount = epochOffset === undefined ? 0 : offsets.filter(offset => offset === epochOffset).length;
   // Les compteurs ne sont annoncés que si un décalage a effectivement été retenu.
   const referenceCount = epochOffset === undefined ? 0 : known.length;
@@ -139,6 +143,7 @@ export function fixClock(records, history = [], minValid = MIN_VALID, maxTimesta
   return {
     fixed, future: futureRecords.size, futureDetails, kept,
     counterReset, counterResetDetails,
-    referenceCount, concordantCount, concordanceRate
+    referenceCount, concordantCount, concordanceRate,
+    referenceSource: epochOffset === undefined ? 'none' : counterReset ? 'incoming-only' : 'history-and-incoming'
   };
 }
