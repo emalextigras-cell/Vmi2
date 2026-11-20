@@ -477,7 +477,7 @@ function ingest(recs,label,maxTimestamp=Date.now(),options={}){
  const future=recs.filter(record=>Number.isFinite(record.t)&&record.t>maxTimestamp);
  if(future.length)log(`${label} : dates futures reçues (${future.map(record=>record.rk+' · +'+Math.round((record.t-maxTimestamp)/1000)+' s').join(' ; ')})`);
  const {fixed,kept,futureDetails,counterReset,counterResetDetails,referenceCount,concordantCount,concordanceRate}=fixClock(recs,hist,MIN_VALID,maxTimestamp,options);
- if(counterReset)log(`${label} : compteur d en recul détecté (${counterResetDetails.current} au lieu de ${counterResetDetails.previousMax}) ; recalage par ancien décalage désactivé.`);
+ if(counterReset)log(`${label} : recul du compteur d détecté (${counterResetDetails.current} au lieu de ${counterResetDetails.previousMax}) ; ancien historique exclu des repères. ${referenceCount?`Nouveau recalage établi avec ${referenceCount} repère(s) entrant(s).`:'Aucun nouveau repère fiable : les anciennes dates ne sont pas corrigées.'}`);
  else if(referenceCount)log(`${label} : repères date/compteur ${concordantCount}/${referenceCount} concordants (${concordanceRate} %).`);
  if(futureDetails.length)log(`${label} : dates futures après correction (${futureDetails.map(({record,correctedTimestamp})=>record.rk+' · d='+record.d+' · '+new Date(correctedTimestamp).toLocaleString('fr-FR')).join(' ; ')})`);
  const keptSet=new Set(kept);
@@ -490,6 +490,7 @@ function ingest(recs,label,maxTimestamp=Date.now(),options={}){
  $('importInfo').textContent=`${label} : ${recs.length} relevés lus${fixed?`, dont ${fixed} dont la date a été corrigée (horloge de la VMI fausse)`:''}${lost?`, ${lost} écartés (date invalide ou postérieure à la synchronisation)`:''}.`;
  log($('importInfo').textContent);
  render();
+ return {counterReset,counterResetDetails,referenceCount,concordantCount,concordanceRate};
 }
 
 /* Téléchargement de l’historique : on s'arrête au premier relevé déjà connu, puis on coupe la connexion
@@ -513,7 +514,7 @@ function finishDownload(reachedCut,timeout=false,interrupted=false){
  download.on=false;clearTimeout(download.timeout);
  const count=download.rows.length;
  const complete=!timeout&&!interrupted&&!download.integrityGap&&!(download.invalidRows>0)&&(reachedCut||download.finalSeen===true);
- if(count)ingest(markHistoryRows(download.rows,complete),'Téléchargement',Date.now(),{allowPre2020RawDates:true});
+ const ingestResult=count?ingest(markHistoryRows(download.rows,complete),'Téléchargement',Date.now(),{allowPre2020RawDates:true}):null;
  if(complete){meta.lastSync=Date.now();void persist('meta',meta,'Sauvegarde des métadonnées').catch(()=>{});renderFreshness()}
  $('dlh').disabled=false;setCommandsDisabled(false);
  $('dlp').textContent=`Terminé : ${count} nouvelles lignes${download.invalidRows>0?' · lignes rejetées : synchronisation non certifiée, relance nécessaire':download.integrityGap?' · lacune détectée : synchronisation non certifiée, relance nécessaire':interrupted?(download.got?' · transfert interrompu, données partielles conservées ; relance la synchronisation':' · transfert interrompu avant réception') :reachedCut?' · historique à jour':timeout?(download.got?' · arrêt après une pause de 20 s':' · aucune réponse de la VMI'):(download.sigs.size?' · attention : trou possible avant la dernière ligne mémorisée':' · historique complet')}`;
