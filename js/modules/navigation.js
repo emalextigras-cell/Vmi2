@@ -1,5 +1,6 @@
 (() => {
-  const settings = document.querySelector('details#reglages');
+  /** @type {HTMLDetailsElement | null} */
+  const settings = /** @type {HTMLDetailsElement | null} */ (document.querySelector('details#reglages'));
   const nav = document.querySelector('.main-nav');
   /** @type {HTMLAnchorElement[]} */
   const links = Array.from(nav?.querySelectorAll('a[href^="#"]') ?? []);
