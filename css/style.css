@@ -26,7 +26,7 @@ button{border:1px solid var(--acc);border-radius:8px;padding:9px 12px;background
 button.outline{background:transparent;color:var(--acc)}
 button:disabled{opacity:.45;cursor:not-allowed}
 :where(a,button,summary):focus-visible{outline:3px solid var(--blue);outline-offset:3px;border-radius:6px}
-.main-nav a[aria-current="location"]{background:var(--acc);border-color:var(--acc);color:var(--bg);box-shadow:0 0 0 2px color-mix(in srgb,var(--acc) 22%,transparent)}
+.main-nav a[aria-current="location"]{background:var(--acc);border-color:var(--acc);color:var(--bg);box-shadow:0 0 0 2px var(--line)}
 summary{cursor:pointer}
 @media (forced-colors:active){:where(a,button,summary):focus-visible{outline:3px solid Highlight}}
 input[type=date],input[type=file],select{max-width:100%;padding:8px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink)}
