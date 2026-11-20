@@ -523,7 +523,11 @@ function finishDownload(reachedCut,timeout=false,interrupted=false){
  const syncObservedAt=Date.now();
  const newestCounterRecord=download.rows.find(record=>Number.isFinite(record.d));
  const counterAssessment=newestCounterRecord
-  ? evaluateCounterBaseline({baseline:meta.counterBaseline,candidate:meta.counterCandidate,currentDays:newestCounterRecord.d,observedAt:syncObservedAt})
+  ? evaluateCounterBaseline({
+   baseline:/** @type {{d:number,observedAt:number}|undefined} */ (meta.counterBaseline),
+   candidate:/** @type {{d:number,observedAt:number}|null|undefined} */ (meta.counterCandidate),
+   currentDays:newestCounterRecord.d,observedAt:syncObservedAt
+  })
   : null;
  const ingestResult=count?ingest(markHistoryRows(download.rows,complete),'Téléchargement',syncObservedAt,{
   allowPre2020RawDates:true,
