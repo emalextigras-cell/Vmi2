@@ -198,13 +198,14 @@ test('fixClock reconstruit avec les seuls nouveaux repères après un recul du c
   const history = [{ t: new Date(2026, 10, 10, 11, 0).getTime(), d: 194 }];
   const incoming = [
     { t: new Date(2026, 10, 18, 11, 0).getTime(), d: 3 },
+    { t: new Date(2026, 10, 19, 11, 0).getTime(), d: 4 },
     { t: new Date(2018, 4, 18, 11, 0).getTime(), d: 3 }
   ];
   const result = fixClock(incoming, history, MIN_VALID, Date.now(), { allowPre2020RawDates: true });
 
   assert.equal(result.counterReset, true);
   assert.equal(result.referenceSource, 'incoming-only');
-  assert.equal(result.referenceCount, 1);
+  assert.equal(result.referenceCount, 2);
   assert.equal(result.fixed, 1);
   assert.equal(new Date(result.kept.find(record => record.fixed).t).getFullYear(), 2026);
 });
@@ -218,4 +219,20 @@ test('fixClock ne réutilise pas l’ancien décalage si aucun nouveau repère f
   assert.equal(result.referenceSource, 'none');
   assert.equal(result.fixed, 0);
   assert.deepEqual(result.kept, []);
+});
+
+
+test('fixClock exige deux jours de repères indépendants après un recul', () => {
+  const history = [{ t: new Date(2026, 10, 10, 11, 0).getTime(), d: 194 }];
+  const incoming = [
+    { t: new Date(2026, 10, 18, 10, 30).getTime(), d: 3 },
+    { t: new Date(2026, 10, 18, 11, 0).getTime(), d: 3 },
+    { t: new Date(2018, 4, 18, 11, 0).getTime(), d: 3 }
+  ];
+  const result = fixClock(incoming, history, MIN_VALID, Date.now(), { allowPre2020RawDates: true });
+
+  assert.equal(result.counterReset, true);
+  assert.equal(result.referenceCount, 0);
+  assert.equal(result.referenceSource, 'none');
+  assert.equal(result.fixed, 0);
 });
