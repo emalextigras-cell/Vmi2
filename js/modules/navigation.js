@@ -1,6 +1,5 @@
 (() => {
-  /** @type {HTMLDetailsElement | null} */
-  const settings = document.getElementById('reglages');
+  const settings = document.querySelector('details#reglages');
   const nav = document.querySelector('.main-nav');
   /** @type {HTMLAnchorElement[]} */
   const links = Array.from(nav?.querySelectorAll('a[href^="#"]') ?? []);
@@ -24,7 +23,7 @@
     if (id === 'reglages' && settings) settings.open = true;
     setActive(id);
   }));
-  if ('IntersectionObserver' in window) {
+  if (typeof IntersectionObserver !== 'undefined') {
     const observer = new IntersectionObserver(entries => {
       const visible = entries.filter(entry => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
       if (visible) setActive(visible.target.id);
