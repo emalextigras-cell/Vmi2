@@ -18,7 +18,7 @@ test('APP_SHELL contient tous les fichiers JavaScript de js/ et aucun outil de v
   const serviceWorker = await readFile(new URL('../sw.js', import.meta.url), 'utf8');
   const core = await readFile(new URL('../js/modules/core.js', import.meta.url), 'utf8');
   const start = serviceWorker.indexOf('const APP_SHELL = [');
-  const end = serviceWorker.indexOf('\\n];', start);
+  const end = serviceWorker.indexOf('\n];', start);
   assert.notEqual(start, -1, 'Déclaration APP_SHELL introuvable dans sw.js');
   assert.notEqual(end, -1, 'Fin de la déclaration APP_SHELL introuvable dans sw.js');
   const declaration = serviceWorker.slice(start, end);
@@ -29,7 +29,7 @@ test('APP_SHELL contient tous les fichiers JavaScript de js/ et aucun outil de v
   const sourceFiles = await listJavaScriptFiles(fileURLToPath(new URL('../js/', import.meta.url)));
   assert.deepEqual(cachedFiles, sourceFiles, 'APP_SHELL doit correspondre exactement aux fichiers JavaScript de js/');
   assert.ok(!declaration.includes('./tests/'), 'Les pages de test ne doivent pas être dans le cache de production');
-  const versionLine = core.split('\\n').find(line => line.startsWith('export const APP_VERSION = '));
+  const versionLine = core.split('\n').find(line => line.startsWith('export const APP_VERSION = '));
   const appVersion = versionLine?.split("'")[1];
   assert.ok(appVersion, 'APP_VERSION introuvable dans core.js');
   assert.ok(serviceWorker.includes(`const CACHE_NAME = 'vmi-test-v${appVersion}-cache-`), 'Le cache du service worker doit utiliser la même version applicative');
