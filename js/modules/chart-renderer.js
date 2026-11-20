@@ -19,7 +19,12 @@ const fmtPoint=(t,daily)=>{const d=new Date(t);return daily?`${pad(d.getHours())
  * @returns {Array<{t:number, v:number|null, blocked:boolean}>} Points normalisés.
  */
 export function fillMissing(points){
- return points.map(p=>({t:p.t,v:Number.isFinite(p.v)?p.v:null,blocked:!!p.blocked||!Number.isFinite(p.v),reason:p.reason||(!Number.isFinite(p.v)?'missing':null)}));
+ return points.map(p=>({
+  t:p.t,
+  v:Number.isFinite(p.v)?p.v:null,
+  blocked:!!p.blocked||!Number.isFinite(p.v),
+  ...(p.reason?{reason:p.reason}:{})
+ }));
 }
 /** Indique si un intervalle contient un point marqué comme manquant.
  * @param {Array<{t:number, blocked?:boolean}>} points Points horodatés.
