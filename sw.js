@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vmi-test-v14-cache-47';
+const CACHE_NAME = 'vmi-test-v14-cache-48';
 const CACHE_PREFIX = 'vmi-test-';
 const APP_SHELL = [
   './','./index.html','./tests/validation-pr118.html','./tests/validation-pr118.js','./tests/test-environment.css','./manifest.json','./css/style.css','./js/app.js','./js/types/vmi-types.js',
@@ -9,7 +9,7 @@ const APP_SHELL = [
   './js/modules/backup.js','./js/modules/date-utils.js',
   './js/modules/bluetooth-protocol.js','./js/modules/bluetooth-decoder.js','./js/modules/bluetooth-write-queue.js','./js/modules/bluetooth-session.js','./js/modules/bluetooth-history-stream.js','./js/modules/bluetooth-history-row.js','./js/modules/psychrometry.js',
   './js/modules/data-quality.js','./js/modules/chart-renderer.js','./js/modules/energy-meter.js','./js/modules/energy-estimate.js','./js/modules/energy-climate.js','./js/modules/weekly-diagnostic.js',
-  './js/modules/bluetooth-runtime.js','./js/modules/bluetooth-autoconnect.js','./js/modules/live-freshness.js','./js/modules/diagnostic-confidence.js','./js/modules/seasonal-advice.js','./js/modules/assistant-summary.js','./js/modules/assistant-renderer.js','./js/modules/assistant-view.js','./js/modules/history-selection.js'
+  './js/modules/bluetooth-runtime.js','./js/modules/bluetooth-autoconnect.js','./js/modules/live-freshness.js','./js/modules/diagnostic-confidence.js','./js/modules/seasonal-advice.js','./js/modules/assistant-summary.js','./js/modules/assistant-renderer.js','./js/modules/assistant-view.js','./js/modules/energy-readiness-renderer.js','./js/modules/history-selection.js'
 ];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.addAll(APP_SHELL)).then(()=>self.skipWaiting()));
