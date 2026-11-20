@@ -27,6 +27,7 @@ import { buildLiveFreshnessText } from './modules/live-freshness.js';
 import { formatDiagnosisConfidence } from './modules/diagnostic-confidence.js';
 import { analyzeSeasonalVentilation } from './modules/seasonal-advice.js';
 import { renderVmiAssistant } from './modules/assistant-renderer.js';
+import { renderEnergyReadiness } from './modules/energy-readiness-renderer.js';
 import { selectDataRange } from './modules/history-selection.js';
 
 /** @typedef {import('./types/vmi-types.js').VmiRecord} VmiRecord */
@@ -990,97 +991,6 @@ function analyzeSpeeds(data){
   periodHtml+='</tbody></table><div class="advice">Les écarts sont descriptifs, sans seuil automatique d’alerte. Une évolution du débit, du régime ou des signaux bruts ne prouve pas un filtre encrassé ni une panne. Les changements de météo, d’installation, de réglage, d’entretien et les conditions d’utilisation peuvent expliquer une partie des différences.</div>';
  }
  $('speedAnalysis').innerHTML=html+'<div class="advice">'+advice+'</div>'+contextHtml+periodHtml;
-}
-function renderEnergyReadiness(data){
- const result=summarizeEnergyReadiness(data);
- const labels={rpm:'Régime moteur',debit:'Débit VMI+ (m³/h)',vmiSpeedRaw:'Code vitesse VMI+ brut',vmiPwmRaw:'PWM brut',consDpRaw:'Cons DP brut',consTmaxRaw:'Seuil température extérieure (Cons TMax)'};
- let html='<table><thead><tr><th>Champ exporté</th><th>Mesures</th><th>Zéros</th><th>Manquants</th><th>Minimum</th><th>Maximum</th><th>Valeurs distinctes</th></tr></thead><tbody>';
- for(const f of result.fields){
-  const distinct=f.distinct.length>8?f.distinct.slice(0,8).map(fmt).join(', ')+'…':f.distinct.map(fmt).join(', ')||'–';
-  html+='<tr><td>'+(labels[f.key]||f.label)+'<br><small>'+f.unit+'</small></td><td>'+f.count+'</td><td>'+f.zeroCount+'</td><td>'+f.missingCount+'</td><td>'+(f.min==null?'–':fmt(f.min))+'</td><td>'+(f.max==null?'–':fmt(f.max))+'</td><td>'+distinct+'</td></tr>';
- }
- html+='</tbody></table>';
-
- const operating = summarizeOperatingReference(data);
- let operatingHtml='<h4>Référence descriptive du fonctionnement par mode VMI+</h4><p class="muted">Profil calculé à partir des relevés importés, en séparant strictement le champ Mode du code Vitesse brut. Les valeurs PWM, Pression moteur et Cons DP restent des signaux bruts.</p>';
- if(!operating.groups.length){
-  operatingHtml+='<div class="advice">Aucune donnée Mode exploitable pour construire cette référence.</div>';
- }else{
-  operatingHtml+='<table><thead><tr><th>Mode</th><th>Relevés / jours</th><th>Variable</th><th>Médiane</th><th>Plage observée</th></tr></thead><tbody>';
-  for(const group of operating.groups){
-   for(const field of group.fields){
-    operatingHtml+='<tr><td>'+fmt(group.mode)+'</td><td>'+group.sampleCount+' / '+group.dayCount+'</td><td>'+field.label+'<br><small>'+field.unit+'</small></td><td>'+(field.median==null?'–':fmt(field.median))+'</td><td>'+(field.min==null?'–':fmt(field.min)+' – '+fmt(field.max))+'</td></tr>';
-   }
-  }
-  operatingHtml+='</tbody></table>';
- }
- operatingHtml+='<div class="advice">'+operating.limits.join(' ')+'</div>';
- const modeGroups=summarizeRawVmiMode(data);
- let modeHtml='<h4>Débit et renouvellement théorique par mode VMI+</h4><p class="muted">Le champ « mode » est distinct du champ « Vitesse ». La colonne « Debit » de l’export VMI+ correspond au débit d’air en m³/h. Le mode 3 dispose d’une référence distincte communiquée par l’utilisateur de 184 m³/h. Le taux de renouvellement théorique est calculé à partir du débit en m³/h et du volume du logement ; il ne mesure pas l’air effectivement distribué dans chaque pièce.</p>';
- if(!modeGroups.length){modeHtml+='<div class="advice">Aucun mode VMI+ exploitable dans la période sélectionnée.</div>'}
- else{
-  modeHtml+='<table><thead><tr><th>Mode VMI+</th><th>Relevés</th><th>Débit médian / référence</th><th>Min–max débit mesuré</th><th>Renouvellement théorique</th></tr></thead><tbody>';
-  for(const group of modeGroups){modeHtml+='<tr><td>'+fmt(group.mode)+'</td><td>'+group.sampleCount+'</td><td>'+(group.medianDebit!=null?fmt(group.medianDebit)+' m³/h (médiane)':group.referenceDebit!=null?fmt(group.referenceDebit)+' m³/h (référence)':'–')+'</td><td>'+(group.minDebit==null?'–':fmt(group.minDebit)+' – '+fmt(group.maxDebit)+' m³/h')+'</td><td>'+(group.medianRenewalRate!=null?fmt(group.medianRenewalRate)+' vol/h':group.referenceRenewalRate!=null?fmt(group.referenceRenewalRate)+' vol/h (théorique)':'–')+'</td></tr>'}
-  modeHtml+='</tbody></table>';
- }
- const rawGroups=summarizeRawVmiSpeed(data);
- let rawHtml='<h4>Débit selon le code vitesse brut VMI+</h4><p class="muted">Le code « Vitesse » est affiché séparément du mode. Les codes bruts ne sont pas assimilés aux niveaux manuels 1, 2 ou 3.</p>';
- if(!rawGroups.length){rawHtml+='<div class="advice">Aucun code vitesse brut exploitable dans la période sélectionnée.</div>'}
- else{
-  rawHtml+='<table><thead><tr><th>Code vitesse brut</th><th>Relevés</th><th>Débit médian (m³/h)</th><th>Minimum (m³/h)</th><th>Maximum (m³/h)</th></tr></thead><tbody>';
-  for(const group of rawGroups){rawHtml+='<tr><td>'+fmt(group.code)+'</td><td>'+group.sampleCount+'</td><td>'+(group.medianDebit==null?'–':fmt(group.medianDebit)+' m³/h')+'</td><td>'+(group.minDebit==null?'–':fmt(group.minDebit)+' m³/h')+'</td><td>'+(group.maxDebit==null?'–':fmt(group.maxDebit)+' m³/h')+'</td></tr>'}
-  rawHtml+='</tbody></table>';
- }
- const volumes=data.map(r=>r?.volumeRaw).filter(v=>Number.isFinite(v)&&v>0);
- const volumeValues=[...new Set(volumes)].sort((a,b)=>a-b);
- const volumeMedian=median(volumes);
- let volumeHtml='<h4>Volume du logement enregistré dans la VMI+</h4>';
- if(volumeMedian==null){
-  volumeHtml+='<div class="advice">Aucune valeur de volume (champ Vol(m³)) disponible dans cette période.</div>';
- }else{
-  volumeHtml+='<div class="advice"><strong>'+fmt(volumeMedian)+' m³</strong> · '+volumes.length+' relevé(s) renseigné(s)'+
-   (volumeValues.length>1?' · valeurs rencontrées : '+volumeValues.map(fmt).join(', ')+' m³':' · valeur constante dans les relevés')+
-   '. Cette donnée correspond au volume du logement déclaré dans la VMI+, pas à un volume d’air réellement renouvelé.</div>';
- }
- const temperatureLimit = summarizeTemperatureLimit(data);
- let temperatureLimitHtml='<h4>Régulation selon la température extérieure</h4>';
- if(!temperatureLimit.thresholds.length){
-  temperatureLimitHtml+='<div class="advice">Aucune paire de données exploitable entre le seuil Cons TMax et la température extérieure Tempext. Le réglage est conservé, mais aucune comparaison n’est possible.</div>';
- }else{
-  for(const item of temperatureLimit.thresholds){
-   temperatureLimitHtml+='<div class="advice"><strong>Seuil configuré : '+fmt(item.threshold)+' °C</strong> · '+item.sampleCount+' relevés avec température extérieure · '+item.aboveThresholdCount+' au-dessus du seuil · '+item.atOrBelowThresholdCount+' au seuil ou en dessous.</div>';
-   if(item.modes.length){
-    temperatureLimitHtml+='<table><thead><tr><th>Mode manuel</th><th>Au-dessus du seuil</th><th>Au seuil ou en dessous</th></tr></thead><tbody>';
-    for(const group of item.modes){
-     const cell=segment=>segment.sampleCount+' relevé(s) au total · '+segment.dayCount+' jour(s)';
-     const paired=segment=>group.comparable
-      ?' · comparaison sur '+segment.dayCount+' jours communs ('+segment.sampleCount+' relevés) : débit '+(segment.medianDebit==null?'–':fmt(segment.medianDebit)+' m³/h')+' · régime '+(segment.medianRPM==null?'–':fmt(segment.medianRPM)+' tr/min')
-      :' · comparaison non disponible (effectif ou dates communes insuffisants)';
-     temperatureLimitHtml+='<tr><td>'+group.mode+'</td><td>'+cell(group.above)+paired(group.pairedAbove)+'</td><td>'+cell(group.atOrBelow)+paired(group.pairedAtOrBelow)+'</td></tr>';
-    }
-    temperatureLimitHtml+='</tbody></table>';
-   }else{
-    temperatureLimitHtml+='<div class="muted">Aucun Mode manuel 1, 2 ou 3 renseigné pour ces relevés.</div>';
-   }
-  }
- }
- temperatureLimitHtml+='<div class="advice">Lecture prudente : les relevés au-dessus du seuil correspondent à des conditions où la réduction de ventilation peut s’appliquer. Une différence de débit ne démontre pas à elle seule que la régulation en est la cause. Les comparaisons sont séparées par mode et restent descriptives.</div>';
- const manufacturerPowerReference=[
-  {flow:50,pressure:5,power:4},
-  {flow:125,pressure:25,power:10},
-  {flow:200,pressure:64,power:25},
-  {flow:245,pressure:96,power:39},
-  {flow:350,pressure:195,power:99}
- ];
- let referenceHtml='<h4>Repères électriques constructeur — PUREVENT</h4><p class="muted">Valeurs publiées par VMI pour le ventilateur selon le débit et la pression. Mesures réalisées par TÜV SÜD.</p>';
- referenceHtml+='<table><thead><tr><th>Débit (m³/h)</th><th>Pression (Pa)</th><th>Puissance (W)</th></tr></thead><tbody>';
- for(const point of manufacturerPowerReference){
-  referenceHtml+='<tr><td>'+point.flow+'</td><td>'+point.pressure+'</td><td>'+point.power+'</td></tr>';
- }
- referenceHtml+='</tbody></table>';
- referenceHtml+='<div class="advice">La notice indique également une puissance maximale de 169 W sans préchauffage et une puissance maximale de préchauffage de 1 800 W. Ces repères ne permettent pas de reconstituer la consommation réelle de ton historique : le CSV ne fournit pas de mesure électrique vérifiée, et l’état/temps de fonctionnement du préchauffage n’est pas confirmé par les champs disponibles. Ne pas assimiler « Cons Res » à des watts.</div>';
- referenceHtml+='<p class="note">Source : <a href="https://www.vmi-technologies.com/wp-content/uploads/2024/11/FR-VMI%C2%AE-Purevent-Notice-dinstallation-et-de-maintenance-1.pdf" target="_blank" rel="noopener">notice officielle VMI PUREVENT, §2.2–2.3, pages 7–8</a>. Il s’agit d’une référence constructeur, pas d’une mesure de cette installation.</p>';
- $('energyReadiness').innerHTML=volumeHtml+html+temperatureLimitHtml+operatingHtml+modeHtml+rawHtml+referenceHtml+'<div class="advice">'+result.message+' Les valeurs brutes sont conservées ; aucune conversion des champs non documentés en watts, kWh ou rendement n’est appliquée. Le débit exporté VMI+ est exprimé en m³/h.</div>';
 }
 
 function renderFanEnergyEstimate(data){
