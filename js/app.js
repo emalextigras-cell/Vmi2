@@ -522,7 +522,7 @@ function finishDownload(reachedCut,timeout=false,interrupted=false){
  const complete=!timeout&&!interrupted&&!download.integrityGap&&!(download.invalidRows>0)&&(reachedCut||download.finalSeen===true);
  const syncObservedAt=Date.now();
  const newestCounterRecord=download.rows.find(record=>Number.isFinite(record.d));
- const counterAssessment=newestCounterRecord
+ const counterAssessment=complete&&newestCounterRecord
   ? evaluateCounterBaseline({
    baseline:/** @type {{d:number,observedAt:number}|undefined} */ (meta.counterBaseline),
    candidate:/** @type {{d:number,observedAt:number}|null|undefined} */ (meta.counterCandidate),
