@@ -11,6 +11,42 @@ const dayNumber = timestamp => {
 };
 const MIN_RECONSTRUCTABLE_RAW = Date.UTC(2020, 0, 1);
 
+/**
+ * Compare un compteur Bluetooth à une référence persistée. La tolérance de deux
+ * jours absorbe les frontières de journée et les petites incertitudes de synchro.
+ * Une hausse impossible devient candidate et n'est confirmée qu'à la synchro suivante.
+ * @param {{baseline?:{d:number,observedAt:number}|null,candidate?:{d:number,observedAt:number}|null,currentDays:number,observedAt:number,toleranceDays?:number}} input
+ * @returns {{discontinuity:boolean,baseline:{d:number,observedAt:number},candidate:{d:number,observedAt:number}|null,previousDays:number|null,reason:string}}
+ */
+export function evaluateCounterBaseline({ baseline, candidate = null, currentDays, observedAt, toleranceDays = 2 }) {
+  const current = { d: currentDays, observedAt };
+  if (!Number.isFinite(currentDays) || !Number.isFinite(observedAt)) {
+    throw new TypeError('Référence de compteur invalide.');
+  }
+  const valid = value => value && Number.isFinite(value.d) && Number.isFinite(value.observedAt);
+  if (!valid(baseline)) {
+    return { discontinuity: false, baseline: current, candidate: null, previousDays: null, reason: 'baseline-initialized' };
+  }
+  if (valid(candidate)) {
+    const elapsed = Math.max(0, (observedAt - candidate.observedAt) / DAY);
+    const increase = currentDays - candidate.d;
+    if (increase >= 0 && increase <= Math.ceil(elapsed) + toleranceDays) {
+      return { discontinuity: true, baseline: current, candidate: null, previousDays: candidate.d, reason: 'candidate-confirmed' };
+    }
+    return { discontinuity: true, baseline, candidate: current, previousDays: candidate.d, reason: 'candidate-replaced' };
+  }
+  const elapsed = Math.max(0, (observedAt - baseline.observedAt) / DAY);
+  const increase = currentDays - baseline.d;
+  const maximumPlausibleIncrease = Math.ceil(elapsed) + toleranceDays;
+  if (increase < 0) {
+    return { discontinuity: true, baseline, candidate: current, previousDays: baseline.d, reason: 'counter-decreased' };
+  }
+  if (increase > maximumPlausibleIncrease) {
+    return { discontinuity: true, baseline, candidate: current, previousDays: baseline.d, reason: 'counter-jump' };
+  }
+  return { discontinuity: false, baseline: current, candidate: null, previousDays: baseline.d, reason: 'progression-plausible' };
+}
+
 /** @param {number[]} values @returns {number|undefined} */
 const modeOf = values => {
   const counts = new Map();
@@ -44,10 +80,10 @@ const modeOf = values => {
  * @param {VmiRecord[]} history Paramètre history.
  * @param {number} minValid Timestamp minimal accepté.
  * @param {number} maxTimestamp Timestamp maximal accepté, ou Infinity.
- * @param {{allowPre2020RawDates?: boolean}} [options] Autorise les dates brutes anciennes pour un flux Bluetooth identifié.
- * @returns {{fixed:number, future:number, futureDetails:Array<{record:VmiRecord, correctedTimestamp:number}>, kept:VmiRecord[], counterReset:boolean, counterResetDetails:{previousMax:number,current:number}|null, referenceCount:number, concordantCount:number, concordanceRate:number|null, referenceSource:'incoming-only'|'history-and-incoming'|'none'}} Résultat de la correction.
+ * @param {{allowPre2020RawDates?: boolean,forceCounterReset?:boolean,counterResetReason?:string,counterPreviousDays?:number}} [options] Autorise les dates brutes anciennes pour un flux Bluetooth identifié.
+ * @returns {{fixed:number, future:number, futureDetails:Array<{record:VmiRecord, correctedTimestamp:number}>, kept:VmiRecord[], counterReset:boolean, counterResetDetails:{previousMax:number,current:number,reason:string}|null, referenceCount:number, concordantCount:number, concordanceRate:number|null, referenceSource:'incoming-only'|'history-and-incoming'|'none'}} Résultat de la correction.
  */
-export function fixClock(records, history = [], minValid = MIN_VALID, maxTimestamp = Infinity, { allowPre2020RawDates = false } = {}) {
+export function fixClock(records, history = [], minValid = MIN_VALID, maxTimestamp = Infinity, { allowPre2020RawDates = false, forceCounterReset = false, counterResetReason = 'counter-discontinuity', counterPreviousDays } = {}) {
   // Les relevés entrants assez récents doivent rester disponibles pendant cette
   // fonction : leur compteur de jours peut permettre de reconstruire leur date.
   // L'historique déjà stocké, lui, reste filtré pour ne servir que de référence fiable.
@@ -61,10 +97,10 @@ export function fixClock(records, history = [], minValid = MIN_VALID, maxTimesta
   const previousMaxDays = history.reduce((max, record) =>
     Number.isFinite(record.d) ? Math.max(max, record.d) : max, -Infinity);
   const currentDays = records.find(record => Number.isFinite(record.d))?.d;
-  const counterReset = allowPre2020RawDates && Number.isFinite(previousMaxDays) &&
-    Number.isFinite(currentDays) && currentDays < previousMaxDays;
+  const rollbackDetected = Number.isFinite(previousMaxDays) && Number.isFinite(currentDays) && currentDays < previousMaxDays;
+  const counterReset = allowPre2020RawDates && (forceCounterReset || rollbackDetected);
   const counterResetDetails = counterReset
-    ? { previousMax: previousMaxDays, current: currentDays }
+    ? { previousMax: Number.isFinite(counterPreviousDays) ? counterPreviousDays : previousMaxDays, current: currentDays, reason: forceCounterReset ? counterResetReason : 'counter-decreased' }
     : null;
   // Après un recul, l'ancien historique ne doit plus servir d'ancrage.
   // On tente alors un recalage autonome avec les seuls nouveaux relevés entrants
