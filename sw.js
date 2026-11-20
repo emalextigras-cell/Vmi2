@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vmi-test-v14-cache-52';
+const CACHE_NAME = 'vmi-test-v14-cache-53';
 const CACHE_PREFIX = 'vmi-test-';
 const APP_SHELL = [
   './',
@@ -45,6 +45,11 @@ const APP_SHELL = [
   './js/modules/weekly-diagnostic.js',
   './js/types/vmi-types.js'
 ];
+
+// Seuls les fichiers explicitement nécessaires à l'application sont éligibles au cache.
+// Une URL avec paramètres (aperçus, pages de test, cache-busting) reste hors cache.
+const APP_SHELL_URLS = new Set(APP_SHELL.map(path => new URL(path, self.registration.scope).href));
+
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.addAll(APP_SHELL)).then(()=>self.skipWaiting()));
 });
@@ -56,9 +61,16 @@ self.addEventListener('activate',event=>{
 self.addEventListener('fetch',event=>{
   if(event.request.method!=='GET')return;
   const url=new URL(event.request.url);
-  if(url.origin!==self.location.origin)return;
+  if(url.origin!==self.location.origin||url.search||!APP_SHELL_URLS.has(url.href))return;
   event.respondWith(fetch(event.request).then(response=>{
-    if(response.ok){const copy=response.clone();caches.open(CACHE_NAME).then(cache=>cache.put(event.request,copy))}
+    if(response.ok){
+      const copy=response.clone();
+      event.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.put(event.request,copy)));
+    }
     return response;
-  }).catch(()=>caches.open(CACHE_NAME).then(cache=>cache.match(event.request)).then(cached=>cached||caches.open(CACHE_NAME).then(cache=>cache.match('./index.html'))));
+  }).catch(()=>caches.open(CACHE_NAME).then(cache=>cache.match(event.request)).then(cached=>{
+    if(cached)return cached;
+    if(event.request.mode==='navigate')return caches.open(CACHE_NAME).then(cache=>cache.match('./index.html'));
+    return Response.error();
+  })));
 });
