@@ -791,9 +791,8 @@ export function detectRapidChanges(data, { maxGapHours = 2, rhJump = 15, absolut
 
 /**
  * Compare les créneaux horaires sur les mêmes dates et avec un poids égal par jour.
- * @param {VmiRecord[]} rows Relevés hygrométriques déjà validés et dédoublonnés.
  * @param {Array<{label:string,startHour:number,sampleCount:number,dayCount:number,dayKeys:string[]}>} hourlyDetails Synthèse des quatre tranches horaires.
- * @param {(timestamp:number)=>string} dayKey Convertit un horodatage en date locale.
+ * @param {Map<number, Map<string, VmiRecord[]>>} byBucketDay Index tranche de six heures -> jour local -> relevés.
  */
 function compareHourlyWindows(hourlyDetails, byBucketDay) {
   const eligibleHours=hourlyDetails.filter(bucket=>bucket.sampleCount>=5&&bucket.dayCount>=2);
