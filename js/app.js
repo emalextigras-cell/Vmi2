@@ -593,7 +593,7 @@ $('fx').onchange=async e=>{
  }catch(err){showError('Import impossible : '+err.message)}
  input.value='';
 };
-$('clearImport').onclick=async()=>{if(!confirm('Effacer tout l’historique importé ?'))return;try{await persist('hist',[],'Effacement de l’historique');hist=[];$('importInfo').textContent='';render()}catch{} };
+$('clearImport').onclick=async()=>{if(!confirm('Effacer tout l’historique importé ?'))return;try{await persist('hist',[],'Effacement de l’historique');hist=[];$('importInfo').textContent='';render()}catch(error){showError('Effacement de l’historique impossible : '+(error?.message||error))} };
 $('histBtn').onclick=()=>{source='hist';render()};
 $('liveBtn').onclick=()=>{source='live';render()};
 $('dayPicker').onchange=e=>{if(!(e.currentTarget instanceof HTMLInputElement))return;selectedDate=e.currentTarget.value||null;resetChartViews();render()};
@@ -601,7 +601,7 @@ $('clearDay').onclick=()=>{selectedDate=null;$('dayPicker').value='';resetChartV
 $('prev').onclick=()=>{selectedDate=shiftDay(selectedDate,-1);$('dayPicker').value=selectedDate;resetChartViews();render()};
 $('next').onclick=()=>{selectedDate=shiftDay(selectedDate,1);$('dayPicker').value=selectedDate;resetChartViews();render()};
 document.querySelectorAll('[data-days]').forEach(b=>b.onclick=()=>{daysSetting=Number(b.dataset.days);selectedDate=null;$('dayPicker').value='';resetChartViews();render()});
-$('clearLive').onclick=async()=>{if(!confirm('Effacer les relevés en direct ?'))return;try{await persist('live',[],'Effacement des relevés en direct');live=[];$('liveCount').textContent='0';render()}catch{} };
+$('clearLive').onclick=async()=>{if(!confirm('Effacer les relevés en direct ?'))return;try{await persist('live',[],'Effacement des relevés en direct');live=[];$('liveCount').textContent='0';render()}catch(error){showError('Effacement des relevés en direct impossible : '+(error?.message||error))} };
 $('csv').onclick=()=>{
  const keys=['t','st','sh','t1','h1','te','he','rpm','fil','vit','boost','hol'];
  const rows=[keys.join(';'),...live.map(r=>keys.map(k=>k==='t'?new Date(r.t).toISOString():(r[k]!=null?r[k]:'')).join(';'))];
