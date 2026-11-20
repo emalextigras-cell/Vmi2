@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vmi-test-v14-cache-51';
+const CACHE_NAME = 'vmi-test-v14-cache-52';
 const CACHE_PREFIX = 'vmi-test-';
 const APP_SHELL = [
   './',
@@ -35,6 +35,7 @@ const APP_SHELL = [
   './js/modules/history-selection.js',
   './js/modules/history.js',
   './js/modules/legacy-migration.js',
+  './js/modules/navigation.js',
   './js/modules/live-freshness.js',
   './js/modules/psychrometry.js',
   './js/modules/seasonal-advice.js',
