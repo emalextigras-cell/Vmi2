@@ -379,6 +379,23 @@ test('detectRapidChanges conserve ses seuils par défaut et accepte des seuils p
   }), []);
 });
 
+test('detectRapidChanges applique le seuil RH par défaut de 15 points aux bornes', () => {
+  const start = Date.UTC(2026, 0, 1, 8);
+  const makeRows = jump => [
+    { t: start, st: 20, sh: 50 },
+    { t: start + 60 * 60 * 1000, st: 20, sh: 50 + jump }
+  ];
+
+  // À 14 points, aucun changement rapide ne doit être signalé.
+  assert.deepEqual(detectRapidChanges(makeRows(14)), []);
+
+  // À 16 points, le seuil par défaut de 15 points doit être franchi.
+  const result = detectRapidChanges(makeRows(16));
+  assert.equal(result.length, 1);
+  assert.equal(result[0].deltaRH, 16);
+  assert.deepEqual(result[0].reasons, ['relative-humidity']);
+});
+
 
 test('analyzeHourlyPatterns ignore les horodatages hors plage JavaScript', () => {
   const invalidTimestamp = {
