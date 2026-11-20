@@ -1201,6 +1201,40 @@ function render(){
  renderRecommendation(analysisData);renderSeasonalAdvice(analysisData);renderHygrometricPeriods(analysisData);renderIntelligentDiagnosis(analysisData);
  renderTemporalAnalysis(analysisData);analyzeSpeeds(analysisData);renderEnergyReadiness(analysisData);renderFanEnergyEstimate(analysisData);renderDailyEnergyClimateContext(analysisData);renderWeeklyDiagnostic(analysisData);renderFreshness();
 }
+
+function installRenderBenchmark(){
+ if(!new URLSearchParams(location.search).has('render-bench'))return;
+ const panel=document.createElement('section');
+ panel.className='card';
+ panel.style.border='2px solid #245b43';
+ panel.innerHTML='<h2>Mesure temporaire du rendu</h2><p>Mesure du temps synchrone de render(), sans Bluetooth ni commande VMI. Importe le même CSV dans les deux versions avant de lancer.</p><button type="button" id="runRenderBenchmark">Mesurer 15 rendus</button><p id="renderBenchmarkResult" role="status">En attente de l’historique.</p>';
+ document.querySelector('main')?.prepend(panel);
+ const button=panel.querySelector('#runRenderBenchmark');
+ const output=panel.querySelector('#renderBenchmarkResult');
+ button.addEventListener('click',async()=>{
+  button.disabled=true;
+  output.textContent='Mesure en cours…';
+  try{
+   const recordCount=selectedHistoricalData().length;
+   for(let i=0;i<3;i++){render();await new Promise(resolve=>requestAnimationFrame(resolve))}
+   const samples=[];
+   for(let i=0;i<15;i++){
+    const start=performance.now();
+    render();
+    samples.push(performance.now()-start);
+    await new Promise(resolve=>requestAnimationFrame(resolve));
+   }
+   const sorted=[...samples].sort((a,b)=>a-b);
+   const median=sorted[Math.floor(sorted.length/2)];
+   const p95=sorted[Math.ceil(sorted.length*0.95)-1];
+   const average=samples.reduce((sum,value)=>sum+value,0)/samples.length;
+   const label=new URLSearchParams(location.search).get('render-bench')||'version non identifiée';
+   output.textContent='Version : '+label+' · Relevés analysés : '+recordCount+' · 15 mesures après 3 échauffements · médiane : '+median.toFixed(2)+' ms · moyenne : '+average.toFixed(2)+' ms · p95 : '+p95.toFixed(2)+' ms. Détail : '+samples.map(value=>value.toFixed(2)).join(' ; ')+' ms.';
+  }catch(error){output.textContent='Mesure impossible : '+(error?.message||error)}
+  finally{button.disabled=false}
+ });
+}
+installRenderBenchmark();
 $('targetRH').onchange=render;$('minSamples').onchange=render;
 
 setInterval(()=>{if(cur.sal_t!==undefined)updateLiveMetrics();else $('sampleAge').textContent=buildLiveFreshnessText(lastSeen)},5000);
