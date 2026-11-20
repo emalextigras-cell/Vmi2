@@ -64,5 +64,5 @@ test('fillMissing conserve la cause du point bloqué', () => {
   ]);
   assert.equal(result[0].reason, 'placeholder');
   assert.equal(result[0].blocked, true);
-  assert.equal(result[1].reason, null);
+  assert.equal(result[1].reason, undefined);
 });
