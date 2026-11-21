@@ -281,10 +281,35 @@ test('diagnostic quantifies missing, implausible and duplicate input rows',()=>{
   placeholderSensorRecordCount:0,
   transientSpikeRecordCount:0,
   duplicateTimestampCount:1,
-  excludedSampleCount:4
+  conflictingTimestampCount:1,
+  excludedSampleCount:5
  });
- assert.equal(result.sampleCount,1);
+ assert.equal(result.sampleCount,0);
  assert.equal(JSON.stringify(rows),before);
+});
+
+test('diagnostic écarte un horodatage si plusieurs mesures valides se contredisent',()=>{
+ const rows=makeRows({days:3,perDay:10});
+ const timestamp=rows[0].t;
+ rows.push({...rows[0],st:rows[0].st+2});
+ const result=buildHygrometricDiagnosis(rows);
+ assert.equal(result.sampleCount,29);
+ assert.equal(result.inputQuality.duplicateTimestampCount,1);
+ assert.equal(result.inputQuality.conflictingTimestampCount,1);
+ assert.equal(result.inputQuality.acceptedSampleCount,29);
+ assert.equal(result.inputQuality.excludedSampleCount,2);
+ assert.ok(!result.observations.some(item=>item.code==='air-drying-potential'&&item.basis.sampleCount===30));
+ assert.equal(rows.filter(row=>row.t===timestamp).length,2);
+});
+
+test('diagnostic conserve un horodatage dupliqué lorsque les mesures sont identiques',()=>{
+ const rows=makeRows({days:3,perDay:10});
+ rows.push({...rows[0]});
+ const result=buildHygrometricDiagnosis(rows);
+ assert.equal(result.sampleCount,30);
+ assert.equal(result.inputQuality.duplicateTimestampCount,1);
+ assert.equal(result.inputQuality.conflictingTimestampCount,0);
+ assert.equal(result.inputQuality.acceptedSampleCount,30);
 });
 
 test('diagnostic reports empty input quality without inventing excluded rows',()=>{
