@@ -15,6 +15,16 @@ test('ignore les notifications sans en-tête VMI complet', () => {
   assert.equal(decodeVmiNotification(new Uint8Array([0, 0, 1])), null);
 });
 
+test('signale les trames connues tronquées sans les décoder comme des notifications inconnues', () => {
+  for (const [type, length, requiredLength] of [
+    [0x01, 53, 54], [0x02, 13, 14], [0x03, 13, 14], [0x04, 7, 8]
+  ]) {
+    assert.deepEqual(decodeVmiNotification(frame(type, length)), {
+      kind: 'invalid', type, length, requiredLength
+    });
+  }
+});
+
 test('décode les champs de la trame état aux offsets historiques', () => {
   const bytes = frame(0x01, 54);
   bytes[22] = 0x34; bytes[23] = 0x12;
