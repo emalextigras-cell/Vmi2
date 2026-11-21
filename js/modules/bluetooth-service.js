@@ -11,6 +11,7 @@ import { createBleResponseGate, BLE_RESPONSE_KIND_BY_REGISTER } from './bluetoot
 import { isBleStateStale } from './bluetooth-freshness.js';
 import { chooseAuthorizedDevice } from './bluetooth-autoconnect.js';
 import { runBleSessionSequence } from './bluetooth-session.js';
+import { createReconnectHandler } from './bluetooth-runtime.js';
 
 /**
  * @param {{
@@ -349,18 +350,18 @@ export function createBluetoothService(deps) {
     }
   }
 
-  async function reconnect() {
-    if (manualDisconnect || !device || connectionRequestPending) return;
-    const intent = connectionIntent;
-    try {
-      await connectDevice(device, intent);
-    } catch (error) {
-      if (intent !== connectionIntent || connectionRequestPending) return;
-      deps.log('Reconnexion échouée : ' + error.message);
-      clearTimeoutFn(reconnectTimer);
-      reconnectTimer = setTimeoutFn(reconnect, 7000);
-    }
-  }
+  const reconnect = createReconnectHandler({
+    isManualDisconnect: () => manualDisconnect,
+    getDevice: () => device,
+    isConnectionRequestPending: () => connectionRequestPending,
+    getConnectionIntentGeneration: () => connectionIntent,
+    connectDevice,
+    log: deps.log,
+    clearTimeout: clearTimeoutFn,
+    setTimeout: setTimeoutFn,
+    getReconnectTimer: () => reconnectTimer,
+    setReconnectTimer: timer => { reconnectTimer = timer; }
+  });
 
   async function connectBLE() {
     if (connectionRequestPending) return;
