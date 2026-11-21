@@ -6,10 +6,9 @@ import { createStore, normalizeStoreSnapshot } from './modules/store.js';
 import { fromOldRow } from './modules/legacy-migration.js';
 import { median, analyzeSpeedLevels, analyzeSpeedTimeContext, analyzeHygrometricPeriods, summarizeDailyTrends, analyzeHourlyPatterns, detectRapidChanges, compareOperatingPeriods, buildHygrometricDiagnosis } from './modules/analysis.js';
 import { renderCharts, resetChartViews } from './modules/charts.js';
-import { hex } from './modules/bluetooth-protocol.js';
 import { createBluetoothService } from './modules/bluetooth-service.js';
-import { decodeVmiNotification } from './modules/bluetooth-decoder.js';
-import { acceptHistoryFragment, createHistoryStreamState, isHistorySyncBaseline, markHistoryRows, markHistoryStreamInvalid } from './modules/bluetooth-history-stream.js';
+import { createPureventNotificationHandler } from './modules/bluetooth-notification-adapter.js';
+import { createHistoryStreamState, isHistorySyncBaseline, markHistoryRows } from './modules/bluetooth-history-stream.js';
 import { validateBluetoothHistoryRow } from './modules/bluetooth-history-row.js';
 import { armDownloadTimeout, findNewestCounterRecord, classifyHistoryDownloadRow } from './modules/sync.js';
 import { parseCell, recFrom, getColumnMapping, findVmiHeaderRowIndex, parseCsvRows, isCsvFile } from './modules/dataio.js';
@@ -20,7 +19,6 @@ import { summarizeDataQuality, isPlausibleHumidity, isPlausibleTemperature } fro
 import { summarizeFanEnergyEstimate, summarizeFanEnergyByManualMode } from './modules/energy-estimate.js';
 import { summarizeDailyEnergyClimateContext } from './modules/energy-climate.js';
 import { summarizeWeeklyDiagnostic } from './modules/weekly-diagnostic.js';
-import { createBluetoothNotificationHandler } from './modules/bluetooth-runtime.js';
 import { createLiveMeasurementFilters } from './modules/measurement-filter.js';
 import { applyAdvancedCommand } from './modules/bluetooth-advanced-commands.js';
 import { buildLiveFreshnessText } from './modules/live-freshness.js';
@@ -194,22 +192,18 @@ async function setClock(allowDuringDownload=false){
  return ok;
 }
 
-const handleNotification = createBluetoothNotificationHandler({
- decodeVmiNotification,
+const handleNotification = createPureventNotificationHandler({
  getDownload:()=>download,
  getCur:()=>cur,
  getLastSeen:()=>lastSeen,
- acceptHistoryFragment,
- markHistoryStreamInvalid,
  parseDownloadLine,
  incrementDlFrames:()=>++dlFrames,
  armTimer,
  finishDownload,
  updateLiveMetrics,
  log,
- hex,
  $,
- onDecodedFrame:(kind,decoded)=>bluetoothService?.notifyResponse(kind,decoded)
+ notifyResponse:(kind,decoded)=>bluetoothService?.notifyResponse(kind,decoded)
 });
 function onNotification(ev){
  try{handleNotification(ev)}catch(e){log('Erreur de décodage d’une trame : '+(e.message||e));recordError('Décodage d’une trame : '+(e.message||e))}
