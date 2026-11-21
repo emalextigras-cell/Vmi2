@@ -37,7 +37,7 @@ test('ignore les notifications sans en-tête VMI complet', () => {
 
 test('signale les trames connues tronquées sans les décoder comme des notifications inconnues', () => {
   for (const [type, length, requiredLength] of [
-    [0x01, 60, 61], [0x02, 127, 128], [0x03, 30, 31], [0x04, 10, 11]
+    [0x01, 60, 61], [0x02, 14, 15], [0x03, 14, 15], [0x04, 10, 11]
   ]) {
     assert.deepEqual(decodeVmiNotification(frame(type, length, requiredLength)), {
       kind: 'invalid', type, length, requiredLength, reason: 'truncated'
@@ -71,6 +71,31 @@ test('exclut le dernier octet de données du XOR entrant Purevent', () => {
   // La modification de cet octet ne change pas la somme attendue.
   bytes[29] = 0x5A;
   assert.deepEqual(decodeVmiNotification(bytes), expected);
+});
+
+test('accepte une trame télécommande courte dès que ses champs et sa somme sont présents', () => {
+  const room = frame(0x02, 15);
+  room[10] = 0x03;
+  room[11] = 22;
+  room[13] = 54;
+  assert.deepEqual(decodeVmiNotification(seal(room)), {
+    kind: 'room', temperature: 22, humidity: 54
+  });
+});
+
+test('accepte une trame de sondes courte sans lire les octets de remplissage', () => {
+  const probes = frame(0x03, 15);
+  probes[5] = 0;
+  probes[6] = 13;
+  probes[8] = 96;
+  probes[10] = 1;
+  probes[11] = 12;
+  probes[13] = 97;
+  assert.deepEqual(decodeVmiNotification(seal(probes)), {
+    kind: 'probes',
+    firstLocation: 0, firstTemperature: 13, firstHumidity: 96,
+    secondLocation: 1, secondTemperature: 12, secondHumidity: 97
+  });
 });
 
 test('décode les mesures salon et les deux sondes après validation XOR', () => {
