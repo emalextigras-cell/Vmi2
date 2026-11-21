@@ -122,7 +122,7 @@ export function analyzeSpeedTimeContext(data, { minSamples = 5, minDays = 2 } = 
 
   const uniqueRows=new Map();
   for(const row of Array.isArray(data)?data:[]){
-    if(!Number.isFinite(row?.t)||!Number.isFinite(row?.vmiModeRaw)||![1,2,3].includes(row.vmiModeRaw)||
+    if(isPlaceholderSensorRecord(row)||!Number.isFinite(row?.t)||!Number.isFinite(row?.vmiModeRaw)||![1,2,3].includes(row.vmiModeRaw)||
       !Number.isFinite(row.st)||!isPlausibleTemperature(row.st)||
       !Number.isFinite(row.sh)||!isPlausibleHumidity(row.sh))continue;
     uniqueRows.set(`${row.vmiModeRaw}:${row.t}`,row);
@@ -662,7 +662,7 @@ function summarizePreparedHygrometricPeriods(rows, { threshold = 1, maxGapHours 
 export function analyzeHygrometricPeriods(data, options = {}) {
   const unique=new Map();
   for(const r of Array.isArray(data)?data:[]){
-    if(!Number.isFinite(r?.t)||!Number.isFinite(new Date(r.t).getTime())||
+    if(isPlaceholderSensorRecord(r)||!Number.isFinite(r?.t)||!Number.isFinite(new Date(r.t).getTime())||
       !Number.isFinite(r.st)||!isPlausibleTemperature(r.st)||
       !Number.isFinite(r.sh)||!isPlausibleHumidity(r.sh)||
       !Number.isFinite(r.te)||!isPlausibleTemperature(r.te)||
@@ -1291,6 +1291,8 @@ function prepareHygrometricRows(inputRows) {
       missingTimestampCount,
       incompleteSensorRecordCount,
       implausibleSensorRecordCount,
+      placeholderSensorRecordCount,
+      transientSpikeRecordCount,
       duplicateTimestampCount,
       excludedSampleCount:inputRows.length-rows.length
     },
