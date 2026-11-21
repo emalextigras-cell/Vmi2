@@ -63,6 +63,26 @@ test('notification état met à jour les valeurs VMI et l’horodatage', () => {
   assert.equal(h.updates, 1);
 });
 
+test('notification sondes met à jour les deux températures et humidités', () => {
+  const decoded = {
+    kind: 'probes', firstTemperature: 13, firstHumidity: 96,
+    secondTemperature: 12, secondHumidity: 97
+  };
+  const h = makeNotificationHandler({ decodeVmiNotification: () => decoded });
+
+  h.handler({ target: { value: new DataView(new Uint8Array([1, 2]).buffer) } });
+
+  assert.equal(h.cur.s1_t, 13);
+  assert.equal(h.cur.s1_h, 96);
+  assert.equal(h.cur.s2_t, 12);
+  assert.equal(h.cur.s2_h, 97);
+  assert.equal(h.elements.get('ti').textContent, 13);
+  assert.equal(h.elements.get('hi').textContent, 96);
+  assert.equal(h.elements.get('t2').textContent, 12);
+  assert.equal(h.elements.get('h2').textContent, 97);
+  assert.equal(h.updates, 1);
+});
+
 test('notification historique invalide marque le flux incomplet', () => {
   let invalidated = false;
   const h = makeNotificationHandler({
