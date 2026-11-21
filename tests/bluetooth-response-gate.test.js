@@ -30,19 +30,47 @@ test('refuse deux attentes simultanées', async () => {
   await first;
 });
 
-test('libère une attente après expiration', async () => {
+test('un timeout invalide la corrélation pour toute la session', async () => {
   const gate = createBleResponseGate();
-  await assert.rejects(gate.waitFor('probes', 5), /Délai dépassé/);
+  await assert.rejects(gate.waitFor('state', 5), /reconnexion requise/);
   assert.equal(gate.pendingKind, null);
-  const next = gate.waitFor('room', 100);
-  gate.notify('room', {});
-  await next;
+  assert.equal(gate.isInvalidated, true);
+  await assert.rejects(gate.waitFor('state', 100), /reconnexion requise/);
 });
 
-test('annule proprement une attente lors de la perte de session', async () => {
+test('une réponse tardive ne peut pas valider une attente après timeout', async () => {
+  const gate = createBleResponseGate();
+  await assert.rejects(gate.waitFor('state', 5), /reconnexion requise/);
+  assert.equal(gate.notify('state', { stale: true }), false);
+  await assert.rejects(gate.waitFor('state', 100), /reconnexion requise/);
+});
+
+test('une nouvelle session réinitialise la corrélation invalidée', async () => {
+  const gate = createBleResponseGate();
+  await assert.rejects(gate.waitFor('state', 5), /reconnexion requise/);
+  gate.reset();
+  const next = gate.waitFor('state', 100);
+  const fresh = { fresh: true };
+  assert.equal(gate.notify('state', fresh), true);
+  assert.equal(await next, fresh);
+  assert.equal(gate.isInvalidated, false);
+});
+
+test('annule et invalide une attente lors de la perte de session', async () => {
   const gate = createBleResponseGate();
   const waiting = gate.waitFor('state', 100);
   gate.cancel(new Error('session terminée'));
   await assert.rejects(waiting, /session terminée/);
   assert.equal(gate.pendingKind, null);
+  assert.equal(gate.isInvalidated, true);
+});
+
+test('une notification ne traverse jamais une session invalidée puis réinitialisée', async () => {
+  const gate = createBleResponseGate();
+  gate.invalidate(new Error('ancienne session'));
+  assert.equal(gate.notify('state', { stale: true }), false);
+  gate.reset();
+  const waiting = gate.waitFor('state', 100);
+  assert.equal(gate.notify('state', { fresh: true }), true);
+  assert.deepEqual(await waiting, { fresh: true });
 });
