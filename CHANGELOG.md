@@ -1,3 +1,10 @@
+## Refactor — moteur d'analyse des modes et périodes
+- Extraction des comparaisons de vitesses manuelles, du contexte horaire et des comparaisons de périodes dans `operating-analysis.js`.
+- Extraction de la médiane commune dans `statistics.js`.
+- Conservation des exports historiques de `analysis.js` pour ne pas casser les imports existants.
+- Aucun seuil, calcul métier, diagnostic ni commande Bluetooth modifié.
+- Tests de compatibilité des exports et du calcul de médiane ajoutés.
+
 # Journal des modifications
 
 ## [Non publié]
