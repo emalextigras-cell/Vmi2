@@ -582,3 +582,24 @@ Artefacts contrôlés : `00_A0_50_48_B4_A3-2026-11-10-16_55.csv` et `vmi-sauvega
 - Référence secondaire pour les capacités générales VMI+ / Urban : `srThibaultP/ha-vmi-plus` et `srThibaultP/vmi-plus-ble`, en conservant explicitement l'étiquette « Urban / Urban 2 ».
 - Aucun registre installateur, usine, SAV ou mise à jour firmware n'est ajouté sur la seule base du protocole Urban. Les registres signalés dangereux par les sources restent exclus.
 - Aucun ordre Bluetooth matériel n'a été envoyé pendant cette comparaison.
+
+### 3.18 Réponse tardive après expiration — risque de corrélation
+
+**Constat confirmé dans le code Vmi2 actuel :**
+- `createBleResponseGate().waitFor()` rejette l'attente après 5 secondes et remet `pending` à `null`. Le test « libère une attente après expiration » vérifie explicitement qu'une nouvelle attente peut ensuite être ouverte sur la même session.
+- `sendAndWait()` transforme cette expiration en résultat `written: true, responded: false`, sans invalider la session BLE.
+- Les commandes avancées peuvent alors lancer une nouvelle lecture d'état `0x03` pour vérifier le résultat. Les commandes simples ont également un chemin de relecture.
+- Comme les trames ne portent pas d'identifiant de transaction, une notification `state` retardée de la première écriture pourrait arriver après l'ouverture de la seconde attente `state` et être prise pour sa réponse. Le type correspond, mais la causalité n'est pas démontrée.
+- Le même risque structurel existe dans les deux références Python : Purevent retire l'attente par type après timeout, puis accepte une attente suivante du même type ; le client Urban retire le Future expiré de sa liste, mais une notification tardive peut satisfaire un Future plus récent de la même classe.
+
+**Conséquence :**
+- Une relecture après timeout sur la même connexion ne constitue pas une preuve indépendante si une réponse antérieure peut encore arriver.
+- Les tests actuels valident l'expiration et la réutilisation du verrou, mais ne simulent pas encore une réponse tardive qui traverse deux requêtes successives du même type.
+
+**Correction de conception retenue pour Vmi2 :**
+- Après expiration d'une réponse typée, invalider la session de corrélation : aucune nouvelle attente de réponse ne doit être ouverte sur cette connexion.
+- Fermer puis rétablir une nouvelle session BLE avant de reprendre les lectures. Une notification issue de l'ancienne session ne doit jamais valider une requête de la nouvelle.
+- Une commande dont la réponse a expiré reste « non confirmée » ; la reconnexion et une lecture d'état fraîche pourront établir l'état présent, mais ne prouveront pas rétrospectivement que la commande a été exécutée.
+- Ajouter des tests simulant une réponse tardive de même type, le blocage des attentes sur session invalidée, et la réouverture uniquement après changement de session.
+
+**État :** anomalie d'orchestration identifiée par lecture croisée des trois implémentations ; correction logicielle à réaliser et valider. Aucun essai matériel ni commande BLE envoyée.
