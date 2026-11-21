@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {
   analyzeHygrometricPeriods,
   buildHygrometricDiagnosis,
-  summarizeDailyTrends
+  summarizeDailyTrends,
+  summarizeTemperatureLimit
 } from '../js/modules/analysis.js';
 import { analyzeSeasonalVentilation } from '../js/modules/seasonal-advice.js';
 
@@ -70,4 +71,25 @@ test('l’analyse saisonnière ignore les relevés de remplacement', () => {
   const result = analyzeSeasonalVentilation(rows, { minSamples: 1, minDays: 1 });
 
   assert.equal(result.seasons.find(item => item.season === 'hiver').sampleCount, 2);
+});
+
+
+test('l’analyse de consigne thermique écarte aussi les relevés de remplacement', () => {
+  const rows = [
+    { ...baseRow(0), consTmaxRaw: 25, tExt: 10, vmiModeRaw: 1, debit: 120 },
+    {
+      ...baseRow(1),
+      st: 20, sh: 50, t1: 20, h1: 50, te: 20, he: 50, tExt: 20,
+      consTmaxRaw: 25, vmiModeRaw: 1, debit: 120
+    },
+    { ...baseRow(2), consTmaxRaw: 25, tExt: 12, vmiModeRaw: 1, debit: 120 }
+  ];
+
+  const result = summarizeTemperatureLimit(rows, {
+    minimumGroupSamples: 1,
+    minimumGroupDays: 1
+  });
+
+  assert.equal(result.eligibleSampleCount, 2);
+  assert.equal(result.thresholds[0].sampleCount, 2);
 });
