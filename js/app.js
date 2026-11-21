@@ -923,7 +923,7 @@ function renderIntelligentDiagnosis(result){
  }
  const confidence=formatDiagnosisConfidence(result,fmt);
  const quality=result.inputQuality;
- const inputSummary='Entrée : '+quality.inputSampleCount+' lignes · '+quality.acceptedSampleCount+' retenues après contrôle et dédoublonnage · '+quality.excludedSampleCount+' écartées ou regroupées ('+quality.missingTimestampCount+' sans horodatage, '+quality.incompleteSensorRecordCount+' incomplètes, '+quality.implausibleSensorRecordCount+' avec valeurs aberrantes, '+quality.duplicateTimestampCount+' doublons). Les catégories peuvent se chevaucher.';
+ const inputSummary='Entrée : '+quality.inputSampleCount+' lignes · '+quality.acceptedSampleCount+' retenues après contrôle et dédoublonnage · '+quality.excludedSampleCount+' écartées ou regroupées ('+quality.missingTimestampCount+' sans horodatage, '+quality.incompleteSensorRecordCount+' incomplètes, '+quality.implausibleSensorRecordCount+' avec valeurs hors plage, '+quality.placeholderSensorRecordCount+' relevés de remplacement, '+quality.transientSpikeRecordCount+' pics isolés, '+quality.duplicateTimestampCount+' doublons). Les catégories peuvent se chevaucher.';
  box.className=available?'advice good':'advice warn';
  box.textContent=(available?'Analyse possible avec les données disponibles. ':'Diagnostic non concluant pour le moment. ')+confidence+'. '+inputSummary;
  if(result.medianSampleIntervalMinutes!=null){
