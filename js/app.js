@@ -64,7 +64,7 @@ window.addEventListener('unhandledrejection',e=>recordError('Promesse rejetée :
 
 
 let manualCommandPending=false,bluetoothService=null;
-let intentionalDisconnect=false;
+
 /** @type {UnknownRecord} */ let meta={};
 let cur={},lastSeen={};
 /** @type {VmiRecord[]} */ let live=[],hist=[];
@@ -334,8 +334,8 @@ async function runAdvancedCommand(action,value,label){
  if(action==='preheatSetpoint'&&!confirm('Régler une consigne démarre le préchauffage électrique. Confirmer ?'))return;
  if(action==='preheatPower'&&value===true&&!confirm('Démarrer le préchauffage électrique peut augmenter la consommation jusqu’à 1 800 W. Confirmer ?'))return;
  manualCommandPending=true;
- const commandToken=bleConnectionGeneration,commandDevice=dev;
- const commandIsCurrent=()=>sessionIsCurrent(commandToken,commandDevice)&&connected();
+ const commandToken=bluetoothService.getSessionToken(),commandDevice=bluetoothService.getDevice();
+ const commandIsCurrent=()=>bluetoothService.isSessionCurrent(commandToken,commandDevice)&&connected();
  const controls=[...document.querySelectorAll('[data-r]'), ...document.querySelectorAll('[data-advanced]')];
  controls.forEach(control=>control.disabled=true);
  showError('');
@@ -357,7 +357,7 @@ async function runAdvancedCommand(action,value,label){
   getLastCommandState:async()=>lastCommandState
  };
  try{
-  while(pollingSessionToken===commandToken&&commandIsCurrent())await sleep(50);
+  while(bluetoothService.isPolling(commandToken)&&commandIsCurrent())await sleep(50);
   if(!commandIsCurrent())return;
   result.textContent='Lecture de l’état actuel de la VMI…';
   const outcome=await applyAdvancedCommand(deps,action,value);
@@ -369,7 +369,7 @@ async function runAdvancedCommand(action,value,label){
   result.textContent='⚠ '+(error.message||error);
   log('Commande avancée non confirmée ('+label+') : '+(error.message||error));
  }finally{
-  if(commandToken===bleConnectionGeneration){manualCommandPending=false;controls.forEach(control=>control.disabled=download.on)}
+  if(commandToken===bluetoothService.getSessionToken()){manualCommandPending=false;controls.forEach(control=>control.disabled=download.on)}
  }
 }
 
