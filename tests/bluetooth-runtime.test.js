@@ -180,6 +180,11 @@ test('attend les cinq fragments de la ligne de coupure avant de terminer la sync
   downloadRef = h.download;
   h.download.on = true;
   h.download.historyStream = createHistoryStreamState();
+  for (let sequence = 0; sequence < 25; sequence++) {
+    acceptHistoryFragment(h.download.historyStream, {
+      sequence, chunkIndex: 0, payload: 'metadata-' + sequence
+    });
+  }
 
   const fragments = [
     [0, '12/11/2026 14:31:00;ligne connue;'],
