@@ -12,7 +12,7 @@ import { createBleWriteQueue } from './modules/bluetooth-write-queue.js';
 import { runBleSessionSequence } from './modules/bluetooth-session.js';
 import { acceptHistoryFragment, createHistoryStreamState, isHistorySyncBaseline, markHistoryRows, markHistoryStreamInvalid } from './modules/bluetooth-history-stream.js';
 import { validateBluetoothHistoryRow } from './modules/bluetooth-history-row.js';
-import { armDownloadTimeout, findNewestCounterRecord } from './modules/sync.js';
+import { armDownloadTimeout, findNewestCounterRecord, classifyHistoryDownloadRow } from './modules/sync.js';
 import { parseCell, recFrom, getColumnMapping, findVmiHeaderRowIndex, parseCsvRows, isCsvFile } from './modules/dataio.js';
 import { fixClock, evaluateCounterBaseline } from './modules/clock-correction.js';
 import { absoluteHumidity, psychro, validTemp } from './modules/psychrometry.js';
@@ -76,7 +76,7 @@ let cur={},lastSeen={};
 /** @type {EnergyReading[]} */ let energyReadings=[];
 let source='hist',selectedDate=null,daysSetting=30;
 let logLines=[],dlFrames=0;
-let download={on:false,rows:[],buf:'',sigs:new Set(),got:false,lastPacket:0,timeout:null,historyStream:createHistoryStreamState(),integrityGap:false,dataStarted:false,announcedTotalRows:null};
+let download={on:false,rows:[],buf:'',sigs:new Set(),knownSigs:new Set(),seenSigs:new Set(),bootstrap:false,got:false,lastPacket:0,timeout:null,historyStream:createHistoryStreamState(),integrityGap:false,dataStarted:false,announcedTotalRows:null};
 const DB='VMI_PUREVENT_DB_TEST',STORE='data';
 const { get: dbGet, set: dbSet, setMany: dbSetMany } = createStore({ databaseName: DB, storeName: STORE, onError: message => log(message) });
 const connected=()=>!!(chC&&dev&&dev.gatt&&dev.gatt.connected);
@@ -628,7 +628,13 @@ function parseDownloadLine(line){
  const validation=validateBluetoothHistoryRow(line);
  if(!validation.valid){download.invalidRows=(download.invalidRows||0)+1;const reason='reason' in validation?validation.reason:'motif non précisé';log('Ligne historique Bluetooth rejetée ('+reason+') · date brute : '+String(line).split(';',1)[0]);return}
  const f=validation.fields,p=parseCell(f[0]);if(!p)return;
- if(download.sigs.size&&download.sigs.has(p.rk+'|'+num(f[11]))){download.reachedCut=true;return}
+ const signature=p.rk+'|'+num(f[11]);
+ const decision=classifyHistoryDownloadRow(signature,{
+  baselineSignatures:download.sigs,knownSignatures:download.knownSigs,
+  seenSignatures:download.seenSigs,bootstrap:download.bootstrap
+ });
+ if(decision==='cut'){download.reachedCut=true;return}
+ if(decision==='skip')return;
  const rec=recFrom(f);if(rec)download.rows.push(rec);
 }
 function armTimer(){armDownloadTimeout(download,finishDownload)}
@@ -660,6 +666,7 @@ function finishDownload(completeBoundary,timeout=false,interrupted=false){
  $('dlh').disabled=false;setCommandsDisabled(false);
  $('dlp').textContent=`Terminé : ${count} nouvelles lignes${download.invalidRows>0?' · lignes rejetées : synchronisation non certifiée, relance nécessaire':download.integrityGap?' · lacune détectée : synchronisation non certifiée, relance nécessaire':interrupted?(download.got?' · transfert interrompu, données partielles conservées ; relance la synchronisation':' · transfert interrompu avant réception')  :completeBoundary?' · historique synchronisé':timeout?(download.got?' · arrêt après une pause de 20 s':' · aucune réponse de la VMI'):(download.sigs.size?' · attention : trou possible avant la dernière ligne mémorisée':' · historique complet')}`;
  if(Number.isSafeInteger(download.announcedTotalRows)) $('dlp').textContent+=` · total annoncé par la VMI : ${download.announcedTotalRows} lignes`;
+ if(download.bootstrap&&!complete) $('dlp').textContent+=' · bootstrap initial non certifié : lignes déjà enregistrées ignorées, relance possible pour rechercher les suivantes';
  if(ingestResult?.counterReset){
   $('dlp').textContent+=' · ⚠ discontinuité du compteur détectée';
   $('dlp').textContent+=ingestResult.referenceCount>=2
@@ -681,7 +688,10 @@ async function startDownload(auto=false){
   if(download.on)finishDownload(false,true,true);
  };
  showError('');dlFrames=0;
- download={on:true,rows:[],buf:'',sigs:new Set(hist.filter(r=>isHistorySyncBaseline(r)&&r.rk&&Number.isFinite(r.d)).map(sigOf)),got:false,lastPacket:Date.now(),timeout:null,historyStream:createHistoryStreamState(),integrityGap:false,dataStarted:false,announcedTotalRows:null};
+ const baselineRecords=hist.filter(r=>isHistorySyncBaseline(r)&&r.rk&&Number.isFinite(r.d));
+ const baselineSigs=new Set(baselineRecords.map(sigOf));
+ const knownSigs=new Set(hist.filter(r=>r.rk&&Number.isFinite(r.d)).map(sigOf));
+ download={on:true,rows:[],buf:'',sigs:baselineSigs,knownSigs,seenSigs:new Set(),bootstrap:baselineSigs.size===0,got:false,lastPacket:Date.now(),timeout:null,historyStream:createHistoryStreamState(),integrityGap:false,dataStarted:false,announcedTotalRows:null};
  $('dlh').disabled=true;setCommandsDisabled(true);
  $('dlp').textContent=auto?'Téléchargement automatique de l’historique…':'Démarrage du téléchargement…';
  // Terminer la requête de lecture déjà en cours avant d'envoyer les registres du flux historique.
