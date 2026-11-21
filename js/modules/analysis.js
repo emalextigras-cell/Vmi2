@@ -10,22 +10,6 @@ export { analyzeSpeedLevels, analyzeSpeedTimeContext, compareOperatingPeriods, s
 import { detectTransientSensorSpikes, isPlaceholderSensorRecord, isPlausibleHumidity, isPlausibleTemperature } from './data-quality.js';
 
 
-/**
- * Compare uniquement les niveaux manuels 1/2/3 déjà identifiés dans les relevés.
- * Les valeurs brutes importées de VMI+ ne sont pas assimilées à ces niveaux.
- */
-
-/**
- * Décrit les mesures par niveau manuel et tranche horaire locale de 6 h.
- * Une médiane n'est affichée que si l'effectif et le nombre de jours suffisent.
- * Les tranches ne sont pas considérées comme des essais contrôlés.
- */
-
-/**
- * Compare deux périodes calendaires successives à mode et tranche horaire identiques.
- * Les valeurs brutes restent brutes ; aucune variation n'est qualifiée de panne ou d'encrassement.
- */
-
 /** Inventaire des champs VMI+ disponibles ; aucune unité ni consommation n'est déduite. */
 /**
  * summarizeEnergyReadiness — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
