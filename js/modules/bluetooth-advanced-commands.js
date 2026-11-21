@@ -30,14 +30,14 @@ function isConfirmed(state, key, expected) {
  * @param {string} label Libellé utilisateur.
  * @returns {Promise<{changed:boolean,confirmed:true,state:object}>}
  */
-async function setAndConfirm(deps, { key, register, value, expected, label }) {
+async function setAndConfirm(deps, { key, register, value, expected, label, confirmState = state => isConfirmed(state, key, expected) }) {
   assertConnected(deps.isConnected);
   const before = await deps.readState();
   assertConnected(deps.isConnected);
-  if (!before || !isConfirmed(before, key, before[key])) {
+  if (!before || typeof before[key] !== typeof expected) {
     throw new Error(label + ' : état initial non disponible.');
   }
-  if (isConfirmed(before, key, expected)) {
+  if (confirmState(before)) {
     return { changed: false, confirmed: true, state: before };
   }
 
@@ -45,11 +45,11 @@ async function setAndConfirm(deps, { key, register, value, expected, label }) {
   await deps.writeCommand(register, value);
   assertConnected(deps.isConnected);
   let after = await deps.getLastCommandState?.();
-  if (!isConfirmed(after, key, expected)) {
+  if (!confirmState(after)) {
     after = await deps.readState();
   }
   assertConnected(deps.isConnected);
-  if (!isConfirmed(after, key, expected)) {
+  if (!confirmState(after)) {
     throw new Error(label + ' : la VMI n’a pas confirmé le nouvel état. Aucune nouvelle écriture ne sera envoyée.');
   }
   return { changed: true, confirmed: true, state: after };
@@ -106,6 +106,7 @@ export async function applyAdvancedCommand(deps, action, value) {
     }
     return setAndConfirm(deps, {
       key: 'preheatSetpoint', register: 0x1C, value, expected: value,
+      confirmState: state => state?.preheatSetpoint === value && state?.preheatOn === true,
       label: 'Consigne de préchauffage'
     });
   }
