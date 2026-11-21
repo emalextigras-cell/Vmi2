@@ -19,6 +19,17 @@ const seal = bytes => {
   return bytes;
 };
 
+test('décode l’accusé Purevent 0x23 exact de la capture après mise à l’heure', () => {
+  const ack = Uint8Array.from('a5b623060025'.match(/../g).map(byte => Number.parseInt(byte, 16)));
+  assert.deepEqual(decodeVmiNotification(ack), { kind: 'ack', length: 6 });
+
+  const invalid = ack.slice();
+  invalid[5] ^= 0x01;
+  assert.deepEqual(decodeVmiNotification(invalid), {
+    kind: 'invalid', type: 0x23, length: 6, requiredLength: 6, reason: 'checksum'
+  });
+});
+
 test('ignore les notifications sans en-tête VMI complet', () => {
   assert.equal(decodeVmiNotification(new Uint8Array([0xA5, 0xB6])), null);
   assert.equal(decodeVmiNotification(new Uint8Array([0, 0, 1])), null);
