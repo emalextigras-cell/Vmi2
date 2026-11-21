@@ -216,7 +216,24 @@ async function sendAndWait(reg,val,expectedKind=responseKindForRegister[reg],tim
  try{await response;return {written:true,responded:true}}
  catch(error){log('Réponse VMI attendue absente : '+(error.message||error));return {written:true,responded:false}}
 }
-async function setClock(){if(!chC){showError('Connecte-toi d’abord à la VMI.');return false}const d=new Date();const ok=await writeFrame(timeFrame(d));$('dlp').textContent=ok?'Heure envoyée : '+d.toLocaleString('fr-FR'):'Heure non envoyée.';return ok}
+async function writeFrameAndWait(bytes,expectedKind,timeoutMs=5000){
+ if(bleResponseGate.pendingKind){log('Écriture différée : une réponse Bluetooth est déjà attendue.');return false}
+ const response=bleResponseGate.waitFor(expectedKind,timeoutMs);
+ const written=await writeFrame(bytes);
+ if(!written){bleResponseGate.cancel(new Error('Écriture BLE non confirmée.'));await response.catch(()=>{});return false}
+ try{await response;return true}catch(error){log('Accusé VMI absent : '+(error.message||error));return false}
+}
+async function setClock(allowDuringDownload=false){
+ if(!chC){showError('Connecte-toi d’abord à la VMI.');return false}
+ if(download.on&&!allowDuringDownload)return false;
+ const token=bleConnectionGeneration;
+ while(pollingSessionToken===token&&connected())await sleep(50);
+ if(!connected()||token!==bleConnectionGeneration)return false;
+ const d=new Date();
+ const ok=await writeFrameAndWait(timeFrame(d),'ack');
+ $('dlp').textContent=ok?'Heure confirmée par la VMI : '+d.toLocaleString('fr-FR'):'Mise à l’heure écrite, mais accusé protocolaire absent.';
+ return ok;
+}
 
 const handleNotification = createBluetoothNotificationHandler({
  decodeVmiNotification,
@@ -504,7 +521,7 @@ document.querySelectorAll('[data-r]').forEach(b=>b.addEventListener('click',asyn
  }
 }));
 const setCommandsDisabled=dis=>document.querySelectorAll('[data-r]').forEach(x=>x.disabled=dis);
-$('clk').onclick=setClock;
+$('clk').onclick=()=>setClock(false);
 
 /* Correction des dates historiques isolée dans clock-correction.js. */
 function ingest(recs,label,maxTimestamp=Date.now(),options={}){
@@ -602,7 +619,7 @@ async function startDownload(auto=false){
   token:sessionToken,
   getToken:()=>bleConnectionGeneration,
   isActive:()=>download.on&&connected(),
-  steps:[()=>setClock(),()=>send(0x2c,0),()=>send(0x20,0),()=>send(0x22,0)]
+  steps:[()=>setClock(true),()=>send(0x2c,0),()=>send(0x20,0),()=>send(0x22,0)]
  });
  if(!sequenceOk){abortDownload();return}
  armTimer();
