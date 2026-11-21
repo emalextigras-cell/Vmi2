@@ -242,33 +242,38 @@ test('reconnexion échouée programme un nouvel essai après 7 secondes', async 
 });
 
 
-test('attend les cinq fragments de la ligne de coupure avant de terminer la synchronisation', () => {
+test('termine dès que la ligne de coupure complète est reconnue au début de la séquence suivante', () => {
   let current = null;
   let downloadRef = null;
   let finishCalls = 0;
   const h = makeNotificationHandler({
     decodeVmiNotification: () => current,
     acceptHistoryFragment,
-    parseDownloadLine: () => { downloadRef.reachedCut = true; },
+    parseDownloadLine: line => {
+      if (line.startsWith('12/11/2026 14:31:00;')) downloadRef.reachedCut = true;
+    },
     finishDownload: () => { finishCalls++; }
   });
   downloadRef = h.download;
   h.download.on = true;
   h.download.historyStream = createHistoryStreamState();
+  h.download.buf = 'Date;Event;Vol(m3);mode;Duree\r';
+
   for (let sequence = 0; sequence < 25; sequence++) {
     acceptHistoryFragment(h.download.historyStream, {
       sequence, chunkIndex: 0, payload: 'metadata-' + sequence
     });
   }
 
+  const row = '12/11/2026 14:31:00;35;337;1;04;00;28;25;09,3;1;6.4.2;188;' + 'x'.repeat(270);
   const fragments = [
-    [0, '12/11/2026 14:31:00;ligne connue;'],
-    [10, 'suite-1;'],
-    [20, 'suite-2;'],
-    [30, '\n'],
-    [40, '']
+    [0, '\n' + row.slice(0, 84)],
+    [10, row.slice(84, 169)],
+    [20, row.slice(169, 254)],
+    [30, row.slice(254, 339)],
+    [40, row.slice(339)]
   ];
-  fragments.forEach(([chunkIndex, payload]) => {
+  for (const [chunkIndex, payload] of fragments) {
     current = {
       kind: 'history',
       valid: true,
@@ -278,13 +283,22 @@ test('attend les cinq fragments de la ligne de coupure avant de terminer la sync
     };
     h.handler({ target: { value: new DataView(new Uint8Array([1]).buffer) } });
     if (chunkIndex === 0) assert.equal(h.download.historyStream.expectedFragments, 5);
-    if (chunkIndex === 30) assert.equal(h.download.reachedCut, true);
-    if (chunkIndex !== 40) assert.equal(finishCalls, 0);
-  });
+    assert.equal(finishCalls, 0);
+  }
 
   assert.equal(h.download.historyStream.expectedChunk, 50);
+  current = {
+    kind: 'history',
+    valid: true,
+    payload: new TextEncoder().encode('\n12/11/2026 14:20:00;ligne plus ancienne;'),
+    sequence: 26,
+    chunkIndex: 0
+  };
+  h.handler({ target: { value: new DataView(new Uint8Array([1]).buffer) } });
+
+  assert.equal(h.download.reachedCut, true);
   assert.equal(finishCalls, 1);
-  assert.equal(h.download.historyStream.expectedChunk, 50);
+  assert.equal(h.download.buf, '');
 });
 
 
