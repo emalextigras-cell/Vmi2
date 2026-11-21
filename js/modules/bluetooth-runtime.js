@@ -48,6 +48,13 @@ export function createBluetoothNotificationHandler(deps) {
       return;
     }
 
+    if (decoded.kind === 'history-count') {
+      if (download.on) download.announcedTotalRows = decoded.count;
+      log(`Nombre total de lignes d’historique annoncé par la VMI : ${decoded.count}.`);
+      if (download.on) $('dlp').textContent = `Historique : ${decoded.count} lignes annoncées · réception des nouvelles lignes…`;
+      return;
+    }
+
     if (decoded.kind === 'history') {
       if (!download.on) return;
       if (!decoded.valid) {
