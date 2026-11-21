@@ -38,6 +38,11 @@ export function createBluetoothNotificationHandler(deps) {
     const timestamp = now();
     const download = getDownload();
 
+    if (decoded.kind === 'invalid') {
+      log(`Notification VMI tronquée (type 0x${decoded.type.toString(16).padStart(2, '0')}) : ${decoded.length}/${decoded.requiredLength} octets, ignorée.`);
+      return;
+    }
+
     if (decoded.kind === 'history') {
       if (!download.on) return;
       if (!decoded.valid) {
