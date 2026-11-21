@@ -619,7 +619,7 @@ async function startDownload(auto=false){
   token:sessionToken,
   getToken:()=>bleConnectionGeneration,
   isActive:()=>download.on&&connected(),
-  steps:[()=>setClock(true),()=>send(0x2c,0),()=>send(0x20,0),()=>send(0x22,0)]
+  steps:[async()=>{await setClock(true);return true},()=>send(0x2c,0),()=>send(0x20,0),()=>send(0x22,0)]
  });
  if(!sequenceOk){abortDownload();return}
  armTimer();
