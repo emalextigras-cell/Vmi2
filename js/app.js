@@ -1,5 +1,5 @@
 import { DAY, pad, localDay, shiftDay, fmt, num, MIN_VALID, HIST_MAX } from './modules/date-utils.js';
-import { pruneHistory } from './modules/history.js';
+import { pruneHistory, mergeImportedHistory } from './modules/history.js';
 import { commitHistorySync } from './modules/history-sync-commit.js';
 import { createBackupSnapshot, mergeBackupData } from './modules/backup.js';
 import { $, sleep, APP_VERSION } from './modules/core.js';
