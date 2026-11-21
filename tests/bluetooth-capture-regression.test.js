@@ -24,7 +24,7 @@ test('lit la vraie ligne VMI+ sans confondre Tempext, sondes et télécommande s
   // positions originales sont maintenues afin de tester le mapping d'import.
   const header = Array(124).fill('NA');
   Object.assign(header, {
-    0: 'Date', 39: 'Tempext',
+    0: 'Date', 3: 'mode', 23: 'Debit', 39: 'Tempext',
     40: 'Temp', 41: 'Hum rel (%)', 42: 'Hum abs (%)',
     43: 'Temp', 44: 'Hum rel (%)', 45: 'Hum abs (%)',
     115: 'Type/Zone', 116: 'Id', 117: 'Data1', 118: 'Data2',
@@ -32,7 +32,7 @@ test('lit la vraie ligne VMI+ sans confondre Tempext, sondes et télécommande s
   });
   const row = Array(124).fill('');
   Object.assign(row, {
-    0: '10/11/2026 16:45:35',
+    0: '10/11/2026 16:45:35', 3: '1', 23: '121',
     39: '17,6',
     40: '17,7', 41: '73', 42: '09,05',
     43: '17,6', 44: '74', 45: '09,12',
