@@ -350,3 +350,9 @@ Artefacts contrôlés : `00_A0_50_48_B4_A3-2026-11-10-16_55.csv` et `vmi-sauvega
 - La sélection de données ambiguës est corrigée et couverte par des tests.
 - Les formules usuelles ont été comparées à des références psychrométriques indépendantes ; aucune modification de formule n'est justifiée sans convention capteur sous zéro.
 - Aucun risque de condensation n'est calculé ; aucun essai de commande ou de réglage VMI n'a été effectué.
+
+
+**Validation de la correction temporelle :**
+- GitHub Actions #996, commit testé `737c2ff00682d2523a09cba9afd542b647c45f78` : **551 tests réussis, 0 échec**.
+- Syntaxe JavaScript, ESLint et vérification des types JSDoc réussis.
+- Le commit suivant `7a3dc2f2ffa924d357a8a0d065333324617dbac6` ne modifie que le journal d'audit ; aucun code n'a changé après le commit testé.
