@@ -3,13 +3,19 @@ import assert from 'node:assert/strict';
 import { decodeVmiNotification } from '../js/modules/bluetooth-decoder.js';
 import { parseCsvRows, findVmiHeaderRowIndex, getColumnMapping, recFrom } from '../js/modules/dataio.js';
 
+const hexBytes = value => Uint8Array.from(value.trim().split(/\\s+/), byte => parseInt(byte, 16));
+
 test('rejoue la notification BLE réelle de la télécommande du salon', () => {
-  // Les 14 premiers octets de la notification 0x02 réellement capturée.
-  // L'emplacement physique est confirmé par l'utilisateur : télécommande du salon.
-  const bytes = new Uint8Array([
-    0xA5, 0xB6, 0x02, 0x06, 0x7A, 0x3A, 0xF3,
-    0x2E, 0x04, 0x01, 0x03, 0x18, 0x00, 0x39
-  ]);
+  // Trame complète extraite de la capture : longueur déclarée 128, XOR inclus.
+  const bytes = hexBytes(`
+    a5 b6 02 06 7a 3a f3 2e 04 01 03 18 00 39 00 ff
+    00 00 00 00 00 00 00 00 00 ff 00 00 00 00 00 00 00 00 00 ff
+    00 00 00 00 00 00 00 00 00 ff 00 00 00 00 00 00 00 00 00 ff
+    00 00 00 00 00 00 00 00 00 ff 00 00 00 00 00 00 00 00 00 ff
+    00 00 00 00 00 00 00 00 00 ff 00 00 00 00 00 00 00 00 00 ff
+    00 00 00 00 00 00 00 00 00 ff 00 00 00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00 00 00 00 be
+  `);
 
   assert.deepEqual(decodeVmiNotification(bytes), {
     kind: 'room',
@@ -19,13 +25,11 @@ test('rejoue la notification BLE réelle de la télécommande du salon', () => {
 });
 
 test('rejoue la trame 0x03 réelle : deux sondes filaires avec leur humidité', () => {
-  // Préfixe exact des octets utiles de la notification 0x03 de la capture.
-  // Chaque emplacement de sonde occupe 5 octets : lieu, température, réservé,
-  // humidité, réservé. L'emplacement suivant commence à l'offset 10.
-  const bytes = new Uint8Array([
-    0xA5, 0xB6, 0x03, 0x06, 0x19, 0x00, 0x0D,
-    0x00, 0x60, 0x00, 0x01, 0x0C, 0x00, 0x61
-  ]);
+  // Trame complète extraite de la capture : longueur déclarée 31, XOR inclus.
+  const bytes = hexBytes(`
+    a5 b6 03 06 19 00 0d 00 60 00 01 0c 00 61 00
+    08 00 00 00 00 08 00 00 00 00 08 00 00 00 00 15
+  `);
 
   assert.deepEqual(decodeVmiNotification(bytes), {
     kind: 'probes',
@@ -63,7 +67,7 @@ test('lit la vraie ligne VMI+ sans confondre Tempext, sondes et télécommande s
       [9, 39, 40, 42, 43, 45, 116, 117, 118].includes(index) && value !== ''
         ? '"' + value + '"'
         : value
-    ).join(',')].join('\n')
+    ).join(',')].join('\\n')
   );
   const headerIndex = findVmiHeaderRowIndex(rows);
   assert.equal(headerIndex, 0);
