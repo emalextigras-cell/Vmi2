@@ -4,14 +4,15 @@ import { readFile } from 'node:fs/promises';
 
 const source = await readFile(new URL('../js/app.js', import.meta.url), 'utf8');
 const runtime = await readFile(new URL('../js/modules/bluetooth-runtime.js', import.meta.url), 'utf8');
+const service = await readFile(new URL('../js/modules/bluetooth-service.js', import.meta.url), 'utf8');
 
 test('la fin de synchronisation marque la déconnexion comme volontaire avant disconnect()', () => {
   const finish = source.slice(source.indexOf('function finishDownload('), source.indexOf('async function startDownload('));
-  assert.match(finish, /if\(completeBoundary&&dev&&dev\.gatt&&dev\.gatt\.connected\)\s*\{[\s\S]*?intentionalDisconnect=true;[\s\S]*?dev\.gatt\.disconnect\(\);/);
+  assert.match(finish, /if\(completeBoundary&&connected\(\)\)bluetoothService\.disconnectIntentional\(\);/);
 });
 
 test('onDisconnect absorbe une déconnexion volontaire sans programmer de reconnexion', () => {
-  const handler = source.slice(source.indexOf('function onDisconnect()'), source.indexOf('async function connectCharacteristics('));
+  const handler = service.slice(service.indexOf('function onDisconnect()'), service.indexOf('async function reconnect()'));
   assert.match(handler, /const wasIntentional=intentionalDisconnect;/);
   assert.match(handler, /intentionalDisconnect=false;/);
   assert.match(handler, /if\(wasIntentional\)\{setStatus\('Synchronisation terminée\. Bluetooth déconnecté\.'\);return\}/);
@@ -19,14 +20,15 @@ test('onDisconnect absorbe une déconnexion volontaire sans programmer de reconn
 });
 
 test('une reconnexion ne réinitialise pas la synchronisation automatique', () => {
-  const connect = source.slice(source.indexOf('async function connectDevice('), source.indexOf('async function connectBLE('));
-  assert.doesNotMatch(connect, /autoDone=false/);
-  assert.match(connect, /setTimeout\(\(\)=>\{if\(sessionIsCurrent\(token,device\)&&connected\(\)\)autoHistory\(\)\},3000\)/);
+  const connect = service.slice(service.indexOf('async function connectDevice('), service.indexOf('function onDisconnect()'));
+  assert.doesNotMatch(connect, /autoHistoryDone=false/);
+  assert.match(connect, /!autoHistoryDone/);
+  assert.match(connect, /autoHistoryDone=true/);
 });
 
 test('un nouveau clic utilisateur autorise une nouvelle synchronisation initiale', () => {
-  const connect = source.slice(source.indexOf('async function connectBLE('), source.indexOf('async function autoConnectAuthorizedDevice('));
-  assert.match(connect, /autoDone=false/);
+  const connect = service.slice(service.indexOf('async function connectBLE('), service.indexOf('async function autoConnectAuthorizedDevice('));
+  assert.match(connect, /autoHistoryDone=false/);
 });
 
 test('une ligne historique rejetée empêche de certifier le transfert comme complet', () => {
