@@ -36,11 +36,11 @@ export function acceptHistoryFragment(state, fragment) {
   const sequence = data.sequence;
   const chunkIndex = data.chunkIndex;
   const payload = String(data.payload ?? '');
-  const expectedFragments = data.expectedFragments;
+  const expectedFragments = typeof data.expectedFragments === 'number' ? data.expectedFragments : undefined;
   if (typeof sequence !== 'number' || !Number.isSafeInteger(sequence) || sequence < 0 ||
       typeof chunkIndex !== 'number' || !Number.isSafeInteger(chunkIndex) ||
       chunkIndex < 0 || chunkIndex % 10 !== 0 ||
-      (expectedFragments !== undefined && (!Number.isSafeInteger(expectedFragments) || expectedFragments < 1 || chunkIndex >= expectedFragments * 10))) {
+      (data.expectedFragments !== undefined && (expectedFragments === undefined || !Number.isSafeInteger(expectedFragments) || expectedFragments < 1 || chunkIndex >= expectedFragments * 10))) {
     state.gapCount++;
     // Si l'index de ligne reste lisible, condamner cette ligne et ignorer
     // tous ses fragments suivants jusqu'à la ligne suivante.
