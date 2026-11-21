@@ -554,4 +554,4 @@ Artefacts contrôlés : `00_A0_50_48_B4_A3-2026-11-10-16_55.csv` et `vmi-sauvega
 - Signatures de test issues du CSV fourni : lignes du 01/05/2018 avec compteurs 178 et du 12/04/2018 avec compteur 159.
 - Vérification du saut des lignes partielles déjà connues, de la collecte des lignes inconnues plus anciennes, de la déduplication au sein d'une session et de l'arrêt uniquement sur une borne complète.
 - Tests simulés uniquement ; aucun ordre BLE ni essai matériel.
-- GitHub Actions #1046, commit testé `3c40ace91bb6f536cc95cc868784a78fd3a5bd5d` : **572 tests réussis, 0 échec** ; vérification de syntaxe JavaScript, ESLint et types JSDoc réussies. Le commit documentaire qui ajoute cette ligne ne modifie pas le code.
+- GitHub Actions #1048, commit testé `f5882d30fa772a1ede87d3149a59de949a8bf045` : **572 tests réussis, 0 échec** ; vérification de syntaxe JavaScript, ESLint et types JSDoc réussies.
