@@ -286,3 +286,41 @@ test('attend les cinq fragments de la ligne de coupure avant de terminer la sync
   assert.equal(finishCalls, 1);
   assert.equal(h.download.historyStream.expectedChunk, 50);
 });
+
+
+test('conserve les mesures BLE brutes tout en exposant les valeurs filtrées', () => {
+  const h = makeNotificationHandler({
+    decodeVmiNotification: () => ({ kind: 'room', temperature: 20, humidity: 55 }),
+    filterMeasurement: (_key, value) => ({ value: value + 1, status: 'accepted' })
+  });
+
+  h.handler({ target: { value: new DataView(new Uint8Array([1, 2]).buffer) } });
+
+  assert.equal(h.cur.sal_t_raw, 20);
+  assert.equal(h.cur.sal_h_raw, 55);
+  assert.equal(h.cur.sal_t, 21);
+  assert.equal(h.cur.sal_h, 56);
+});
+
+test('réinitialise le filtre d’un emplacement de sonde vide sans perdre les octets bruts', () => {
+  const reset = [];
+  const h = makeNotificationHandler({
+    decodeVmiNotification: () => ({
+      kind: 'probes',
+      firstLocation: 0x08, firstTemperature: 0, firstHumidity: 0,
+      secondLocation: 1, secondTemperature: 12, secondHumidity: 97
+    }),
+    resetMeasurementFilter: key => reset.push(key),
+    filterMeasurement: (_key, value) => ({ value, status: 'accepted' })
+  });
+
+  h.handler({ target: { value: new DataView(new Uint8Array([1, 2]).buffer) } });
+
+  assert.deepEqual(reset, ['s1_t', 's1_h']);
+  assert.equal(h.cur.s1_t_raw, 0);
+  assert.equal(h.cur.s1_h_raw, 0);
+  assert.equal(h.cur.s1_t, null);
+  assert.equal(h.cur.s1_h, null);
+  assert.equal(h.cur.s2_t_raw, 12);
+  assert.equal(h.cur.s2_h_raw, 97);
+});
