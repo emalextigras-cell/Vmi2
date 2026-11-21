@@ -3,13 +3,19 @@ import assert from 'node:assert/strict';
 import { decodeVmiNotification } from '../js/modules/bluetooth-decoder.js';
 import { parseCsvRows, findVmiHeaderRowIndex, getColumnMapping, recFrom } from '../js/modules/dataio.js';
 
+const hexBytes = value => Uint8Array.from(value.trim().split(/\s+/), byte => parseInt(byte, 16));
+
 test('rejoue la notification BLE réelle de la télécommande du salon', () => {
-  // Les 14 premiers octets de la notification 0x02 réellement capturée.
-  // L'emplacement physique est confirmé par l'utilisateur : télécommande du salon.
-  const bytes = new Uint8Array([
-    0xA5, 0xB6, 0x02, 0x06, 0x7A, 0x3A, 0xF3,
-    0x2E, 0x04, 0x01, 0x03, 0x18, 0x00, 0x39
-  ]);
+  // Trame complète extraite de la capture : longueur déclarée 128, XOR inclus.
+  const bytes = hexBytes(`
+    a5 b6 02 06 7a 3a f3 2e 04 01 03 18 00 39 00 ff
+    00 00 00 00 00 00 00 00 00 ff 00 00 00 00 00 00 00 00 00 ff
+    00 00 00 00 00 00 00 00 00 ff 00 00 00 00 00 00 00 00 00 ff
+    00 00 00 00 00 00 00 00 00 ff 00 00 00 00 00 00 00 00 00 ff
+    00 00 00 00 00 00 00 00 00 ff 00 00 00 00 00 00 00 00 00 ff
+    00 00 00 00 00 00 00 00 00 ff 00 00 00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00 00 00 00 be
+  `);
 
   assert.deepEqual(decodeVmiNotification(bytes), {
     kind: 'room',
@@ -19,18 +25,18 @@ test('rejoue la notification BLE réelle de la télécommande du salon', () => {
 });
 
 test('rejoue la trame 0x03 réelle : deux sondes filaires avec leur humidité', () => {
-  // Préfixe exact des octets utiles de la notification 0x03 de la capture.
-  // Chaque emplacement de sonde occupe 5 octets : lieu, température, réservé,
-  // humidité, réservé. L'emplacement suivant commence à l'offset 10.
-  const bytes = new Uint8Array([
-    0xA5, 0xB6, 0x03, 0x06, 0x19, 0x00, 0x0D,
-    0x00, 0x60, 0x00, 0x01, 0x0C, 0x00, 0x61
-  ]);
+  // Trame complète extraite de la capture : longueur déclarée 31, XOR inclus.
+  const bytes = hexBytes(`
+    a5 b6 03 06 19 00 0d 00 60 00 01 0c 00 61 00
+    08 00 00 00 00 08 00 00 00 00 08 00 00 00 00 15
+  `);
 
   assert.deepEqual(decodeVmiNotification(bytes), {
     kind: 'probes',
+    firstLocation: 0,
     firstTemperature: 13,
     firstHumidity: 96,
+    secondLocation: 1,
     secondTemperature: 12,
     secondHumidity: 97
   });
@@ -78,4 +84,18 @@ test('lit la vraie ligne VMI+ sans confondre Tempext, sondes et télécommande s
   assert.equal(record.h1, 73);
   assert.equal(record.te, 17.6, 'la sonde P1 reste distincte de Tempext');
   assert.equal(record.he, 74);
+});
+
+test('rejette une vraie trame historique dont le XOR est invalide', () => {
+  // Fragment 40 de la séquence 77 : octet final 0x4f, XOR calculé 0x45.
+  const bytes = hexBytes(`
+    a5 b6 30 06 6e 37 27 51 12 4d 00 05 28 00 30 30 30 3b 30 35 34 3b 00 00
+    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+    30 3b 32 38 3b 32 35 3b 30 39 2c 33 3b 31 3b 36 2e 34 2e 32 3b 31 38 37
+    3b 30 31 3b 30 34 3b 30 30 3b 34 32 32 35 3b 34 37 3b 31 32 36 38 3b 39
+    39 3b 31 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 4f
+  `);
+  assert.deepEqual(decodeVmiNotification(bytes), {
+    kind: 'history', valid: false, length: 116, reason: 'checksum'
+  });
 });

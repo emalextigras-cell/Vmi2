@@ -97,10 +97,15 @@ export function fixClock(records, history = [], minValid = MIN_VALID, maxTimesta
   const previousMaxDays = history.reduce((max, record) =>
     Number.isFinite(record.d) ? Math.max(max, record.d) : max, -Infinity);
   const currentDays = records.find(record => Number.isFinite(record.d))?.d;
-  const rollbackDetected = Number.isFinite(previousMaxDays) && Number.isFinite(currentDays) && currentDays < previousMaxDays;
+  // Après une remise à zéro, le maximum de l'ancien historique reste naturellement
+  // supérieur au compteur courant. La référence persistée de la dernière synchro
+  // doit donc primer ; le maximum historique n'est qu'un repli pour les anciennes
+  // installations qui n'ont pas encore de référence persistée.
+  const comparisonDays = Number.isFinite(counterPreviousDays) ? counterPreviousDays : previousMaxDays;
+  const rollbackDetected = Number.isFinite(comparisonDays) && Number.isFinite(currentDays) && currentDays < comparisonDays;
   const counterReset = allowPre2020RawDates && (forceCounterReset || rollbackDetected);
   const counterResetDetails = counterReset
-    ? { previousMax: Number.isFinite(counterPreviousDays) ? counterPreviousDays : previousMaxDays, current: currentDays, reason: forceCounterReset ? counterResetReason : 'counter-decreased' }
+    ? { previousMax: comparisonDays, current: currentDays, reason: forceCounterReset ? counterResetReason : 'counter-decreased' }
     : null;
   // Après un recul, l'ancien historique ne doit plus servir d'ancrage.
   // On tente alors un recalage autonome avec les seuls nouveaux relevés entrants

@@ -1,12 +1,14 @@
 /** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
-/** @typedef {{sequence: number|null, expectedChunk: number, skippedSequence: number|null, fragments: Map<string,string>, gapCount: number}} HistoryStreamState */
+/** @typedef {{sequence: number|null, expectedChunk: number, expectedFragments: number|null, skippedSequence: number|null, fragments: Map<string,string>, gapCount: number}} HistoryStreamState */
 
 /**
  * Contrôle l'ordre des fragments d'historique observés dans les notifications VMI.
  * La capture confirme l'index de ligne (octets 9-10) et l'index de fragment
- * (octet 12, par pas de 10). Le parseur historique interprète l'octet 13
- * comme indicateur de fin, mais la capture fournie n'observe aucune valeur 1.
- * Cette garde détecte uniquement les répétitions, trous et désordres observés.
+ * (octet 12, par pas de 10). L'octet 11 vaut généralement 1 pour les métadonnées
+ * et 5 pour les lignes, mais la première ligne de données contredit cette règle :
+ * le nombre attendu est donc déterminé à partir du début CSV daté, pas de cet octet.
+ * L'octet 13 vaut toujours zéro dans la capture et n'est pas utilisé comme preuve
+ * de fin de transfert. Cette garde détecte les répétitions, trous et désordres observés.
  */
 /**
  * createHistoryStreamState — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
@@ -16,6 +18,7 @@ export function createHistoryStreamState() {
   return {
     sequence: null,
     expectedChunk: 0,
+    expectedFragments: null,
     skippedSequence: null,
     fragments: new Map(),
     gapCount: 0
@@ -34,9 +37,11 @@ export function acceptHistoryFragment(state, fragment) {
   const sequence = data.sequence;
   const chunkIndex = data.chunkIndex;
   const payload = String(data.payload ?? '');
+  const expectedFragments = typeof data.expectedFragments === 'number' ? data.expectedFragments : undefined;
   if (typeof sequence !== 'number' || !Number.isSafeInteger(sequence) || sequence < 0 ||
       typeof chunkIndex !== 'number' || !Number.isSafeInteger(chunkIndex) ||
-      chunkIndex < 0 || chunkIndex % 10 !== 0) {
+      chunkIndex < 0 || chunkIndex % 10 !== 0 ||
+      (data.expectedFragments !== undefined && (expectedFragments === undefined || !Number.isSafeInteger(expectedFragments) || expectedFragments < 1 || chunkIndex >= expectedFragments * 10))) {
     state.gapCount++;
     // Si l'index de ligne reste lisible, condamner cette ligne et ignorer
     // tous ses fragments suivants jusqu'à la ligne suivante.
@@ -46,12 +51,14 @@ export function acceptHistoryFragment(state, fragment) {
       state.fragments.clear();
       state.sequence = sequence;
       state.expectedChunk = 0;
+      state.expectedFragments = null;
       state.skippedSequence = sequence;
     } else if (!(typeof sequence === 'number' && Number.isSafeInteger(sequence) && sequence >= 0) && state.sequence !== null) {
       // Sans index de ligne lisible, condamner la ligne en cours :
       // un fragment ultérieur ne doit pas compléter une notification tronquée.
       state.fragments.clear();
       state.expectedChunk = 0;
+      state.expectedFragments = null;
       state.skippedSequence = state.sequence;
     }
     return { accepted: false, duplicate: false, gap: true, resetBuffer: true };
@@ -76,18 +83,30 @@ export function acceptHistoryFragment(state, fragment) {
     if (sequence !== 0 || chunkIndex !== 0) gap = true;
     state.sequence = sequence;
     state.expectedChunk = 0;
+    state.expectedFragments = expectedFragments ?? null;
   } else if (sequence < state.sequence) {
     state.gapCount++;
     return { accepted: false, duplicate: false, gap: true, resetBuffer: false };
   } else if (sequence > state.sequence) {
-    if (sequence !== state.sequence + 1 || chunkIndex !== 0) gap = true;
+    const previousLineIncomplete = state.expectedFragments !== null &&
+      state.expectedChunk !== state.expectedFragments * 10;
+    if (sequence !== state.sequence + 1 || chunkIndex !== 0 || previousLineIncomplete) gap = true;
     // Les séquences antérieures sont désormais rejetées par l'ordre du flux :
     // conserver leurs payloads ne ferait qu'accroître la mémoire utilisée.
     state.fragments.clear();
     state.sequence = sequence;
     state.expectedChunk = 0;
+    state.expectedFragments = expectedFragments ?? null;
     state.skippedSequence = null;
     resetBuffer = gap;
+  } else if (expectedFragments !== undefined && state.expectedFragments !== null &&
+      expectedFragments !== state.expectedFragments) {
+    state.gapCount++;
+    state.fragments.clear();
+    state.skippedSequence = sequence;
+    return { accepted: false, duplicate: false, gap: true, resetBuffer: true };
+  } else if (expectedFragments !== undefined && state.expectedFragments === null) {
+    state.expectedFragments = expectedFragments;
   }
 
   if (gap) {

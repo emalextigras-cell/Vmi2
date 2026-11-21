@@ -1,10 +1,9 @@
 /**
- * Point d'entrée des primitives Bluetooth de bas niveau.
- * Ce module ne gère pas le DOM : il regroupe le protocole, le décodage,
- * la séquence de session, la file d'écriture et le traitement des fragments.
+ * Façade de compatibilité pour les primitives BLE.
  *
- * La connexion Web Bluetooth et son cycle de vie restent temporairement
- * orchestrés par app.js ; leur extraction est reportée au chantier app.js.
+ * L'orchestration Web Bluetooth (connexion, GATT, sessions, scrutation,
+ * corrélation et écritures) est désormais portée par bluetooth-service.js.
+ * Ce module ne conserve que les exports bas niveau et les helpers historiques.
  */
 export {
   SVC_C, CH_C, SVC_T, CH_T, crc, frame, timeFrame, hex

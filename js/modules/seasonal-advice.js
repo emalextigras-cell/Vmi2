@@ -10,7 +10,7 @@
  */
 import { median } from './analysis.js';
 import { absoluteHumidity } from './psychrometry.js';
-import { isPlausibleTemperature, isPlausibleHumidity } from './data-quality.js';
+import { isPlaceholderSensorRecord, isPlausibleTemperature, isPlausibleHumidity } from './data-quality.js';
 
 /** Détermine la saison calendaire à partir d'un horodatage local.
  * @param {number} timestamp Horodatage Unix en millisecondes.
@@ -54,7 +54,7 @@ function localSummerNightDay(timestamp) {
  */
 export function analyzeSeasonalVentilation(data, { minSamples = 6, minDays = 2, temperatureMargin = 2 } = {}) {
   const rows = (Array.isArray(data) ? data : []).filter(row =>
-    Number.isFinite(row?.t) && Number.isFinite(new Date(row.t).getTime()) &&
+    !isPlaceholderSensorRecord(row) && Number.isFinite(row?.t) && Number.isFinite(new Date(row.t).getTime()) &&
     validTemperature(row?.st) && validTemperature(row?.tExt)
   ).map(row => ({ ...row, calendarSeason: calendarSeason(row.t), day: localDay(row.t) }));
 

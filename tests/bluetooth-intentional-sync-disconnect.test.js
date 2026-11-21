@@ -4,29 +4,31 @@ import { readFile } from 'node:fs/promises';
 
 const source = await readFile(new URL('../js/app.js', import.meta.url), 'utf8');
 const runtime = await readFile(new URL('../js/modules/bluetooth-runtime.js', import.meta.url), 'utf8');
+const service = await readFile(new URL('../js/modules/bluetooth-service.js', import.meta.url), 'utf8');
 
 test('la fin de synchronisation marque la déconnexion comme volontaire avant disconnect()', () => {
   const finish = source.slice(source.indexOf('function finishDownload('), source.indexOf('async function startDownload('));
-  assert.match(finish, /if\(reachedCut&&dev&&dev\.gatt&&dev\.gatt\.connected\)\s*\{[\s\S]*?intentionalDisconnect=true;[\s\S]*?dev\.gatt\.disconnect\(\);/);
+  assert.match(finish, /if\(completeBoundary&&connected\(\)\)bluetoothService\.disconnectIntentional\(\);/);
 });
 
 test('onDisconnect absorbe une déconnexion volontaire sans programmer de reconnexion', () => {
-  const handler = source.slice(source.indexOf('function onDisconnect()'), source.indexOf('async function connectCharacteristics('));
-  assert.match(handler, /const wasIntentional=intentionalDisconnect;/);
-  assert.match(handler, /intentionalDisconnect=false;/);
-  assert.match(handler, /if\(wasIntentional\)\{setStatus\('Synchronisation terminée\. Bluetooth déconnecté\.'\);return\}/);
-  assert.ok(handler.indexOf('if(wasIntentional)') < handler.indexOf('setTimeout(reconnect,4000)'));
+  const handler = service.slice(service.indexOf('function onDisconnect()'), service.indexOf('const reconnect = createReconnectHandler('));
+  assert.match(handler, /const wasIntentional\s*=\s*intentionalDisconnect;/);
+  assert.match(handler, /intentionalDisconnect\s*=\s*false;/);
+  assert.match(handler, /if\s*\(wasIntentional\)\s*\{[\s\S]*?deps\.setStatus\('Synchronisation terminée\. Bluetooth déconnecté\.'\);[\s\S]*?return;/);
+  assert.ok(handler.indexOf('if (wasIntentional)') < handler.indexOf('setTimeoutFn(reconnect, 4000)'));
 });
 
 test('une reconnexion ne réinitialise pas la synchronisation automatique', () => {
-  const connect = source.slice(source.indexOf('async function connectDevice('), source.indexOf('async function connectBLE('));
-  assert.doesNotMatch(connect, /autoDone=false/);
-  assert.match(connect, /setTimeout\(\(\)=>\{if\(sessionIsCurrent\(token,device\)&&connected\(\)\)autoHistory\(\)\},3000\)/);
+  const connect = service.slice(service.indexOf('async function connectDevice('), service.indexOf('function onDisconnect()'));
+  assert.doesNotMatch(connect, /autoHistoryDone\s*=\s*false/);
+  assert.match(connect, /!autoHistoryDone/);
+  assert.match(connect, /autoHistoryDone\s*=\s*true/);
 });
 
 test('un nouveau clic utilisateur autorise une nouvelle synchronisation initiale', () => {
-  const connect = source.slice(source.indexOf('async function connectBLE('), source.indexOf('async function autoConnectAuthorizedDevice('));
-  assert.match(connect, /autoDone=false/);
+  const connect = service.slice(service.indexOf('async function connectBLE('), service.indexOf('async function autoConnectAuthorizedDevice('));
+  assert.match(connect, /autoHistoryDone\s*=\s*false/);
 });
 
 test('une ligne historique rejetée empêche de certifier le transfert comme complet', () => {

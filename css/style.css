@@ -125,3 +125,15 @@ section[id],details[id]{scroll-margin-top:62px}
 @media(max-width:420px){.assistant-heading .pill{font-size:.68rem}}
 
 
+
+
+/* Diagnostic technique BLE : séparer la valeur de son état de fraîcheur. */
+.technical-diagnostic{border-left:4px solid var(--acc)}
+.technical-diagnostic-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.technical-diagnostic-heading h2{margin-bottom:3px}
+.technical-diagnostic-grid{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px 12px;margin:12px 0 4px}
+.technical-diagnostic-grid dt{color:var(--mut);font-size:.84rem}
+.technical-diagnostic-grid dd{margin:0;text-align:right;font-size:.86rem;font-weight:650;font-variant-numeric:tabular-nums}
+.technical-diagnostic-grid dd small{display:block;color:var(--mut);font-size:.7rem;font-weight:400}
+.technical-diagnostic[data-freshness="stale"]{border-left-color:var(--warn)}
+.technical-diagnostic[data-freshness="missing"]{border-left-color:var(--line)}

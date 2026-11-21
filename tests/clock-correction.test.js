@@ -287,3 +287,26 @@ test('counter baseline remplace une candidate si sa progression reste incohéren
   assert.equal(result.candidate.d, 280);
   assert.equal(result.baseline.d, 186);
 });
+
+
+test('fixClock utilise la référence persistée après remise à zéro au lieu de l’ancien maximum historique', () => {
+  const history = [
+    { t: new Date(2026, 10, 10, 11, 0).getTime(), d: 194 },
+    { t: new Date(2026, 10, 19, 11, 0).getTime(), d: 4 }
+  ];
+  const incoming = [
+    { t: new Date(2026, 10, 20, 11, 0).getTime(), d: 5 },
+    { t: new Date(2018, 4, 20, 11, 0).getTime(), d: 5 }
+  ];
+
+  const result = fixClock(incoming, history, MIN_VALID, Date.now(), {
+    allowPre2020RawDates: true,
+    counterPreviousDays: 4
+  });
+
+  assert.equal(result.counterReset, false);
+  assert.equal(result.referenceSource, 'history-and-incoming');
+  assert.equal(result.referenceCount, 3);
+  assert.equal(result.fixed, 1);
+  assert.equal(new Date(incoming[1].t).getFullYear(), 2026);
+});

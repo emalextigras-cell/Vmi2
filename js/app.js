@@ -6,13 +6,11 @@ import { createStore, normalizeStoreSnapshot } from './modules/store.js';
 import { fromOldRow } from './modules/legacy-migration.js';
 import { median, analyzeSpeedLevels, analyzeSpeedTimeContext, analyzeHygrometricPeriods, summarizeDailyTrends, analyzeHourlyPatterns, detectRapidChanges, compareOperatingPeriods, buildHygrometricDiagnosis } from './modules/analysis.js';
 import { renderCharts, resetChartViews } from './modules/charts.js';
-import { SVC_C, CH_C, SVC_T, CH_T, frame, timeFrame, hex } from './modules/ble.js';
-import { decodeVmiNotification } from './modules/bluetooth-decoder.js';
-import { createBleWriteQueue } from './modules/bluetooth-write-queue.js';
-import { runBleSessionSequence } from './modules/bluetooth-session.js';
-import { acceptHistoryFragment, createHistoryStreamState, isHistorySyncBaseline, markHistoryRows, markHistoryStreamInvalid } from './modules/bluetooth-history-stream.js';
+import { createBluetoothService } from './modules/bluetooth-service.js';
+import { createPureventNotificationHandler } from './modules/bluetooth-notification-adapter.js';
+import { createHistoryStreamState, isHistorySyncBaseline, markHistoryRows } from './modules/bluetooth-history-stream.js';
 import { validateBluetoothHistoryRow } from './modules/bluetooth-history-row.js';
-import { armDownloadTimeout } from './modules/sync.js';
+import { armDownloadTimeout, findNewestCounterRecord, classifyHistoryDownloadRow } from './modules/sync.js';
 import { parseCell, recFrom, getColumnMapping, findVmiHeaderRowIndex, parseCsvRows, isCsvFile } from './modules/dataio.js';
 import { fixClock, evaluateCounterBaseline } from './modules/clock-correction.js';
 import { absoluteHumidity, psychro, validTemp } from './modules/psychrometry.js';
@@ -21,14 +19,15 @@ import { summarizeDataQuality, isPlausibleHumidity, isPlausibleTemperature } fro
 import { summarizeFanEnergyEstimate, summarizeFanEnergyByManualMode } from './modules/energy-estimate.js';
 import { summarizeDailyEnergyClimateContext } from './modules/energy-climate.js';
 import { summarizeWeeklyDiagnostic } from './modules/weekly-diagnostic.js';
-import { chooseAuthorizedDevice } from './modules/bluetooth-autoconnect.js';
-import { createBluetoothNotificationHandler, createReconnectHandler } from './modules/bluetooth-runtime.js';
+import { createLiveMeasurementFilters } from './modules/measurement-filter.js';
+import { applyAdvancedCommand } from './modules/bluetooth-advanced-commands.js';
 import { buildLiveFreshnessText } from './modules/live-freshness.js';
 import { formatDiagnosisConfidence } from './modules/diagnostic-confidence.js';
 import { analyzeSeasonalVentilation } from './modules/seasonal-advice.js';
 import { renderVmiAssistant } from './modules/assistant-renderer.js';
 import { renderEnergyReadiness } from './modules/energy-readiness-renderer.js';
 import { selectDataRange } from './modules/history-selection.js';
+import { renderTechnicalDiagnostic } from './modules/technical-diagnostic.js';
 
 /** @typedef {import('./types/vmi-types.js').VmiRecord} VmiRecord */
 /** @typedef {import('./types/vmi-types.js').UnknownRecord} UnknownRecord */
@@ -37,7 +36,7 @@ import { selectDataRange } from './modules/history-selection.js';
 
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{})}
 
-/* Protocole Bluetooth : UUID, registres et positions d'octets déduits d'une capture réelle de VMI+. */
+/* Le protocole et le transport Bluetooth sont encapsulés dans bluetooth-service.js. */
 
 
 
@@ -61,35 +60,19 @@ window.addEventListener('unhandledrejection',e=>recordError('Promesse rejetée :
 
 
 
-let dev=null,chC=null,chT=null,pollTimer=null,snapTimer=null,reconnectTimer=null;
-let bleConnectionGeneration=0,connectionIntentGeneration=0,connectionRequestPending=false;
-let manualDisconnect=false,intentionalDisconnect=false,manualCommandPending=false,pollingSessionToken=null,autoDone=false;
-let bleNotificationHandler=null,bleNotificationCharacteristics=[],bleDisconnectHandler=null;
+let manualCommandPending=false,bluetoothService=null;
+
 /** @type {UnknownRecord} */ let meta={};
 let cur={},lastSeen={};
 /** @type {VmiRecord[]} */ let live=[],hist=[];
 /** @type {EnergyReading[]} */ let energyReadings=[];
 let source='hist',selectedDate=null,daysSetting=30;
 let logLines=[],dlFrames=0;
-let download={on:false,rows:[],buf:'',total:0,sigs:new Set(),got:false,lastPacket:0,timeout:null,historyStream:createHistoryStreamState(),integrityGap:false,dataStarted:false};
+let download={on:false,rows:[],buf:'',sigs:new Set(),knownSigs:new Set(),seenSigs:new Set(),bootstrap:false,got:false,lastPacket:0,timeout:null,historyStream:createHistoryStreamState(),integrityGap:false,dataStarted:false,announcedTotalRows:null};
 const DB='VMI_PUREVENT_DB_TEST',STORE='data';
 const { get: dbGet, set: dbSet, setMany: dbSetMany } = createStore({ databaseName: DB, storeName: STORE, onError: message => log(message) });
-const connected=()=>!!(chC&&dev&&dev.gatt&&dev.gatt.connected);
-const bleWriteQueue=createBleWriteQueue({
- isConnected:connected,
- getCharacteristic:()=>chC,
- getConnectionToken:()=>bleConnectionGeneration,
- sleep,
- onSuccess:bytes=>log('> '+hex(bytes)),
- onError:e=>{
-  if(e&&e.code==='BLE_SESSION_CHANGED'){
-   log('Commande Bluetooth en attente annulée après changement de session.');
-   return;
-  }
-  showError('Échec de l’envoi Bluetooth : '+(e.message||e));
-  log('Erreur commande : '+(e.message||e));
- }
-});
+const connected=()=>!!(bluetoothService&&bluetoothService.connected());
+const liveMeasurementFilters=createLiveMeasurementFilters();
 
 function showError(e){$('err').textContent=e?String(e.message||e):''}
 function persist(key,value,label='Sauvegarde IndexedDB'){
@@ -200,28 +183,65 @@ function pruneHist(){
 
 
 
-function writeFrame(bytes){return bleWriteQueue.write(bytes)}
-const send=(reg,val)=>writeFrame(frame(reg,val));
-async function setClock(){if(!chC){showError('Connecte-toi d’abord à la VMI.');return false}const d=new Date();const ok=await writeFrame(timeFrame(d));$('dlp').textContent=ok?'Heure envoyée : '+d.toLocaleString('fr-FR'):'Heure non envoyée.';return ok}
+async function setClock(allowDuringDownload=false){
+ if(!connected()){showError('Connecte-toi d’abord à la VMI.');return false}
+ if(download.on&&!allowDuringDownload)return false;
+ const d=new Date();
+ const ok=await bluetoothService.setClock(d);
+ $('dlp').textContent=ok?'Heure confirmée par la VMI : '+d.toLocaleString('fr-FR'):'Mise à l’heure écrite, mais accusé protocolaire absent.';
+ return ok;
+}
 
-const handleNotification = createBluetoothNotificationHandler({
- decodeVmiNotification,
+const handleNotification = createPureventNotificationHandler({
  getDownload:()=>download,
  getCur:()=>cur,
  getLastSeen:()=>lastSeen,
- acceptHistoryFragment,
- markHistoryStreamInvalid,
  parseDownloadLine,
  incrementDlFrames:()=>++dlFrames,
  armTimer,
  finishDownload,
  updateLiveMetrics,
  log,
- hex,
- $
+ $,
+ notifyResponse:(kind,decoded)=>bluetoothService?.notifyResponse(kind,decoded)
 });
 function onNotification(ev){
  try{handleNotification(ev)}catch(e){log('Erreur de décodage d’une trame : '+(e.message||e));recordError('Décodage d’une trame : '+(e.message||e))}
+}
+bluetoothService=createBluetoothService({
+ sleep,
+ setStatus,
+ log,
+ showError,
+ onNotification,
+ getLastStateAt:()=>lastSeen.state,
+ isDownloadActive:()=>download.on,
+ isCommandPending:()=>manualCommandPending,
+ onSnapshot:takeSnapshot,
+ onAutoHistory:()=>autoHistory(),
+ onConnected:()=>{
+  liveMeasurementFilters.resetAll();
+  lastSeen={};
+ },
+ onSessionCleanup:()=>{
+  liveMeasurementFilters.resetAll();
+  if(download.on)finishDownload(false,true,true);
+  manualCommandPending=false;
+  [...document.querySelectorAll('[data-r]'), ...document.querySelectorAll('[data-advanced]')].forEach(control=>control.disabled=download.on);
+ },
+ onManualConnectRequested:()=>{
+  $('conn').disabled=true;
+  showError('');
+ },
+ onManualConnectSettled:isConnected=>{
+  $('conn').disabled=isConnected;
+ }
+});
+
+function refreshTechnicalDiagnostic(){
+ renderTechnicalDiagnostic($('technicalDiagnostic'),{
+  cur,lastSeen,connected:connected(),now:Date.now(),maxAgeMs:35000
+ });
 }
 function updateLiveMetrics(){
  $('sampleAge').textContent=buildLiveFreshnessText(lastSeen);
@@ -244,6 +264,7 @@ function takeSnapshot(){
  if(!lastSeen.salon||now-lastSeen.salon>90000)return;
  const pf=lastSeen.probes&&now-lastSeen.probes<=90000;
  const row={t:now,st:cur.sal_t,sh:cur.sal_h,t1:pf?cur.s1_t:null,h1:pf?cur.s1_h:null,te:pf?cur.s2_t:null,he:pf?cur.s2_h:null,
+  stRaw:cur.sal_t_raw,shRaw:cur.sal_h_raw,t1Raw:pf?cur.s1_t_raw:null,h1Raw:pf?cur.s1_h_raw:null,teRaw:pf?cur.s2_t_raw:null,heRaw:pf?cur.s2_h_raw:null,
   rpm:null,fil:Number.isFinite(cur.filtre)?cur.filtre:null,vit:Number.isFinite(cur.vit)?cur.vit:null,
   boost:cur.boost!=null?cur.boost:null,hol:cur.hol!=null?cur.hol:null};
  if(!Number.isFinite(row.st)&&!Number.isFinite(row.sh))return;
@@ -253,230 +274,115 @@ function takeSnapshot(){
  if(source==='live')render();
 }
 
-/* Scrutation : chaque boucle appartient à une session BLE précise. */
-async function poll(force=false){
- const token=bleConnectionGeneration;
- if(pollingSessionToken===token||!connected()||download.on||(manualCommandPending&&!force))return;
- pollingSessionToken=token;
- try{
-  for(const r of [3,6,7]){
-   if(token!==bleConnectionGeneration||!connected()||download.on)break;
-   const ok=await send(r,0);
-   if(!ok||token!==bleConnectionGeneration)break;
-  }
- }finally{
-  if(pollingSessionToken===token)pollingSessionToken=null;
- }
-}
-function startPolling(){
- clearInterval(pollTimer);clearInterval(snapTimer);
- const token=bleConnectionGeneration;
- poll();
- pollTimer=setInterval(()=>{if(token===bleConnectionGeneration)poll()},12000);
- setTimeout(()=>{if(token===bleConnectionGeneration&&connected())takeSnapshot()},15000);
- snapTimer=setInterval(()=>{if(token===bleConnectionGeneration&&connected())takeSnapshot()},300000);
-}
-function detachBleListeners(){
- if(bleNotificationHandler){
-  bleNotificationCharacteristics.forEach(characteristic=>characteristic.removeEventListener('characteristicvaluechanged',bleNotificationHandler));
-  bleNotificationHandler=null;bleNotificationCharacteristics=[];
- }
- if(dev&&bleDisconnectHandler){
-  dev.removeEventListener('gattserverdisconnected',bleDisconnectHandler);
-  bleDisconnectHandler=null;
- }
-}
-function cleanupConnection(){
- bleConnectionGeneration++;
- if(download.on)finishDownload(false,true,true);
- clearInterval(pollTimer);clearInterval(snapTimer);clearTimeout(reconnectTimer);
- manualCommandPending=false;
- document.querySelectorAll('[data-r]').forEach(control=>control.disabled=download.on);
- detachBleListeners();
- chC=null;chT=null;
-}
-function onDisconnect(){
- const wasIntentional=intentionalDisconnect;
- intentionalDisconnect=false;
- cleanupConnection();
- if(wasIntentional){setStatus('Synchronisation terminée. Bluetooth déconnecté.');return}
- setStatus('Déconnecté.');
- if(!manualDisconnect&&dev){setStatus('Connexion perdue, tentative de reconnexion…');clearTimeout(reconnectTimer);reconnectTimer=setTimeout(reconnect,4000)}
-}
-function sessionIsCurrent(token,device){
- return token===bleConnectionGeneration&&dev===device;
-}
-async function connectCharacteristics(server,token,device){
- const serviceC=await server.getPrimaryService(SVC_C);
- if(!sessionIsCurrent(token,device))return false;
- const characteristicC=await serviceC.getCharacteristic(CH_C);
- if(!sessionIsCurrent(token,device))return false;
- const serviceT=await server.getPrimaryService(SVC_T);
- if(!sessionIsCurrent(token,device))return false;
- const characteristicT=await serviceT.getCharacteristic(CH_T);
- if(!sessionIsCurrent(token,device))return false;
- // Installer les écouteurs avant d'activer les notifications : aucune trame initiale
- // ne doit pouvoir arriver dans la fenêtre entre startNotifications() et addEventListener().
- // Les caractéristiques ne deviennent disponibles aux commandes qu'après l'initialisation.
- bleNotificationHandler=ev=>{
-  if(!sessionIsCurrent(token,device)||!connected())return;
-  if(ev.target!==characteristicT&&ev.target!==characteristicC)return;
-  onNotification(ev);
- };
- bleNotificationCharacteristics=[characteristicT,characteristicC];
- characteristicT.addEventListener('characteristicvaluechanged',bleNotificationHandler);
- characteristicC.addEventListener('characteristicvaluechanged',bleNotificationHandler);
- await characteristicT.startNotifications();
- if(!sessionIsCurrent(token,device))return false;
- try{
-  await characteristicC.startNotifications();
- }catch(e){
-  if(!sessionIsCurrent(token,device))return false;
-  log('Notifications canal commande non disponibles : '+e.message);
- }
- if(!sessionIsCurrent(token,device))return false;
- chC=characteristicC;chT=characteristicT;
- return true;
-}
-function preferredBluetoothDeviceId(){
- try{return localStorage.getItem('vmi_bluetooth_device_id')||''}catch(e){return ''}
-}
-function rememberBluetoothDevice(device){
- try{if(device&&device.id)localStorage.setItem('vmi_bluetooth_device_id',device.id)}catch(e){}
-}
-async function connectDevice(device,intent=connectionIntentGeneration){
- if(!device||!device.gatt)throw new Error('Appareil Bluetooth invalide.');
- bleConnectionGeneration++;
- const token=bleConnectionGeneration;
- const connectionIsCurrent=()=>sessionIsCurrent(token,device)&&intent===connectionIntentGeneration;
- clearTimeout(reconnectTimer);
- detachBleListeners();
- chC=null;chT=null;
- dev=device;manualDisconnect=false;
- bleDisconnectHandler=()=>{
-  if(!sessionIsCurrent(token,device))return;
-  onDisconnect();
- };
- dev.addEventListener('gattserverdisconnected',bleDisconnectHandler);
- setStatus('Connexion à '+(dev.name||'la VMI')+'…');
- try{
-  const server=await dev.gatt.connect();
-  if(!connectionIsCurrent()){if(sessionIsCurrent(token,device))cleanupConnection();return false}
-  const characteristicsReady=await connectCharacteristics(server,token,device);
-  if(!characteristicsReady||!connectionIsCurrent()){if(sessionIsCurrent(token,device))cleanupConnection();return false}
-  setStatus('Connecté à '+(dev.name||'la VMI')+'. Synchronisation des données…',true);
-  startPolling();
-  // Une reconnexion ne doit pas relancer la synchronisation automatique déjà effectuée.
-  setTimeout(()=>{if(sessionIsCurrent(token,device)&&connected())autoHistory()},3000);
-  return true;
- }catch(e){
-  if(!sessionIsCurrent(token,device))return false;
-  cleanupConnection();
-  if(intent!==connectionIntentGeneration)return false;
-  throw e;
- }
-}
-async function connectBLE(){
- // Un seul sélecteur utilisateur à la fois ; son intention prime sur l'auto-connexion en attente.
- if(connectionRequestPending)return;
- connectionRequestPending=true;
- const intent=++connectionIntentGeneration;
- $('conn').disabled=true;
- autoDone=false;manualDisconnect=false;clearTimeout(reconnectTimer);showError('');
- try{
-  if(!navigator.bluetooth){showError('Web Bluetooth indisponible. Utilise Chrome sur Android ou un navigateur compatible, en HTTPS.');return}
-  /* requestDevice reste directement dans le geste utilisateur requis par le navigateur. */
-  const device=await navigator.bluetooth.requestDevice({acceptAllDevices:true,optionalServices:[SVC_C,SVC_T]});
-  if(intent!==connectionIntentGeneration)return;
-  rememberBluetoothDevice(device);
-  await connectDevice(device,intent);
- }catch(e){
-  if(intent===connectionIntentGeneration){showError(e);setStatus('Connexion impossible.')}
- }finally{
-  if(intent===connectionIntentGeneration){
-   connectionRequestPending=false;
-   $('conn').disabled=connected();
-  }
- }
-}
-async function autoConnectAuthorizedDevice(){
- const intent=connectionIntentGeneration;
- if(connectionRequestPending)return;
- if(!navigator.bluetooth||typeof navigator.bluetooth.getDevices!=='function'){
-  setStatus('Autorisation Bluetooth requise : appuie sur « Se connecter ».');
-  return;
- }
- try{
-  const devices=await navigator.bluetooth.getDevices();
-  if(intent!==connectionIntentGeneration||connectionRequestPending)return;
-  const device=chooseAuthorizedDevice(devices,preferredBluetoothDeviceId());
-  if(!device){
-   setStatus(devices.length>1?'Plusieurs appareils sont autorisés. Appuie sur « Se connecter » pour choisir la VMI.':'VMI non encore autorisée. Appuie sur « Se connecter » une première fois.');
-   return;
-  }
-  log('VMI déjà autorisée détectée : tentative de reconnexion automatique.');
-  await connectDevice(device,intent);
- }catch(e){
-  if(intent!==connectionIntentGeneration)return;
-  log('Reconnexion automatique indisponible : '+(e.message||e));
-  setStatus('Reconnexion automatique impossible. Appuie sur « Se connecter ».');
- }
-}
-const reconnect=createReconnectHandler({
- isManualDisconnect:()=>manualDisconnect,
- getDevice:()=>dev,
- isConnectionRequestPending:()=>connectionRequestPending,
- getConnectionIntentGeneration:()=>connectionIntentGeneration,
- connectDevice,
- log,
- clearTimeout,
- setTimeout,
- getReconnectTimer:()=>reconnectTimer,
- setReconnectTimer:timer=>{reconnectTimer=timer}
-});
-$('conn').onclick=connectBLE;
-$('disc').onclick=()=>{manualDisconnect=true;cleanupConnection();if(dev&&dev.gatt&&dev.gatt.connected)dev.gatt.disconnect();setStatus('Déconnexion demandée.')};
+$('conn').onclick=()=>bluetoothService.connectBLE();
+$('disc').onclick=()=>bluetoothService.disconnect();
 
 /* Boutons de commande : une commande à la fois, avec vérification de l'état renvoyé par la VMI */
-const EXPECT={24:v=>['vit',v+1,'Vitesse '+(v+1)],25:v=>['boost',v,'Boost '+(v?'activé':'arrêté')],26:v=>['hol',v,'Mode vacances '+(v?'activé':'arrêté')]};
+const EXPECT={24:v=>['vit',v+1,'Vitesse '+(v+1)],25:v=>['boost',v,'Boost '+(v?'activé':'arrêté')],26:v=>['hol',v>0,'Mode vacances '+(v?`${v} jour(s)`:'arrêté')]};
 document.querySelectorAll('[data-r]').forEach(b=>b.addEventListener('click',async()=>{
  if(manualCommandPending||download.on)return;
  if(!connected()){showError('VMI non connectée.');$('cmdResult').textContent='';return}
  manualCommandPending=true;
- const commandToken=bleConnectionGeneration,commandDevice=dev;
- const commandIsCurrent=()=>sessionIsCurrent(commandToken,commandDevice)&&connected();
+ const commandToken=bluetoothService.getSessionToken(),commandDevice=bluetoothService.getDevice();
+ const commandIsCurrent=()=>bluetoothService.isSessionCurrent(commandToken,commandDevice)&&connected();
  const controls=[...document.querySelectorAll('[data-r]')];
  controls.forEach(x=>x.disabled=true);
  showError('');
  const reg=Number(b.dataset.r),value=Number(b.dataset.v),[key,expected,label]=EXPECT[reg](value);
  const result=$('cmdResult');
  try{
+  while(bluetoothService.isPolling(commandToken)&&commandIsCurrent())await sleep(50);
+  if(!commandIsCurrent())return;
   result.textContent='Envoi de la commande à la VMI…';
   const t0=Date.now();
-  const sent=await send(reg,value);
+  const sent=await bluetoothService.sendAndWait(reg,value,'state');
   if(!commandIsCurrent()){result.textContent='Connexion interrompue : l’état de la commande n’a pas pu être vérifié.';return}
-  if(!sent){result.textContent='La commande n’a pas pu être envoyée (voir le journal Bluetooth).';return}
-  result.textContent='Commande envoyée, vérification de l’état…';
-  for(let i=0;i<10&&commandIsCurrent()&&!((lastSeen.state||0)>t0);i++)await sleep(200);
+  if(!sent.written){result.textContent='La commande n’a pas pu être envoyée (voir le journal Bluetooth).';return}
+  result.textContent=sent.responded?'Commande envoyée et réponse reçue, vérification de l’état…':'Commande écrite, mais sans réponse typée : tentative de relecture de l’état…';
   if(!commandIsCurrent()){result.textContent='Connexion interrompue : l’état de la commande n’a pas pu être vérifié.';return}
   if(!((lastSeen.state||0)>t0)){
-   const readSent=await send(3,0);
+   const readSent=await bluetoothService.sendAndWait(3,0,'state');
    if(!commandIsCurrent()){result.textContent='Connexion interrompue : l’état de la commande n’a pas pu être vérifié.';return}
-   if(readSent)for(let i=0;i<10&&commandIsCurrent()&&!((lastSeen.state||0)>t0);i++)await sleep(200);
+   if(!readSent.responded)log('La relecture de l’état n’a pas reçu de réponse typée.');
   }
   if(!commandIsCurrent()){result.textContent='Connexion interrompue : l’état de la commande n’a pas pu être vérifié.';return}
   if((lastSeen.state||0)>t0&&cur[key]===expected)result.textContent='✓ Confirmé par la VMI : '+label+'.';
   else if((lastSeen.state||0)>t0)result.textContent='⚠ La VMI a répondu mais l’état affiché n’est pas '+label.toLowerCase()+'. Vérifie sur la VMI ou dans VMI+.';
   else result.textContent='⚠ Commande envoyée mais aucune réponse de la VMI : l’état n’a pas pu être vérifié.';
-  poll(true);
  }catch(e){
   showError(e);result.textContent='Erreur pendant la commande.';
  }finally{
-  if(commandToken===bleConnectionGeneration){manualCommandPending=false;controls.forEach(x=>x.disabled=download.on)}
+  if(bluetoothService.getSessionToken()===commandToken){manualCommandPending=false;controls.forEach(x=>x.disabled=download.on)}
  }
 }));
-const setCommandsDisabled=dis=>document.querySelectorAll('[data-r]').forEach(x=>x.disabled=dis);
-$('clk').onclick=setClock;
+const setCommandsDisabled=dis=>[...document.querySelectorAll('[data-r]'), ...document.querySelectorAll('[data-advanced]')].forEach(x=>x.disabled=dis);
+
+async function runAdvancedCommand(action,value,label){
+ if(manualCommandPending||download.on)return;
+ if(!connected()){showError('VMI non connectée.');$('cmdResult').textContent='';return}
+ if(action==='preheatSetpoint'&&!confirm('Régler une consigne démarre le préchauffage électrique. Confirmer ?'))return;
+ if(action==='preheatPower'&&value===true&&!confirm('Démarrer le préchauffage électrique peut augmenter la consommation jusqu’à 1 800 W. Confirmer ?'))return;
+ manualCommandPending=true;
+ const commandToken=bluetoothService.getSessionToken(),commandDevice=bluetoothService.getDevice();
+ const commandIsCurrent=()=>bluetoothService.isSessionCurrent(commandToken,commandDevice)&&connected();
+ const controls=[...document.querySelectorAll('[data-r]'), ...document.querySelectorAll('[data-advanced]')];
+ controls.forEach(control=>control.disabled=true);
+ showError('');
+ const result=$('cmdResult');
+ let lastCommandState=null;
+ const deps={
+  isConnected:commandIsCurrent,
+  readState:async()=>{
+   const read=await bluetoothService.sendAndWait(0x03,0,'state');
+   if(!read.written||!read.responded||!read.response)throw new Error('Lecture d’état Purevent sans réponse valide.');
+   return read.response;
+  },
+  writeCommand:async(register,commandValue)=>{
+   const sent=await bluetoothService.sendAndWait(register,commandValue,'state');
+   if(!sent.written)throw new Error('Écriture Bluetooth non effectuée.');
+   lastCommandState=sent.responded?sent.response:null;
+   return sent;
+  },
+  getLastCommandState:async()=>lastCommandState
+ };
+ try{
+  while(bluetoothService.isPolling(commandToken)&&commandIsCurrent())await sleep(50);
+  if(!commandIsCurrent())return;
+  result.textContent='Lecture de l’état actuel de la VMI…';
+  const outcome=await applyAdvancedCommand(deps,action,value);
+  if(!commandIsCurrent()){result.textContent='Connexion interrompue : confirmation impossible.';return}
+  result.textContent=(outcome.changed?'✓ Réglage appliqué et confirmé : ':'✓ Déjà dans l’état demandé : ')+label+'.';
+  log('Commande avancée confirmée par relecture d’état : '+label+'.');
+ }catch(error){
+  showError(error);
+  result.textContent='⚠ '+(error.message||error);
+  log('Commande avancée non confirmée ('+label+') : '+(error.message||error));
+ }finally{
+  if(commandToken===bluetoothService.getSessionToken()){manualCommandPending=false;controls.forEach(control=>control.disabled=download.on)}
+ }
+}
+
+document.querySelectorAll('[data-advanced]').forEach(button=>button.addEventListener('click',()=>{
+ const action=button.dataset.advanced;
+ const value=button.dataset.value==='true'?true:button.dataset.value==='false'?false:Number(button.dataset.value);
+ const labels={
+  surventilation:value?'Activer la surventilation':'Arrêter la surventilation',
+  fixedAirflow:value?'Activer le débit fixe':'Désactiver le débit fixe',
+  preheatPower:value?'Démarrer le préchauffage':'Arrêter le préchauffage',
+  preheatSetpoint:'Consigne de préchauffage '+value+' °C',
+  summerLimit:'Limite estivale '+value+' °C'
+ };
+ void runAdvancedCommand(action,value,labels[action]);
+}));
+$('summerLimitApply').addEventListener('click',()=>{
+ const value=Number((/** @type {HTMLSelectElement} */ ($('summerLimitInput'))).value);
+ void runAdvancedCommand('summerLimit',value,'Limite estivale '+value+' °C');
+});
+$('preheatSetpointApply').addEventListener('click',()=>{
+ const value=Number((/** @type {HTMLSelectElement} */ ($('preheatSetpointInput'))).value);
+ void runAdvancedCommand('preheatSetpoint',value,'Consigne de préchauffage '+value+' °C');
+});
+$('clk').onclick=()=>setClock(false);
 
 /* Correction des dates historiques isolée dans clock-correction.js. */
 function ingest(recs,label,maxTimestamp=Date.now(),options={}){
@@ -503,7 +409,7 @@ function ingest(recs,label,maxTimestamp=Date.now(),options={}){
    pour interrompre le flux de la VMI (elle ne sait pas s'arrêter seule). */
 const sigOf=r=>r.rk+'|'+r.d;
 function parseDownloadLine(line){
- if(!download.on)return;
+ if(!download.on||download.reachedCut)return;
  if(!download.dataStarted){
   if(String(line).trimStart().startsWith('Date;Event;'))download.dataStarted=true;
   return;
@@ -511,17 +417,23 @@ function parseDownloadLine(line){
  const validation=validateBluetoothHistoryRow(line);
  if(!validation.valid){download.invalidRows=(download.invalidRows||0)+1;const reason='reason' in validation?validation.reason:'motif non précisé';log('Ligne historique Bluetooth rejetée ('+reason+') · date brute : '+String(line).split(';',1)[0]);return}
  const f=validation.fields,p=parseCell(f[0]);if(!p)return;
- if(download.sigs.size&&download.sigs.has(p.rk+'|'+num(f[11]))){finishDownload(true);return}
+ const signature=p.rk+'|'+num(f[11]);
+ const decision=classifyHistoryDownloadRow(signature,{
+  baselineSignatures:download.sigs,knownSignatures:download.knownSigs,
+  seenSignatures:download.seenSigs,bootstrap:download.bootstrap
+ });
+ if(decision==='cut'){download.reachedCut=true;return}
+ if(decision==='skip')return;
  const rec=recFrom(f);if(rec)download.rows.push(rec);
 }
 function armTimer(){armDownloadTimeout(download,finishDownload)}
-function finishDownload(reachedCut,timeout=false,interrupted=false){
+function finishDownload(completeBoundary,timeout=false,interrupted=false){
  if(!download.on)return;
  download.on=false;clearTimeout(download.timeout);
  const count=download.rows.length;
- const complete=!timeout&&!interrupted&&!download.integrityGap&&!(download.invalidRows>0)&&(reachedCut||download.finalSeen===true);
+ const complete=!timeout&&!interrupted&&!download.integrityGap&&!(download.invalidRows>0)&&completeBoundary;
  const syncObservedAt=Date.now();
- const newestCounterRecord=download.rows.find(record=>Number.isFinite(record.d));
+ const newestCounterRecord=findNewestCounterRecord(download.rows);
  const counterAssessment=complete&&newestCounterRecord
   ? evaluateCounterBaseline({
    baseline:/** @type {{d:number,observedAt:number}|undefined} */ (meta.counterBaseline),
@@ -533,7 +445,7 @@ function finishDownload(reachedCut,timeout=false,interrupted=false){
   allowPre2020RawDates:true,
   forceCounterReset:counterAssessment?.discontinuity===true,
   counterResetReason:counterAssessment?.reason,
-  counterPreviousDays:counterAssessment?.previousDays
+  counterPreviousDays:counterAssessment?.previousDays ?? (/** @type {{d?:number}|undefined} */ (meta.counterBaseline))?.d
  }):null;
  if(complete){
   meta.lastSync=syncObservedAt;
@@ -541,44 +453,44 @@ function finishDownload(reachedCut,timeout=false,interrupted=false){
   void persist('meta',meta,'Sauvegarde des métadonnées').catch(()=>{});renderFreshness()
  }
  $('dlh').disabled=false;setCommandsDisabled(false);
- $('dlp').textContent=`Terminé : ${count} nouvelles lignes${download.invalidRows>0?' · lignes rejetées : synchronisation non certifiée, relance nécessaire':download.integrityGap?' · lacune détectée : synchronisation non certifiée, relance nécessaire':interrupted?(download.got?' · transfert interrompu, données partielles conservées ; relance la synchronisation':' · transfert interrompu avant réception') :reachedCut?' · historique à jour':timeout?(download.got?' · arrêt après une pause de 20 s':' · aucune réponse de la VMI'):(download.sigs.size?' · attention : trou possible avant la dernière ligne mémorisée':' · historique complet')}`;
+ $('dlp').textContent=`Terminé : ${count} nouvelles lignes${download.invalidRows>0?' · lignes rejetées : synchronisation non certifiée, relance nécessaire':download.integrityGap?' · lacune détectée : synchronisation non certifiée, relance nécessaire':interrupted?(download.got?' · transfert interrompu, données partielles conservées ; relance la synchronisation':' · transfert interrompu avant réception')  :completeBoundary?' · historique synchronisé':timeout?(download.got?' · arrêt après une pause de 20 s':' · aucune réponse de la VMI'):(download.bootstrap?' · synchronisation initiale non certifiée':download.sigs.size?' · attention : trou possible avant la dernière ligne mémorisée':' · historique complet')}`;
+ if(Number.isSafeInteger(download.announcedTotalRows)) $('dlp').textContent+=` · total annoncé par la VMI : ${download.announcedTotalRows} lignes`;
+ if(download.bootstrap&&!complete) $('dlp').textContent+=' · lignes déjà enregistrées ignorées, relance possible pour rechercher les suivantes';
  if(ingestResult?.counterReset){
   $('dlp').textContent+=' · ⚠ discontinuité du compteur détectée';
   $('dlp').textContent+=ingestResult.referenceCount>=2
    ? ` · dates recalées avec ${ingestResult.referenceCount} repères indépendants : vérification conseillée`
    : ' · pas assez de nouveaux repères fiables : dates anciennes laissées non corrigées';
  }
- if(reachedCut&&dev&&dev.gatt&&dev.gatt.connected){
-  // La VMI ne sait pas arrêter seule le flux historique : cette coupure est volontaire.
-  // onDisconnect doit la distinguer d'une vraie perte de liaison.
-  intentionalDisconnect=true;
-  dev.gatt.disconnect();
- }
+ if(completeBoundary&&connected())bluetoothService.disconnectIntentional();
 }
 async function startDownload(auto=false){
- if(!chC||!connected()){if(!auto)showError('Connecte-toi d’abord à la VMI.');return}
+ if(!connected()){if(!auto)showError('Connecte-toi d’abord à la VMI.');return}
  if(download.on)return;
- const sessionToken=bleConnectionGeneration;
+ const sessionToken=bluetoothService.getSessionToken();
  const abortDownload=()=>{
   if(download.on)finishDownload(false,true,true);
  };
  showError('');dlFrames=0;
- download={on:true,rows:[],buf:'',total:0,sigs:new Set(hist.filter(r=>isHistorySyncBaseline(r)&&r.rk&&Number.isFinite(r.d)).map(sigOf)),got:false,lastPacket:Date.now(),timeout:null,historyStream:createHistoryStreamState(),integrityGap:false,dataStarted:false};
+ const baselineRecords=hist.filter(r=>isHistorySyncBaseline(r)&&r.rk&&Number.isFinite(r.d));
+ const baselineSigs=new Set(baselineRecords.map(sigOf));
+ const knownSigs=new Set(hist.filter(r=>r.rk&&Number.isFinite(r.d)).map(sigOf));
+ download={on:true,rows:[],buf:'',sigs:baselineSigs,knownSigs,seenSigs:new Set(),bootstrap:baselineSigs.size===0,got:false,lastPacket:Date.now(),timeout:null,historyStream:createHistoryStreamState(),integrityGap:false,dataStarted:false,announcedTotalRows:null};
  $('dlh').disabled=true;setCommandsDisabled(true);
  $('dlp').textContent=auto?'Téléchargement automatique de l’historique…':'Démarrage du téléchargement…';
- const sequenceOk=await runBleSessionSequence({
-  token:sessionToken,
-  getToken:()=>bleConnectionGeneration,
-  isActive:()=>download.on&&connected(),
-  steps:[()=>setClock(),()=>send(0x2c,0),()=>send(0x20,0),()=>send(0x22,0)]
+ // Terminer la requête de lecture déjà en cours avant d'envoyer les registres du flux historique.
+ while(bluetoothService.isPolling(sessionToken)&&connected())await sleep(50);
+ if(!download.on||sessionToken!==bluetoothService.getSessionToken()){abortDownload();return}
+ const sequenceOk=await bluetoothService.startHistoryTransfer({
+  beforeCommands:()=>setClock(true),
+  isActive:()=>download.on&&connected()
  });
  if(!sequenceOk){abortDownload();return}
  armTimer();
 }
 $('dlh').onclick=()=>startDownload(false);
 function autoHistory(){
- if(autoDone||download.on||!connected())return;
- autoDone=true; /* une seule fois par connexion : pas de boucle déconnexion/reconnexion */
+ if(download.on||!connected())return;
  startDownload(true).catch(e=>{const message='Téléchargement automatique impossible : '+(e.message||e);log(message);recordError(message)});
 }
 
@@ -720,7 +632,7 @@ function buildDiagnostic(){
  const ago=t=>t?Math.round((Date.now()-t)/1000)+' s':'jamais';
  L.push(`VMI Purevent – diagnostic – version ${APP_VERSION} – ${new Date().toLocaleString('fr-FR')}`);
  L.push('Navigateur : '+navigator.userAgent);
- L.push(`Bluetooth : ${navigator.bluetooth?'disponible':'indisponible'} · connecté : ${connected()?'oui':'non'} · service worker : ${'serviceWorker' in navigator?(navigator.serviceWorker.controller?'actif':'non actif'):'absent'} · SheetJS : ${window.XLSX?'chargé':'non chargé'}`);
+ L.push(`Bluetooth : ${bluetoothService?.isAvailable()?'disponible':'indisponible'} · connecté : ${connected()?'oui':'non'} · service worker : ${'serviceWorker' in navigator?(navigator.serviceWorker.controller?'actif':'non actif'):'absent'} · SheetJS : ${window.XLSX?'chargé':'non chargé'}`);
  const valid=hist.filter(r=>r.t>=MIN_VALID&&r.t<=Date.now());
  L.push(`Historique : ${hist.length} relevés dont ${valid.length} valides`);
  if(valid.length){
@@ -869,7 +781,7 @@ function renderIntelligentDiagnosis(result){
  }
  const confidence=formatDiagnosisConfidence(result,fmt);
  const quality=result.inputQuality;
- const inputSummary='Entrée : '+quality.inputSampleCount+' lignes · '+quality.acceptedSampleCount+' retenues après contrôle et dédoublonnage · '+quality.excludedSampleCount+' écartées ou regroupées ('+quality.missingTimestampCount+' sans horodatage, '+quality.incompleteSensorRecordCount+' incomplètes, '+quality.implausibleSensorRecordCount+' avec valeurs aberrantes, '+quality.duplicateTimestampCount+' doublons). Les catégories peuvent se chevaucher.';
+ const inputSummary='Entrée : '+quality.inputSampleCount+' lignes · '+quality.acceptedSampleCount+' retenues après contrôle et dédoublonnage · '+quality.excludedSampleCount+' écartées ou regroupées ('+quality.missingTimestampCount+' sans horodatage, '+quality.incompleteSensorRecordCount+' incomplètes, '+quality.implausibleSensorRecordCount+' avec valeurs hors plage, '+quality.placeholderSensorRecordCount+' relevés de remplacement, '+quality.transientSpikeRecordCount+' pics isolés, '+quality.duplicateTimestampCount+' doublons). Les catégories peuvent se chevaucher.';
  box.className=available?'advice good':'advice warn';
  box.textContent=(available?'Analyse possible avec les données disponibles. ':'Diagnostic non concluant pour le moment. ')+confidence+'. '+inputSummary;
  if(result.medianSampleIntervalMinutes!=null){
@@ -1261,7 +1173,8 @@ function render(){
 }
 $('targetRH').onchange=render;$('minSamples').onchange=render;
 
-setInterval(()=>{if(cur.sal_t!==undefined)updateLiveMetrics();else $('sampleAge').textContent=buildLiveFreshnessText(lastSeen)},5000);
+setInterval(()=>{if(cur.sal_t!==undefined)updateLiveMetrics();else $('sampleAge').textContent=buildLiveFreshnessText(lastSeen);refreshTechnicalDiagnostic()},5000);
+refreshTechnicalDiagnostic();
 $('copyLog').onclick=()=>navigator.clipboard.writeText(logLines.join('\n')).then(()=>showError('Journal copié.'),showError);
 $('clearLog').onclick=()=>{logLines=[];$('log').textContent=''};
 $('themeBtn').onclick=()=>{
@@ -1271,5 +1184,5 @@ $('themeBtn').onclick=()=>{
  try{localStorage.setItem('vmi_modulaire_theme',root.dataset.theme)}catch(e){}
 };
 try{const theme=localStorage.getItem('vmi_modulaire_theme');if(theme)document.documentElement.dataset.theme=theme}catch(e){}
-if(!navigator.bluetooth)showError('Web Bluetooth indisponible : ouvre cette page en HTTPS dans Chrome sur Android.');
-init().then(autoConnectAuthorizedDevice).catch(e=>recordError('Initialisation impossible : '+(e.message||e)));
+if(!bluetoothService.isAvailable())showError('Web Bluetooth indisponible : ouvre cette page en HTTPS dans Chrome sur Android.');
+init().then(()=>bluetoothService.autoConnectAuthorizedDevice()).catch(e=>recordError('Initialisation impossible : '+(e.message||e)));

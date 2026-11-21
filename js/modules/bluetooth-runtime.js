@@ -26,7 +26,10 @@ export function createBluetoothNotificationHandler(deps) {
     log,
     hex,
     $,
-    now = Date.now
+    now = Date.now,
+    onDecodedFrame = () => {},
+    filterMeasurement = (_key, value) => ({ value, status: 'accepted' }),
+    resetMeasurementFilter = () => {}
   } = deps;
 
   return function handleNotification(ev) {
@@ -38,20 +41,53 @@ export function createBluetoothNotificationHandler(deps) {
     const timestamp = now();
     const download = getDownload();
 
+    if (decoded.kind === 'invalid') {
+      const detail = decoded.reason === 'checksum'
+        ? 'contrôle XOR invalide'
+        : decoded.reason === 'length'
+          ? 'longueur déclarée incohérente'
+          : `notification tronquée : ${decoded.length}/${decoded.requiredLength} octets`;
+      log(`Notification VMI invalide (type 0x${decoded.type.toString(16).padStart(2, '0')}) : ${detail}, ignorée.`);
+      return;
+    }
+
+    if (decoded.kind === 'state' || decoded.kind === 'room' || decoded.kind === 'probes' || decoded.kind === 'ack') {
+      onDecodedFrame(decoded.kind, decoded);
+    }
+
+    if (decoded.kind === 'history-count') {
+      if (download.on) download.announcedTotalRows = decoded.count;
+      log(`Nombre total de lignes d’historique annoncé par la VMI : ${decoded.count}.`);
+      if (download.on) $('dlp').textContent = `Historique : ${decoded.count} lignes annoncées · réception des nouvelles lignes…`;
+      return;
+    }
+
     if (decoded.kind === 'history') {
       if (!download.on) return;
       if (!decoded.valid) {
         markHistoryStreamInvalid(download.historyStream);
         download.integrityGap = true;
         download.buf = '';
-        log('Trame d’historique trop courte : transfert marqué incomplet, synchronisation à relancer.');
+        const detail = decoded.reason === 'checksum'
+          ? 'contrôle XOR invalide'
+          : decoded.reason === 'length'
+            ? 'longueur déclarée incohérente'
+            : 'trame tronquée';
+        log(`Trame d’historique invalide (${detail}) : transfert marqué incomplet, synchronisation à relancer.`);
         return;
       }
 
       const payload = new TextDecoder('latin1').decode(decoded.payload);
+      // Dans la capture Purevent, les lignes CSV datées utilisent cinq fragments (0 à 40).
+      // Le premier fragment contient déjà la date complète ; les blocs de métadonnées non datés
+      // ne sont pas soumis à cette règle.
+      const previousSequence = download.historyStream.sequence;
+      const previousLineComplete = download.historyStream.expectedFragments !== null &&
+        download.historyStream.expectedChunk === download.historyStream.expectedFragments * 10;
       const integrity = acceptHistoryFragment(download.historyStream, {
         sequence: decoded.sequence,
         chunkIndex: decoded.chunkIndex,
+        expectedFragments: /^\s*\d{1,2}\/\d{1,2}\/\d{4} \d{1,2}:\d{2}:\d{2};/.test(payload) ? 5 : undefined,
         payload
       });
       if (integrity.duplicate) return;
@@ -71,20 +107,29 @@ export function createBluetoothNotificationHandler(deps) {
       download.buf = lines.pop();
       lines.forEach(parseDownloadLine);
 
+      // Une ligne déjà connue marque la borne de coupure, mais on attend tous
+      // les fragments observés de cette ligne avant de certifier la synchronisation.
+      const lineComplete = download.historyStream.expectedFragments !== null &&
+        download.historyStream.expectedChunk === download.historyStream.expectedFragments * 10;
+      // Les lignes de la capture se terminent par un fragment sans séparateur ; le saut
+      // de ligne arrive au début du fragment 0 de la séquence suivante. Dans ce cas,
+      // parseDownloadLine vient de reconnaître la borne précédente : ne pas attendre
+      // inutilement les cinq fragments de la ligne plus ancienne qui suit.
+      const previousLineBoundary = previousSequence !== null &&
+        decoded.sequence === previousSequence + 1 && previousLineComplete;
+      if (download.on && download.reachedCut && (lineComplete || previousLineBoundary)) {
+        // La dernière ligne utile est complète. Le buffer éventuel appartient déjà
+        // à la ligne plus ancienne qui suit la borne et ne doit pas être importé.
+        download.buf = '';
+        finishDownload(true);
+        return;
+      }
+
       if (download.on) {
-        $('dlp').textContent = `${download.rows.length} nouvelles lignes (index historique ${decoded.sequence + 1} / ${download.total || '?'})`;
+        $('dlp').textContent = `${download.rows.length} nouvelles lignes (index historique ${decoded.sequence + 1})`;
         armTimer();
-        if (decoded.final) {
-          if (download.buf.trim()) {
-            const tail = download.buf.split(/\r\n|\n|\r/);
-            download.buf = '';
-            tail.filter(line => line.trim()).forEach(parseDownloadLine);
-          }
-          if (download.on) {
-            download.finalSeen = true;
-            finishDownload(false);
-          }
-        }
+        // L’octet 13 n’est pas interprété comme marqueur de fin : sa sémantique
+        // n’est pas démontrée par la capture Purevent disponible.
       }
       return;
     }
@@ -94,6 +139,7 @@ export function createBluetoothNotificationHandler(deps) {
     const lastSeen = getLastSeen();
 
     if (decoded.kind === 'state') {
+      cur.stateFrame = decoded.rawFrame;
       cur.filtre = decoded.filter;
       cur.jours = decoded.days;
       cur.vol = decoded.volume;
@@ -101,6 +147,15 @@ export function createBluetoothNotificationHandler(deps) {
       cur.vit = decoded.rawSpeed + 1; // code brut VMI : ne jamais le traiter comme niveau manuel
       cur.boost = decoded.boost;
       cur.hol = decoded.holiday;
+      cur.holidayDays = decoded.vacationDays;
+      cur.surventilation = decoded.surventilation;
+      cur.preheatSetpoint = decoded.preheatSetpoint;
+      cur.preheatOn = decoded.preheatOn;
+      cur.summerLimit = decoded.summerLimit;
+      cur.fixedAirflow = decoded.fixedAirflow;
+      cur.renewal = decoded.renewal;
+      cur.airChangesPerHour = decoded.airChangesPerHour;
+      cur.airflowM3h = decoded.airflowM3h;
       cur.rpm = null;
       lastSeen.state = timestamp;
       $('fi').textContent = cur.filtre;
@@ -109,26 +164,52 @@ export function createBluetoothNotificationHandler(deps) {
       $('tm').textContent = cur.tmax;
       $('sp').textContent = cur.vit;
       $('bo').textContent = cur.boost ? 'Actif' : 'Arrêté';
-      $('ho').textContent = cur.hol ? 'Actif' : 'Arrêté';
+      $('ho').textContent = cur.hol ? `Actif · ${cur.holidayDays} j restants` : 'Arrêté';
+      $('sv').textContent = cur.surventilation ? 'Active' : 'Arrêtée';
+      $('ph').textContent = cur.preheatOn ? 'En marche' : 'Arrêté';
+      $('phSet').textContent = cur.preheatSetpoint > 0 ? cur.preheatSetpoint + ' °C' : 'Aucune';
+      $('summerLimit').textContent = cur.summerLimit + ' °C';
+      $('fixedFlow').textContent = cur.fixedAirflow ? 'Actif' : 'Inactif';
+      $('renewal').textContent = Number.isFinite(cur.airChangesPerHour) ? cur.airChangesPerHour.toFixed(3) + ' vol/h' : '–';
+      $('airflow').textContent = Number.isFinite(cur.airflowM3h) ? cur.airflowM3h + ' m³/h' : '–';
     } else if (decoded.kind === 'room') {
-      cur.sal_t = decoded.temperature;
-      cur.sal_h = decoded.humidity;
+      cur.sal_t_raw = decoded.temperature;
+      cur.sal_h_raw = decoded.humidity;
+      cur.sal_t = filterMeasurement('sal_t', decoded.temperature).value;
+      cur.sal_h = filterMeasurement('sal_h', decoded.humidity).value;
       lastSeen.salon = timestamp;
       $('tp').textContent = cur.sal_t;
       $('hp').textContent = cur.sal_h;
     } else if (decoded.kind === 'probes') {
-      cur.s1_t = decoded.firstTemperature;
-      cur.s1_h = decoded.firstHumidity;
-      cur.s2_t = decoded.secondTemperature;
-      cur.s2_h = decoded.secondHumidity;
+      // Le protocole VMI+ utilise la localisation 0x08 pour un emplacement vide.
+      // La capture Purevent confirme ce marqueur sur les trois derniers slots.
+      cur.s1_t_raw = decoded.firstTemperature;
+      cur.s1_h_raw = decoded.firstHumidity;
+      cur.s2_t_raw = decoded.secondTemperature;
+      cur.s2_h_raw = decoded.secondHumidity;
+      if (decoded.firstLocation === 0x08) {
+        resetMeasurementFilter('s1_t');
+        resetMeasurementFilter('s1_h');
+        cur.s1_t = null;
+        cur.s1_h = null;
+      } else {
+        cur.s1_t = filterMeasurement('s1_t', decoded.firstTemperature).value;
+        cur.s1_h = filterMeasurement('s1_h', decoded.firstHumidity).value;
+      }
+      if (decoded.secondLocation === 0x08) {
+        resetMeasurementFilter('s2_t');
+        resetMeasurementFilter('s2_h');
+        cur.s2_t = null;
+        cur.s2_h = null;
+      } else {
+        cur.s2_t = filterMeasurement('s2_t', decoded.secondTemperature).value;
+        cur.s2_h = filterMeasurement('s2_h', decoded.secondHumidity).value;
+      }
       lastSeen.probes = timestamp;
-      $('ti').textContent = cur.s1_t;
-      $('hi').textContent = cur.s1_h;
-      $('t2').textContent = cur.s2_t;
-      $('h2').textContent = cur.s2_h;
-    } else if (decoded.kind === 'history-total') {
-      download.total = decoded.total;
-      return;
+      $('ti').textContent = cur.s1_t ?? '–';
+      $('hi').textContent = cur.s1_h ?? '–';
+      $('t2').textContent = cur.s2_t ?? '–';
+      $('h2').textContent = cur.s2_h ?? '–';
     } else {
       return;
     }
