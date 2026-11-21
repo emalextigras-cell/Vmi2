@@ -239,7 +239,7 @@ Artefacts contrôlés : `00_A0_50_48_B4_A3-2026-11-10-16_55.csv` et `vmi-sauvega
 - Le filtre ne s'applique qu'aux notifications BLE live. Il ne modifie pas les lignes CSV historiques importées ni le flux de synchronisation.
 - Le runtime conserve les octets décodés dans des champs `*_raw` et utilise la valeur filtrée pour l'affichage, les calculs psychrométriques et les snapshots live. Les snapshots conservent également les champs `stRaw`, `shRaw`, `t1Raw`, `h1Raw`, `teRaw` et `heRaw`.
 - Une reconnexion réinitialise tous les filtres ; un emplacement de sonde vide réinitialise immédiatement le filtre de cet emplacement.
-- Les relevés au motif 20/50 sont exclus des calculs hygrométriques, des tendances, des comparaisons de vitesses, des analyses saisonnières et du bilan hebdomadaire. Ils restent présents dans les données brutes et sont comptés dans la qualité d'entrée.
+- Les relevés au motif 20/50 sont exclus des calculs hygrométriques, des tendances, des comparaisons de vitesses, des analyses saisonnières, de l'analyse de consigne thermique et du bilan hebdomadaire. Ils restent présents dans les données brutes et sont comptés dans la qualité d'entrée.
 - Le diagnostic hygrométrique principal écarte aussi les horodatages signalés comme pics isolés sur les quatre mesures qu'il utilise (`st`, `sh`, `te`, `he`). Les compteurs `placeholderSensorRecordCount` et `transientSpikeRecordCount` rendent ces exclusions visibles.
 - La borne haute de température de plausibilité est alignée sur la référence Purevent à 70 °C.
 
