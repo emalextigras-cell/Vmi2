@@ -188,7 +188,7 @@ Artefacts contrôlés : `00_A0_50_48_B4_A3-2026-11-10-16_55.csv` et `vmi-sauvega
   - slots 2, 3 et 4 : `08 00 00 00 00` (vides).
 - Avant correction, le décodeur exposait les températures et humidités des cinq slots, et le runtime mettait à jour les deux premières sondes sans contrôler leur localisation. Les emplacements vides pouvaient donc être présentés comme des mesures à 0 °C et 0 % HR.
 - Vmi2 ignore maintenant les mesures d'un slot dont la localisation vaut `0x08`, conserve les mesures des slots actifs et affiche un tiret pour un slot vide.
-- Un test runtime couvre le cas d'un premier slot vide et d'un second actif.
+- Un test de décodage utilise la trame capturée exacte (`a5b6030619000d006000010c00610008000000000800000000080000000015`) ; un test runtime couvre le cas d'un premier slot vide et d'un second actif.
 
 **Fraîcheur de la liaison :**
 - La référence Purevent définit « connectée » comme une liaison GATT ouverte ET une trame d'état valide reçue depuis moins de 35 secondes. Elle ferme et recrée la liaison si le contrôleur reste ouvert mais ne répond plus.
