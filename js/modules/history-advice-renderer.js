@@ -16,7 +16,7 @@ export function renderHistoryFreshness({ container, history, metadata, now = Dat
  const cap=perDay>0?Math.min(60,Math.max(7,800/perDay)):28;
  const left=cap-age;
  let cls='advice good';
- let msg=`Historique à jour jusqu’au ${formatShort(newest)} (il y a ${age<1?Math.max(0,Math.round(age*24))+' h':age.toFixed(1)+' j'}). La VMI garde environ ${Math.round(cap)} jours de relevés : télécharge avant le ${fmtShort(newest+cap*DAY)}.`;
+ let msg=`Historique à jour jusqu’au ${formatShort(newest)} (il y a ${age<1?Math.max(0,Math.round(age*24))+' h':age.toFixed(1)+' j'}). La VMI garde environ ${Math.round(cap)} jours de relevés : télécharge avant le ${formatShort(newest+cap*dayMs)}.`;
  if(left<=1){cls='advice warn';msg+=' ⚠ Des relevés ont peut-être déjà été écrasés : connecte-toi maintenant.'}
  else if(age>=14||left<7){cls='advice warn';msg+=' Pense à te connecter bientôt.'}
  if(metadata.lastSync)msg+=` Dernière synchronisation : ${formatShort(metadata.lastSync)}.`;
@@ -63,7 +63,7 @@ export function renderRecommendation(data, { container, targetRH, median, absolu
  else msg+=`L'humidité est proche de ton objectif de ${target} %. `;
  if(Number.isFinite(delta)){
   if(delta>1)msg+=`L'air entrant est actuellement plus sec en humidité absolue d'environ ${format(delta)} g/m³ : le renouvellement d'air a un potentiel d'assèchement.`;
-  else if(delta< -1)msg+=`L'air entrant est actuellement plus humide en valeur absolue d'environ ${fmt(Math.abs(delta))} g/m³ : augmenter la vitesse ne garantit pas d'assécher le logement.`;
+  else if(delta< -1)msg+=`L'air entrant est actuellement plus humide en valeur absolue d'environ ${format(Math.abs(delta))} g/m³ : augmenter la vitesse ne garantit pas d'assécher le logement.`;
   else msg+="L'air entrant et l'air intérieur ont des humidités absolues proches.";
  }
  box.textContent=msg;
