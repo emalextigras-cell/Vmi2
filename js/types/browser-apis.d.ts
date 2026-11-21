@@ -14,4 +14,5 @@ declare var XLSX: any;
 interface Document {
   querySelectorAll(selectors: '[data-r]'): NodeListOf<HTMLButtonElement>;
   querySelectorAll(selectors: '[data-days]'): NodeListOf<HTMLButtonElement>;
+  querySelectorAll(selectors: '[data-advanced]'): NodeListOf<HTMLButtonElement>;
 }
