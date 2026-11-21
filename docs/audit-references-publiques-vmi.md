@@ -339,7 +339,7 @@ Artefacts contrôlés : `00_A0_50_48_B4_A3-2026-11-10-16_55.csv` et `vmi-sauvega
 - Désormais, les lignes invalides/incomplètes restent ignorées sans éliminer une ligne valide concurrente. Les doublons valides strictement identiques sont ramenés à une seule observation. Si les quatre mesures utilisées (`st`, `sh`, `te`, `he`) se contredisent au même instant, tout le groupe temporel est exclu.
 - Le diagnostic expose `conflictingTimestampCount` en plus de `duplicateTimestampCount`. Les relevés bruts ne sont ni réécrits ni supprimés.
 - Tests ajoutés : doublon valide contradictoire, doublon valide identique, et doublon invalide face à une ligne valide.
-- Le service worker est passé à `vmi-test-v15-cache-65` afin de recharger le module d'analyse modifié.
+- Le service worker est passé à `vmi-test-v14-cache-65` afin de recharger le module d'analyse modifié.
 
 **Références externes consultées :**
 - ASHRAE Handbook — Psychrometrics, définitions de la densité de vapeur (absolute humidity), du rapport de mélange et du point de rosée : https://handbook.ashrae.org/Handbooks/F25/SI/F25_Ch01/F25_Ch01_si.aspx
