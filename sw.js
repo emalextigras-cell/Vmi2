@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vmi-test-v14-cache-74';
+const CACHE_NAME = 'vmi-test-v14-cache-75';
 const CACHE_PREFIX = 'vmi-test-';
 const APP_SHELL = [
   './',
@@ -23,6 +23,7 @@ const APP_SHELL = [
   './js/modules/bluetooth-runtime.js',
   './js/modules/bluetooth-session.js',
   './js/modules/bluetooth-service.js',
+  './js/modules/bluetooth-notification-adapter.js',
   './js/modules/bluetooth-write-queue.js',
   './js/modules/chart-renderer.js',
   './js/modules/charts.js',
