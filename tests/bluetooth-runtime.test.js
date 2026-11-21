@@ -113,7 +113,7 @@ test('une trame SimpleData inconnue ne certifie pas la fin du téléchargement',
   h.handler({ target: { value: new DataView(new Uint8Array([1, 2]).buffer) } });
 
   assert.equal(h.download.on, true);
-  assert.match(h.logs.join(' '), /04/);
+  assert.equal(h.download.rows.length, 0);
 });
 
 test('notification historique invalide marque le flux incomplet', () => {
