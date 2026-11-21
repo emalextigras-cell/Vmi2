@@ -138,6 +138,14 @@ export function createBluetoothNotificationHandler(deps) {
       cur.boost = decoded.boost;
       cur.hol = decoded.holiday;
       cur.holidayDays = decoded.vacationDays;
+      cur.surventilation = decoded.surventilation;
+      cur.preheatSetpoint = decoded.preheatSetpoint;
+      cur.preheatOn = decoded.preheatOn;
+      cur.summerLimit = decoded.summerLimit;
+      cur.fixedAirflow = decoded.fixedAirflow;
+      cur.renewal = decoded.renewal;
+      cur.airChangesPerHour = decoded.airChangesPerHour;
+      cur.airflowM3h = decoded.airflowM3h;
       cur.rpm = null;
       lastSeen.state = timestamp;
       $('fi').textContent = cur.filtre;
@@ -147,6 +155,13 @@ export function createBluetoothNotificationHandler(deps) {
       $('sp').textContent = cur.vit;
       $('bo').textContent = cur.boost ? 'Actif' : 'Arrêté';
       $('ho').textContent = cur.hol ? `Actif · ${cur.holidayDays} j restants` : 'Arrêté';
+      $('sv').textContent = cur.surventilation ? 'Active' : 'Arrêtée';
+      $('ph').textContent = cur.preheatOn ? 'En marche' : 'Arrêté';
+      $('phSet').textContent = cur.preheatSetpoint > 0 ? cur.preheatSetpoint + ' °C' : 'Aucune';
+      $('summerLimit').textContent = cur.summerLimit + ' °C';
+      $('fixedFlow').textContent = cur.fixedAirflow ? 'Actif' : 'Inactif';
+      $('renewal').textContent = cur.airChangesPerHour.toFixed(3) + ' vol/h';
+      $('airflow').textContent = cur.airflowM3h + ' m³/h';
     } else if (decoded.kind === 'room') {
       cur.sal_t_raw = decoded.temperature;
       cur.sal_h_raw = decoded.humidity;
