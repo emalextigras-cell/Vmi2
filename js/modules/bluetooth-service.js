@@ -14,9 +14,11 @@ import { runBleSessionSequence } from './bluetooth-session.js';
 
 /**
  * @param {{
- *  navigatorRef?: object, storageRef?: object, sleep: Function,
+ *  navigatorRef?: {bluetooth?: {requestDevice: Function, getDevices?: Function}},
+ *  storageRef?: {getItem: Function, setItem: Function}, sleep: Function,
  *  setStatus: Function, log: Function, showError: Function,
- *  onNotification: Function, onSessionCleanup?: Function, onConnected?: Function,
+ *  onNotification: Function, onSessionCleanup: Function, onConnected: Function,
+ *  onManualConnectRequested: Function, onManualConnectSettled: Function,
  *  getLastStateAt: Function, isDownloadActive: Function, isCommandPending: Function,
  *  onSnapshot: Function, onAutoHistory: Function, now?: Function,
  *  setTimeoutFn?: Function, clearTimeoutFn?: Function,
@@ -428,6 +430,11 @@ export function createBluetoothService(deps) {
     deps.setStatus('Déconnexion demandée.');
   }
 
+  /**
+   * Lance les registres de transfert dans la session active, après l'étape horloge.
+   * @param {{beforeCommands: Function, isActive: Function}} options
+   * @returns {Promise<boolean>} Vrai si la séquence reste dans la même session.
+   */
   async function startHistoryTransfer({ beforeCommands, isActive }) {
     const token = generation;
     return runBleSessionSequence({
