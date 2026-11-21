@@ -26,6 +26,7 @@ import { createBluetoothNotificationHandler, createReconnectHandler } from './mo
 import { isBleStateStale } from './modules/bluetooth-freshness.js';
 import { createLiveMeasurementFilters } from './modules/measurement-filter.js';
 import { createBleResponseGate, BLE_RESPONSE_KIND_BY_REGISTER } from './modules/bluetooth-response-gate.js';
+import { applyAdvancedCommand } from './modules/bluetooth-advanced-commands.js';
 import { buildLiveFreshnessText } from './modules/live-freshness.js';
 import { formatDiagnosisConfidence } from './modules/diagnostic-confidence.js';
 import { analyzeSeasonalVentilation } from './modules/seasonal-advice.js';
@@ -215,8 +216,8 @@ async function sendAndWait(reg,val,expectedKind=responseKindForRegister[reg],tim
  const response=bleResponseGate.waitFor(expectedKind,timeoutMs);
  const written=await send(reg,val);
  if(!written){bleResponseGate.cancel(new Error('Écriture BLE non confirmée.'));await response.catch(()=>{});return {written:false,responded:false}}
- try{await response;return {written:true,responded:true}}
- catch(error){log('Réponse VMI attendue absente : '+(error.message||error));return {written:true,responded:false}}
+ try{const value=await response;return {written:true,responded:true,response:value}}
+ catch(error){log('Réponse VMI attendue absente : '+(error.message||error));return {written:true,responded:false,response:null}}
 }
 async function writeFrameAndWait(bytes,expectedKind,timeoutMs=5000){
  if(bleResponseGate.pendingKind){log('Écriture différée : une réponse Bluetooth est déjà attendue.');return false}
@@ -338,7 +339,7 @@ function cleanupConnection(){
  if(download.on)finishDownload(false,true,true);
  clearInterval(pollTimer);clearInterval(snapTimer);clearTimeout(reconnectTimer);
  manualCommandPending=false;
- document.querySelectorAll('[data-r]').forEach(control=>control.disabled=download.on);
+ document.querySelectorAll('[data-r], [data-advanced]').forEach(control=>control.disabled=download.on);
  detachBleListeners();
  chC=null;chT=null;
 }
@@ -525,7 +526,73 @@ document.querySelectorAll('[data-r]').forEach(b=>b.addEventListener('click',asyn
   if(commandToken===bleConnectionGeneration){manualCommandPending=false;controls.forEach(x=>x.disabled=download.on)}
  }
 }));
-const setCommandsDisabled=dis=>document.querySelectorAll('[data-r]').forEach(x=>x.disabled=dis);
+const setCommandsDisabled=dis=>document.querySelectorAll('[data-r], [data-advanced]').forEach(x=>x.disabled=dis);
+
+async function runAdvancedCommand(action,value,label){
+ if(manualCommandPending||download.on)return;
+ if(!connected()){showError('VMI non connectée.');$('cmdResult').textContent='';return}
+ if(action==='preheatSetpoint'&&!confirm('Régler une consigne démarre le préchauffage électrique. Confirmer ?'))return;
+ if(action==='preheatPower'&&value===true&&!confirm('Démarrer le préchauffage électrique peut augmenter la consommation jusqu’à 1 800 W. Confirmer ?'))return;
+ manualCommandPending=true;
+ const commandToken=bleConnectionGeneration,commandDevice=dev;
+ const commandIsCurrent=()=>sessionIsCurrent(commandToken,commandDevice)&&connected();
+ const controls=[...document.querySelectorAll('[data-r], [data-advanced]')];
+ controls.forEach(control=>control.disabled=true);
+ showError('');
+ const result=$('cmdResult');
+ let lastCommandState=null;
+ const deps={
+  isConnected:commandIsCurrent,
+  readState:async()=>{
+   const read=await sendAndWait(0x03,0,'state');
+   if(!read.written||!read.responded||!read.response)throw new Error('Lecture d’état Purevent sans réponse valide.');
+   return read.response;
+  },
+  writeCommand:async(register,commandValue)=>{
+   const sent=await sendAndWait(register,commandValue,'state');
+   if(!sent.written)throw new Error('Écriture Bluetooth non effectuée.');
+   lastCommandState=sent.responded?sent.response:null;
+   return sent;
+  },
+  getLastCommandState:async()=>lastCommandState
+ };
+ try{
+  while(pollingSessionToken===commandToken&&commandIsCurrent())await sleep(50);
+  if(!commandIsCurrent())return;
+  result.textContent='Lecture de l’état actuel de la VMI…';
+  const outcome=await applyAdvancedCommand(deps,action,value);
+  if(!commandIsCurrent()){result.textContent='Connexion interrompue : confirmation impossible.';return}
+  result.textContent=(outcome.changed?'✓ Réglage appliqué et confirmé : ':'✓ Déjà dans l’état demandé : ')+label+'.';
+  log('Commande avancée confirmée par relecture d’état : '+label+'.');
+ }catch(error){
+  showError(error);
+  result.textContent='⚠ '+(error.message||error);
+  log('Commande avancée non confirmée ('+label+') : '+(error.message||error));
+ }finally{
+  if(commandToken===bleConnectionGeneration){manualCommandPending=false;controls.forEach(control=>control.disabled=download.on)}
+ }
+}
+
+document.querySelectorAll('[data-advanced]').forEach(button=>button.addEventListener('click',()=>{
+ const action=button.dataset.advanced;
+ const value=button.dataset.value==='true'?true:button.dataset.value==='false'?false:Number(button.dataset.value);
+ const labels={
+  surventilation:value?'Activer la surventilation':'Arrêter la surventilation',
+  fixedAirflow:value?'Activer le débit fixe':'Désactiver le débit fixe',
+  preheatPower:value?'Démarrer le préchauffage':'Arrêter le préchauffage',
+  preheatSetpoint:'Consigne de préchauffage '+value+' °C',
+  summerLimit:'Limite estivale '+value+' °C'
+ };
+ void runAdvancedCommand(action,value,labels[action]);
+}));
+$('summerLimitApply').addEventListener('click',()=>{
+ const value=Number($('summerLimitInput').value);
+ void runAdvancedCommand('summerLimit',value,'Limite estivale '+value+' °C');
+});
+$('preheatSetpointApply').addEventListener('click',()=>{
+ const value=Number($('preheatSetpointInput').value);
+ void runAdvancedCommand('preheatSetpoint',value,'Consigne de préchauffage '+value+' °C');
+});
 $('clk').onclick=()=>setClock(false);
 
 /* Correction des dates historiques isolée dans clock-correction.js. */
