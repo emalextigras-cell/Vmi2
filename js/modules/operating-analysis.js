@@ -183,9 +183,9 @@ export function analyzeSpeedTimeContext(data, { minSamples = 5, minDays = 2 } = 
         sharedDayKeys
       };
       comparisons.push(comparison);
-      for(const [speed,samples,stats,otherSpeed,sampleCount] of [
-        [pair[0],firstSamples,comparison.first,pair[1],firstSamples.length],
-        [pair[1],secondSamples,comparison.second,pair[0],secondSamples.length]
+      for(const [speed,stats,otherSpeed,sampleCount] of [
+        [pair[0],comparison.first,pair[1],firstSamples.length],
+        [pair[1],comparison.second,pair[0],secondSamples.length]
       ]){
         const key=speed+':'+bucket;
         const candidate={
