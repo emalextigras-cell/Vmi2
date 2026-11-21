@@ -9,14 +9,15 @@
  */
 
 /**
- * Vérifie le XOR du message VMI, de l'octet type jusqu'à l'avant-dernier octet.
+ * Vérifie le XOR Purevent du type jusqu'à l'avant-dernier octet de données.
+ * Le dernier octet de données annoncé est exclu du calcul ; la somme suit la trame.
  * @param {Uint8Array} bytes Notification reçue.
  * @param {number} frameLength Longueur réelle déclarée par l'octet 4, plus les 6 octets d'en-tête.
- * @returns {boolean} true si le dernier octet correspond au XOR calculé.
+ * @returns {boolean} true si l'octet de somme correspond au XOR calculé.
  */
 function hasValidChecksum(bytes, frameLength) {
   let checksum = 0;
-  for (let i = 2; i < frameLength - 1; i++) checksum ^= bytes[i];
+  for (let i = 2; i < frameLength - 2; i++) checksum ^= bytes[i];
   return checksum === bytes[frameLength - 1];
 }
 
