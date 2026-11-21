@@ -614,3 +614,12 @@ Artefacts contrôlés : `00_A0_50_48_B4_A3-2026-11-10-16_55.csv` et `vmi-sauvega
 - Cache service worker incrémenté à `vmi-test-v14-cache-72`.
 
 **Limite résiduelle :** le mécanisme empêche qu'une notification reçue après expiration, sur la connexion invalidée, soit associée à une nouvelle attente. Il ne peut pas prouver l'exécution d'une commande dont la réponse a expiré ; l'interface doit continuer à la signaler comme non confirmée.
+
+**Validation finale de la correction — GitHub Actions #1058 :**
+- Commit testé : `e082de32bdf9c6fb469954569828f029d40d6355`.
+- **575 tests réussis, 0 échec**.
+- Vérification syntaxique JavaScript : réussie.
+- ESLint : réussi.
+- Vérification JSDoc : réussie.
+- Un premier essai local du scénario de timeout a révélé une différence de casse dans le message d'erreur attendu par le test ; le message a été normalisé, puis le workflow complet a validé le correctif.
+- La validation reste logicielle/simulée ; aucune commande BLE n'a été envoyée à la VMI.
