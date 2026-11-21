@@ -511,7 +511,7 @@ function parseDownloadLine(line){
  const validation=validateBluetoothHistoryRow(line);
  if(!validation.valid){download.invalidRows=(download.invalidRows||0)+1;const reason='reason' in validation?validation.reason:'motif non précisé';log('Ligne historique Bluetooth rejetée ('+reason+') · date brute : '+String(line).split(';',1)[0]);return}
  const f=validation.fields,p=parseCell(f[0]);if(!p)return;
- if(download.sigs.size&&download.sigs.has(p.rk+'|'+num(f[11]))){finishDownload(true);return}
+ if(download.sigs.size&&download.sigs.has(p.rk+'|'+num(f[11]))){download.reachedCut=true;return}
  const rec=recFrom(f);if(rec)download.rows.push(rec);
 }
 function armTimer(){armDownloadTimeout(download,finishDownload)}
