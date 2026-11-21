@@ -563,7 +563,7 @@ async function startDownload(auto=false){
   if(download.on)finishDownload(false,true,true);
  };
  showError('');dlFrames=0;
- download={on:true,rows:[],buf:'',totalSequences:0,sigs:new Set(hist.filter(r=>isHistorySyncBaseline(r)&&r.rk&&Number.isFinite(r.d)).map(sigOf)),got:false,lastPacket:Date.now(),timeout:null,historyStream:createHistoryStreamState(),integrityGap:false,dataStarted:false};
+ download={on:true,rows:[],buf:'',sigs:new Set(hist.filter(r=>isHistorySyncBaseline(r)&&r.rk&&Number.isFinite(r.d)).map(sigOf)),got:false,lastPacket:Date.now(),timeout:null,historyStream:createHistoryStreamState(),integrityGap:false,dataStarted:false};
  $('dlh').disabled=true;setCommandsDisabled(true);
  $('dlp').textContent=auto?'Téléchargement automatique de l’historique…':'Démarrage du téléchargement…';
  const sequenceOk=await runBleSessionSequence({
