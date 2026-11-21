@@ -313,8 +313,8 @@ export function createBluetoothService(deps) {
       connectedAt = now();
       staleDisconnectRequested = false;
       deps.setStatus('Connecté à ' + (device.name || 'la VMI') + '. Synchronisation des données…', true);
-      startPolling();
       deps.onConnected({ token, device: targetDevice });
+      startPolling();
       setTimeoutFn(() => {
         if (sessionIsCurrent(token, targetDevice) && connected() && !autoHistoryDone) {
           autoHistoryDone = true;
