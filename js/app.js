@@ -515,11 +515,11 @@ function parseDownloadLine(line){
  const rec=recFrom(f);if(rec)download.rows.push(rec);
 }
 function armTimer(){armDownloadTimeout(download,finishDownload)}
-function finishDownload(reachedCut,timeout=false,interrupted=false){
+function finishDownload(completeBoundary,timeout=false,interrupted=false){
  if(!download.on)return;
  download.on=false;clearTimeout(download.timeout);
  const count=download.rows.length;
- const complete=!timeout&&!interrupted&&!download.integrityGap&&!(download.invalidRows>0)&&reachedCut;
+ const complete=!timeout&&!interrupted&&!download.integrityGap&&!(download.invalidRows>0)&&completeBoundary;
  const syncObservedAt=Date.now();
  const newestCounterRecord=download.rows.find(record=>Number.isFinite(record.d));
  const counterAssessment=complete&&newestCounterRecord
@@ -541,14 +541,14 @@ function finishDownload(reachedCut,timeout=false,interrupted=false){
   void persist('meta',meta,'Sauvegarde des métadonnées').catch(()=>{});renderFreshness()
  }
  $('dlh').disabled=false;setCommandsDisabled(false);
- $('dlp').textContent=`Terminé : ${count} nouvelles lignes${download.invalidRows>0?' · lignes rejetées : synchronisation non certifiée, relance nécessaire':download.integrityGap?' · lacune détectée : synchronisation non certifiée, relance nécessaire':interrupted?(download.got?' · transfert interrompu, données partielles conservées ; relance la synchronisation':' · transfert interrompu avant réception') :reachedCut?' · historique à jour':timeout?(download.got?' · arrêt après une pause de 20 s':' · aucune réponse de la VMI'):(download.sigs.size?' · attention : trou possible avant la dernière ligne mémorisée':' · historique complet')}`;
+ $('dlp').textContent=`Terminé : ${count} nouvelles lignes${download.invalidRows>0?' · lignes rejetées : synchronisation non certifiée, relance nécessaire':download.integrityGap?' · lacune détectée : synchronisation non certifiée, relance nécessaire':interrupted?(download.got?' · transfert interrompu, données partielles conservées ; relance la synchronisation':' · transfert interrompu avant réception')  :completeBoundary?' · historique synchronisé':timeout?(download.got?' · arrêt après une pause de 20 s':' · aucune réponse de la VMI'):(download.sigs.size?' · attention : trou possible avant la dernière ligne mémorisée':' · historique complet')}`;
  if(ingestResult?.counterReset){
   $('dlp').textContent+=' · ⚠ discontinuité du compteur détectée';
   $('dlp').textContent+=ingestResult.referenceCount>=2
    ? ` · dates recalées avec ${ingestResult.referenceCount} repères indépendants : vérification conseillée`
    : ' · pas assez de nouveaux repères fiables : dates anciennes laissées non corrigées';
  }
- if(reachedCut&&dev&&dev.gatt&&dev.gatt.connected){
+ if(completeBoundary&&dev&&dev.gatt&&dev.gatt.connected){
   // La VMI ne sait pas arrêter seule le flux historique : cette coupure est volontaire.
   // onDisconnect doit la distinguer d'une vraie perte de liaison.
   intentionalDisconnect=true;
