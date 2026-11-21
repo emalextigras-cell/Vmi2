@@ -714,3 +714,11 @@ Aucune commande envoyée à la VMI ; comparaison documentaire uniquement.
 - Ajout de tests unitaires sur les états sans historique, les conseils saisonniers et les cas d'humidité.
 - Cache de service worker : `vmi-test-v14-cache-78`.
 - Validation matérielle non réalisée ; aucun périphérique BLE n'a été connecté et aucune commande n'a été envoyée.
+
+
+## 3.25 — Modularisation des rendus énergétiques et hebdomadaires (PR #69)
+- Extraction de trois fonctions de présentation depuis `js/app.js` vers `js/modules/energy-analysis-renderer.js` : estimation énergétique du ventilateur, rapprochement quotidien énergie/climat et diagnostic hebdomadaire.
+- Les calculs restent dans `energy-estimate.js`, `energy-climate.js` et `weekly-diagnostic.js` ; le renderer reçoit les fonctions métier, conteneurs DOM et formatteur par injection.
+- Ajout de tests de non-régression pour les états sans données et les comparaisons insuffisantes.
+- Cache de service worker : `vmi-test-v14-cache-79`.
+- Validation matérielle non réalisée ; aucun périphérique BLE n'a été connecté et aucune commande n'a été envoyée.
