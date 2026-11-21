@@ -682,3 +682,14 @@ Aucune commande envoyée à la VMI ; comparaison documentaire uniquement.
 - Le navigateur Web Bluetooth et le matériel réel ne sont pas simulés intégralement par les tests Node. Les essais portent sur un périphérique GATT simulé ; aucune VMI physique n'a été connectée et aucune commande matérielle n'a été envoyée.
 - L'extraction ne modifie volontairement ni les registres Purevent, ni les octets de commande, ni les règles de décodage, ni les règles de synchronisation historique.
 - Cache service worker incrémenté à `vmi-test-v14-cache-75`.
+
+
+## 3.22 — Tolérance d'horodatage pour la dernière ligne historique (21/11/2026)
+
+- Le rapport de diagnostic du 21/11/2026 à 20:37 indique que l'historique s'arrête à 19:35:43 alors que les mesures directes arrivent à 20:35.
+- Le journal du transfert montre une ligne reconstruite à 20:35:43, alors que la fin de synchronisation locale est horodatée 20:35:37. La différence de six secondes suffisait à faire rejeter cette ligne comme future.
+- Le filtrage reste strict par défaut. Pour le seul téléchargement Bluetooth historique, une tolérance maximale de 30 secondes est autorisée afin de conserver une dernière mesure dont l'horloge VMI devance légèrement l'horloge du navigateur.
+- Les lignes qui dépassent cette tolérance restent rejetées ; les trois autres lignes futures du rapport (21:35, 22:35 et 23:10) ne sont donc pas réintégrées.
+- La tolérance ne change pas l'horodatage d'origine et n'est pas appliquée à l'import CSV ni aux autres appels de correction.
+- Tests ajoutés : +6 secondes conservé avec la tolérance Bluetooth ; +60 secondes rejeté ; comportement strict sans option inchangé.
+- Validation matérielle à effectuer lors d'une prochaine connexion utilisateur ; aucun accès BLE ni commande envoyée pendant ce correctif.
