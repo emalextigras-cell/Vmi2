@@ -663,3 +663,21 @@ Aucune commande envoyée à la VMI ; comparaison documentaire uniquement.
 - Le panneau ne déclenche aucune commande, ne propose pas de réglage automatique et ne déduit pas de panne matérielle à partir d'une donnée manquante.
 - Validation logicielle uniquement ; aucun essai sur la VMI physique et aucune commande BLE envoyée.
 - Cache service worker incrémenté à `vmi-test-v14-cache-73`.
+
+### 3.21 Extraction du service BLE hors de l'interface
+
+**Écart architectural corrigé :**
+- Le point d'entrée `js/modules/ble.js` indiquait explicitement que la connexion Web Bluetooth et son cycle de vie restaient orchestrés par `app.js`, avec extraction reportée. Cette séparation incomplète contredisait l'objectif architectural de ce chantier.
+- `app.js` contenait encore la sélection des périphériques, la reconnexion, la découverte des services/caractéristiques GATT, les écouteurs de notifications, la file d'écriture, la corrélation des réponses, le polling et le watchdog de fraîcheur.
+
+**Correction apportée :**
+- Nouveau module `js/modules/bluetooth-service.js` : propriétaire du cycle de vie Web Bluetooth, de la connexion GATT, des notifications, de la reconnexion, de la session, de la file d'écriture, de la barrière de réponse, du polling et du watchdog de fraîcheur.
+- L'interface appelle désormais une API de service : connexion, déconnexion, écriture, requête avec réponse typée, mise à l'heure, état de session et notification reçue.
+- Le traitement des trames et les mises à jour métier/DOM restent injectés dans le service via des callbacks. Le service n'importe ni ne manipule le DOM.
+- Le transfert historique conserve son orchestrateur métier dans l'application, mais utilise le service pour l'accès BLE ; les fragments, la validation CSV, les règles de coupure et la persistance restent dans leurs modules existants.
+- Les tests de session ont été déplacés de vérifications statiques de fonctions internes de `app.js` vers des tests du service : ordre d'installation des écouteurs, corrélation d'une réponse typée et nettoyage de session.
+
+**Limites et validation :**
+- Le navigateur Web Bluetooth et le matériel réel ne sont pas simulés intégralement par les tests Node. Les essais portent sur un périphérique GATT simulé ; aucune VMI physique n'a été connectée et aucune commande matérielle n'a été envoyée.
+- L'extraction ne modifie volontairement ni les registres Purevent, ni les octets de commande, ni les règles de décodage, ni les règles de synchronisation historique.
+- Cache service worker incrémenté à `vmi-test-v14-cache-74`.
