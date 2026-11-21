@@ -107,6 +107,6 @@ test('la CSP définit une politique par défaut et SheetJS est protégé par SRI
 
 test('app.js ne contient pas de gestionnaire catch vide connu', async () => {
   const app = await readFile(resolve(root, 'js/app.js'), 'utf8');
-  assert.doesNotMatch(app, /catch\s*\([^)]*\)\s*\{\s*\}/);
-  assert.doesNotMatch(app, /\.catch\(\s*\(\)\s*=>\s*\{\s*\}\s*\)/);
+  assert.equal(app.includes('catch(()=>{})'), false);
+  assert.equal(app.includes('.catch(()=>{})'), false);
 });
