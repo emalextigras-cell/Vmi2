@@ -26,7 +26,8 @@ export function createBluetoothNotificationHandler(deps) {
     log,
     hex,
     $,
-    now = Date.now
+    now = Date.now,
+    onDecodedFrame = () => {}
   } = deps;
 
   return function handleNotification(ev) {
@@ -46,6 +47,10 @@ export function createBluetoothNotificationHandler(deps) {
           : `notification tronquée : ${decoded.length}/${decoded.requiredLength} octets`;
       log(`Notification VMI invalide (type 0x${decoded.type.toString(16).padStart(2, '0')}) : ${detail}, ignorée.`);
       return;
+    }
+
+    if (decoded.kind === 'state' || decoded.kind === 'room' || decoded.kind === 'probes') {
+      onDecodedFrame(decoded.kind, decoded);
     }
 
     if (decoded.kind === 'history-count') {
