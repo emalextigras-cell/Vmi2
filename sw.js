@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vmi-test-v14-cache-83';
+const CACHE_NAME = 'vmi-test-v14-cache-84';
 const CACHE_PREFIX = 'vmi-test-';
 const APP_SHELL = [
   './',
@@ -39,7 +39,6 @@ const APP_SHELL = [
   './js/modules/technical-diagnostic.js',
   './js/modules/energy-climate.js',
   './js/modules/energy-estimate.js',
-  './js/modules/energy-meter.js',
   './js/modules/energy-readiness-renderer.js',
   './js/modules/history-selection.js',
   './js/modules/history.js',
