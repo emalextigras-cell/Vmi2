@@ -312,7 +312,7 @@ Artefacts contrôlés : `00_A0_50_48_B4_A3-2026-11-10-16_55.csv` et `vmi-sauvega
 ### 3.7 Validation de l'évolution du filtrage
 
 - Le premier passage CI après ajout des compteurs de qualité a échoué sur deux tests qui comparaient strictement l'ancien objet `inputQuality`. Les deux attentes ont été actualisées pour inclure `placeholderSensorRecordCount` et `transientSpikeRecordCount` ; il ne s'agissait pas d'une erreur de calcul.
-- GitHub Actions #984, commit `c95bcac4eb8b45659870e5be9a47454d496c6e84` : **548 tests réussis, 0 échec**. Syntaxe JavaScript, ESLint et vérification des types JSDoc réussis.
+- GitHub Actions #987, commit `b55afcea201dcba030ac1c6c30c98f9269275f0d` : **549 tests réussis, 0 échec**. Le contrôle inclut aussi l'exclusion des relevés de remplacement dans l'analyse de consigne thermique. Syntaxe JavaScript, ESLint et vérification des types JSDoc réussis.
 - Les tests couvrent le démarrage du filtre, la confirmation d'un saut, le retour à la valeur stable, les valeurs hors plage, les trois rejets consécutifs, l'indépendance des capteurs, la remise à zéro, la conservation des valeurs brutes et l'exclusion des relevés de remplacement/pics isolés du diagnostic.
 - Cette validation est logicielle. Elle ne constitue pas un essai en liaison Bluetooth avec la VMI.
 
