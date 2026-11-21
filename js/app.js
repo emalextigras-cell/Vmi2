@@ -71,7 +71,7 @@ let cur={},lastSeen={};
 /** @type {EnergyReading[]} */ let energyReadings=[];
 let source='hist',selectedDate=null,daysSetting=30;
 let logLines=[],dlFrames=0;
-let download={on:false,rows:[],buf:'',sigs:new Set(),got:false,lastPacket:0,timeout:null,historyStream:createHistoryStreamState(),integrityGap:false,dataStarted:false};
+let download={on:false,rows:[],buf:'',sigs:new Set(),got:false,lastPacket:0,timeout:null,historyStream:createHistoryStreamState(),integrityGap:false,dataStarted:false,announcedTotalRows:null};
 const DB='VMI_PUREVENT_DB_TEST',STORE='data';
 const { get: dbGet, set: dbSet, setMany: dbSetMany } = createStore({ databaseName: DB, storeName: STORE, onError: message => log(message) });
 const connected=()=>!!(chC&&dev&&dev.gatt&&dev.gatt.connected);
@@ -542,6 +542,7 @@ function finishDownload(completeBoundary,timeout=false,interrupted=false){
  }
  $('dlh').disabled=false;setCommandsDisabled(false);
  $('dlp').textContent=`Terminé : ${count} nouvelles lignes${download.invalidRows>0?' · lignes rejetées : synchronisation non certifiée, relance nécessaire':download.integrityGap?' · lacune détectée : synchronisation non certifiée, relance nécessaire':interrupted?(download.got?' · transfert interrompu, données partielles conservées ; relance la synchronisation':' · transfert interrompu avant réception')  :completeBoundary?' · historique synchronisé':timeout?(download.got?' · arrêt après une pause de 20 s':' · aucune réponse de la VMI'):(download.sigs.size?' · attention : trou possible avant la dernière ligne mémorisée':' · historique complet')}`;
+ if(Number.isSafeInteger(download.announcedTotalRows)) $('dlp').textContent+=` · total annoncé par la VMI : ${download.announcedTotalRows} lignes`;
  if(ingestResult?.counterReset){
   $('dlp').textContent+=' · ⚠ discontinuité du compteur détectée';
   $('dlp').textContent+=ingestResult.referenceCount>=2
@@ -563,7 +564,7 @@ async function startDownload(auto=false){
   if(download.on)finishDownload(false,true,true);
  };
  showError('');dlFrames=0;
- download={on:true,rows:[],buf:'',sigs:new Set(hist.filter(r=>isHistorySyncBaseline(r)&&r.rk&&Number.isFinite(r.d)).map(sigOf)),got:false,lastPacket:Date.now(),timeout:null,historyStream:createHistoryStreamState(),integrityGap:false,dataStarted:false};
+ download={on:true,rows:[],buf:'',sigs:new Set(hist.filter(r=>isHistorySyncBaseline(r)&&r.rk&&Number.isFinite(r.d)).map(sigOf)),got:false,lastPacket:Date.now(),timeout:null,historyStream:createHistoryStreamState(),integrityGap:false,dataStarted:false,announcedTotalRows:null};
  $('dlh').disabled=true;setCommandsDisabled(true);
  $('dlp').textContent=auto?'Téléchargement automatique de l’historique…':'Démarrage du téléchargement…';
  const sequenceOk=await runBleSessionSequence({
