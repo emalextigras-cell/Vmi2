@@ -1,10 +1,11 @@
 /**
  * Décodage pur des notifications VMI observées.
  * Les longueurs et le contrôle XOR sont déduits des trames Purevent capturées.
- * Les octets non identifiés restent bruts.
+ * Le codage température signé suit le protocole VMI+ de référence : octet >= 0x80,
+ * valeur = octet - 0xFF. À confirmer sur une capture Purevent sous 0 °C.
  */
 /**
- * @typedef {{kind:'invalid',type:number,length:number,requiredLength:number,reason:'truncated'|'length'|'checksum'}|{kind:'history',valid:false,length:number,reason:'truncated'|'length'|'checksum'}|{kind:'history',valid:true,payload:Uint8Array,sequence:number,chunkIndex:number,received:number}|{kind:'state',filter:number,days:number,volume:number,maxTemperature:number,rawSpeed:number,boost:number,holiday:number}|{kind:'room',temperature:number,humidity:number}|{kind:'probes',firstTemperature:number,firstHumidity:number,secondTemperature:number,secondHumidity:number}|{kind:'history-total',total:number}|{kind:'unknown',type:number,length:number}} VmiNotification
+ * @typedef {{kind:'invalid',type:number,length:number,requiredLength:number,reason:'truncated'|'length'|'checksum'}|{kind:'history',valid:false,length:number,reason:'truncated'|'length'|'checksum'}|{kind:'history',valid:true,payload:Uint8Array,sequence:number,chunkIndex:number,received:number}|{kind:'state',filter:number,days:number,volume:number,maxTemperature:number,rawSpeed:number,boost:number,holiday:number}|{kind:'room',temperature:number,humidity:number}|{kind:'probes',firstLocation:number,firstTemperature:number,firstHumidity:number,secondLocation:number,secondTemperature:number,secondHumidity:number}|{kind:'history-total',total:number}|{kind:'unknown',type:number,length:number}} VmiNotification
  */
 
 /**
@@ -17,6 +18,16 @@ function hasValidChecksum(bytes, frameLength) {
   let checksum = 0;
   for (let i = 2; i < frameLength - 1; i++) checksum ^= bytes[i];
   return checksum === bytes[frameLength - 1];
+}
+
+/**
+ * Décode la température VMI+ : les valeurs >= 0x80 sont négatives,
+ * avec le codage observé dans la bibliothèque de référence (soustraction de 255).
+ * @param {number} value Octet température.
+ * @returns {number} Température entière signée.
+ */
+function decodeTemperature(value) {
+  return value >= 0x80 ? value - 0xFF : value;
 }
 
 /**
@@ -86,15 +97,19 @@ export function decodeVmiNotification(input) {
   }
 
   if (type === 0x02) {
-    return { kind: 'room', temperature: bytes[11], humidity: bytes[13] };
+    return { kind: 'room', temperature: decodeTemperature(bytes[11]), humidity: bytes[13] };
   }
 
   if (type === 0x03) {
+    // Chaque sonde occupe cinq octets à partir de l'offset 5 :
+    // emplacement, température, octet réservé, humidité, octet réservé.
     return {
       kind: 'probes',
-      firstTemperature: bytes[6],
+      firstLocation: bytes[5],
+      firstTemperature: decodeTemperature(bytes[6]),
       firstHumidity: bytes[8],
-      secondTemperature: bytes[11],
+      secondLocation: bytes[10],
+      secondTemperature: decodeTemperature(bytes[11]),
       secondHumidity: bytes[13]
     };
   }
