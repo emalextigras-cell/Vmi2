@@ -63,13 +63,23 @@ test('exclut le dernier octet de données du XOR entrant Purevent', () => {
 });
 
 test('décode les mesures salon et les deux sondes après validation XOR', () => {
-  const room = frame(0x02, 128); room[11] = 21; room[13] = 56;
+  const room = frame(0x02, 128); room[10] = 0x03; room[11] = 21; room[13] = 56;
   assert.deepEqual(decodeVmiNotification(seal(room)), { kind: 'room', temperature: 21, humidity: 56 });
   const probes = frame(0x03, 31);
   probes[6] = 8; probes[8] = 9; probes[11] = 10; probes[13] = 11;
   assert.deepEqual(decodeVmiNotification(seal(probes)), {
     kind: 'probes', firstLocation: 0, firstTemperature: 8, firstHumidity: 9,
     secondLocation: 0, secondTemperature: 10, secondHumidity: 11
+  });
+});
+
+test('ne décode pas un capteur non identifié comme télécommande en mesure salon', () => {
+  const bytes = frame(0x02, 128);
+  bytes[10] = 0x01; // type CO2 selon la table VMI+ générique
+  bytes[11] = 21;
+  bytes[13] = 56;
+  assert.deepEqual(decodeVmiNotification(seal(bytes)), {
+    kind: 'unknown', type: 0x02, length: 128
   });
 });
 
