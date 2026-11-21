@@ -726,3 +726,7 @@ Aucune commande envoyée à la VMI ; comparaison documentaire uniquement.
 
 ### 3.26 — Extraction du moteur d'analyse des modes et périodes
 Le module `analysis.js` délègue désormais les analyses comparatives des niveaux manuels, les contextes horaires, les comparaisons de périodes et les références des champs Mode/Vitesse à `operating-analysis.js`. La fonction statistique médiane est isolée dans `statistics.js`. Les exports historiques restent disponibles depuis `analysis.js` afin de préserver les consommateurs existants. Cette étape est structurelle : les règles, seuils, agrégations et limites d'interprétation restent inchangés. Les modules sont ajoutés au précache du service worker. CI réussie : 598 tests sur 598, syntaxe, ESLint et vérification JSDoc/TypeScript validés. Aucun essai matériel Bluetooth n'est réalisé.
+
+
+### 3.27 — Extraction du moteur d'analyse hygrométrique
+Les analyses de périodes hygrométriques, tendances journalières, profils horaires, variations rapides et diagnostic hygrométrique sont regroupées dans `hygrometric-analysis.js`. Le module utilise les moteurs dédiés de psychrométrie, statistiques et qualité des mesures. Les exports historiques sont maintenus depuis `analysis.js` pour préserver les consommateurs existants. Cette extraction est structurelle : les seuils, critères d'échantillonnage, calculs, règles de tendance et formulations des constats sont conservés. Le nouveau module est ajouté au précache du service worker. Validation CI à confirmer ; aucune commande ni interaction matérielle Bluetooth n'est effectuée.
