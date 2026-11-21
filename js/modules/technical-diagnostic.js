@@ -5,9 +5,9 @@
  */
 
 const VALUE_DEFINITIONS = [
-  ['days', 'Jours de fonctionnement', value => `${value} j`],
-  ['filter', 'Autonomie du filtre', value => `${value} j`],
-  ['volume', 'Volume à ventiler', value => `${value} m³`],
+  ['jours', 'Jours de fonctionnement', value => `${value} j`],
+  ['filtre', 'Autonomie du filtre', value => `${value} j`],
+  ['vol', 'Volume à ventiler', value => `${value} m³`],
   ['vit', 'Vitesse (niveau affiché)', value => String(value)],
   ['boost', 'Boost', value => value ? 'Actif' : 'Arrêté'],
   ['holidayDays', 'Vacances restantes', value => `${value} j`],
