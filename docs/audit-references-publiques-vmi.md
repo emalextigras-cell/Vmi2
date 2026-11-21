@@ -132,17 +132,18 @@ Constats déjà relevés lors de l'analyse de cette capture :
 
 **À ne pas confondre :** les statistiques ci-dessus proviennent de la capture de l'utilisateur, tandis que les détails des registres génériques proviennent des dépôts publics. Les uns ne valident pas automatiquement les autres.
 
-### 3.2 Portée réelle de la capture HCI et compteur 824
+### 3.2 Portée de la capture HCI : synchronisation incrémentale et compteur 824
 
-Une réinspection des notifications ATT et des payloads `0x30` confirme les éléments suivants :
-- 1 880 trames d'historique `0x30` : 25 séquences de métadonnées (0–24), puis 375 séquences de données (25–399).
-- Les séquences de données 25 à 398 ont les cinq fragments attendus ; la séquence 399 ne contient que le fragment 0 dans le fichier fourni. La capture contient donc 374 lignes de données complètes et une dernière ligne partielle, en plus des blocs de métadonnées.
-- La séquence 25 porte la date du 12/11/2026 14:31 ; la séquence 399 porte la date du 01/05/2018 01:34. Le CSV du 10/11/2026 contient 800 relevés datés et descend jusqu'au 12/04/2018.
-- Le compteur `0x04` vaut 824 et arrive après la lecture du registre `0x20`. L'hypothèse de l'utilisateur — compteur de lignes de l'historique au moment de la capture, avec environ 24 lignes de plus que le CSV plus ancien — est cohérente avec le décalage de dates entre les fichiers.
-- En revanche, le fichier HCI fourni ne contient que les séquences 0–399. Il ne permet donc pas, à lui seul, de démontrer la réception de 824 lignes. La déclaration « téléchargement terminé » côté application et le contenu de la capture HCI doivent être distingués : une fin côté application peut être une fin logique (arrêt sur une ligne déjà connue) et non nécessairement la fin physique de tout l'historique.
+La capture ne correspond pas à un export exhaustif de toutes les lignes de l'historique : elle montre le flux reçu pendant une synchronisation qui peut s'arrêter lorsqu'une ligne déjà connue est retrouvée. Cette distinction explique pourquoi le nombre de trames reçues n'est pas égal au compteur global annoncé.
 
-**Conséquence pour le code :** ne pas rejeter l'hypothèse 824. Décoder et conserver cette valeur comme compteur annoncé dès que le format exact de `0x04` est suffisamment caractérisé. Mais ne pas l'utiliser comme preuve de réception complète tant que le nombre d'entrées réellement reçues et la convention d'indexation des séquences ne sont pas rapprochés. Pour une synchronisation incrémentale, l'arrêt sur une ligne déjà connue reste un mécanisme différent du téléchargement exhaustif.
+Constats recoupés avec le CSV du 10/11 :
+- La notification `0x04` annonce la valeur 824 après la lecture du registre `0x20`. Le CSV antérieur contient 800 relevés datés. L'écart d'environ 24 lignes entre le 10/11 et le 12/11 est cohérent avec l'hypothèse de l'utilisateur : 824 est le nombre total de lignes annoncé au moment de la capture.
+- La capture contient 1 880 trames `0x30`, couvrant les séquences 0–399 : 25 blocs de métadonnées (0–24), puis des lignes de données (25–399). Les séquences 25 à 398 ont leurs cinq fragments observés ; la séquence 399 ne montre que le fragment 0.
+- La ligne de séquence 398 est datée du 01/05/2018 à 02:34:35. Cette ligne existe exactement dans le CSV fourni. C'est donc un candidat très solide pour la ligne déjà connue qui sert de borne à une synchronisation incrémentale.
+- La séquence 399 commence à 01/05/2018 à 01:34:36, date également présente dans le CSV. Seul son premier fragment apparaît à la fin du fichier HCI. Cela est compatible avec une notification déjà en vol au moment où l'application atteint la ligne connue précédente et coupe la liaison ; ce fragment isolé ne doit pas être compté comme une ligne reconstituée.
+- Le nombre de séquences/trames de cette capture ne doit donc pas être comparé directement au total 824 : l'application ne retransmet pas nécessairement tout l'historique déjà stocké. La fin de synchronisation incrémentale et la fin d'un export exhaustif sont deux notions distinctes.
 
+**Conséquence pour Vmi2 :** conserver 824 comme compteur global annoncé (interprétation de travail fortement cohérente avec les deux dates et le CSV). Ne pas exiger de recevoir 824 lignes à chaque synchronisation. Pour une synchronisation incrémentale, la condition de fin pertinente reste la rencontre d'une ligne de référence déjà connue, après réception complète de ses cinq fragments observés. Le compteur global pourra servir de contrôle de cohérence ou d'indication de progression d'un export exhaustif, pas de borne de fin d'une synchronisation incrémentale.
 ## 4. Enseignements pour Vmi2
 
 1. **Fraîcheur par session :** remettre à zéro les horodatages de mesures à chaque reconnexion. Distinguer lien BLE ouvert, dernière donnée reçue, donnée fraîche et donnée admissible à un snapshot.
@@ -164,7 +165,7 @@ Une réinspection des notifications ATT et des payloads `0x30` confirme les él�
 - Confirmer sur la Purevent les fonctions bypass, programme hebdomadaire, capteurs avancés et GTC avant de les exposer dans Vmi2.
 - Poursuivre l'audit Vmi2 de l'historique, de la persistance, des sauvegardes/restaurations, de la gestion offline et du service worker.
 
-- Le compteur `0x04 = 824` est retenu comme candidat au nombre de lignes annoncé au moment de la capture HCI du 12/11/2026. Le décalage avec le CSV du 10/11 (800 relevés) explique vraisemblablement environ 24 lignes supplémentaires. Attention : le HCI fourni ne contient que les séquences 0–399 (374 lignes complètes et une partielle), donc il ne prouve pas la réception des 824 lignes. Voir §3.2.
+- Le compteur `0x04 = 824` est retenu comme nombre total de lignes annoncé au moment de la capture HCI (interprétation de travail). Le CSV du 10/11 contient 800 relevés datés ; environ 24 lignes supplémentaires au 12/11 sont cohérentes avec l'écart temporel. Le HCI montre une synchronisation incrémentale qui atteint une ligne déjà connue, pas un export exhaustif des 824 lignes. Voir §3.2.
 
 ## 6. Règles de prudence pour les prochaines sessions
 
