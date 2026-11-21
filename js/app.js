@@ -24,6 +24,7 @@ import { summarizeWeeklyDiagnostic } from './modules/weekly-diagnostic.js';
 import { chooseAuthorizedDevice } from './modules/bluetooth-autoconnect.js';
 import { createBluetoothNotificationHandler, createReconnectHandler } from './modules/bluetooth-runtime.js';
 import { isBleStateStale } from './modules/bluetooth-freshness.js';
+import { createBleResponseGate } from './modules/bluetooth-response-gate.js';
 import { buildLiveFreshnessText } from './modules/live-freshness.js';
 import { formatDiagnosisConfidence } from './modules/diagnostic-confidence.js';
 import { analyzeSeasonalVentilation } from './modules/seasonal-advice.js';
@@ -77,6 +78,7 @@ let download={on:false,rows:[],buf:'',sigs:new Set(),got:false,lastPacket:0,time
 const DB='VMI_PUREVENT_DB_TEST',STORE='data';
 const { get: dbGet, set: dbSet, setMany: dbSetMany } = createStore({ databaseName: DB, storeName: STORE, onError: message => log(message) });
 const connected=()=>!!(chC&&dev&&dev.gatt&&dev.gatt.connected);
+const bleResponseGate=createBleResponseGate();
 const bleWriteQueue=createBleWriteQueue({
  isConnected:connected,
  getCharacteristic:()=>chC,
@@ -204,6 +206,15 @@ function pruneHist(){
 
 function writeFrame(bytes){return bleWriteQueue.write(bytes)}
 const send=(reg,val)=>writeFrame(frame(reg,val));
+const responseKindForRegister={3:'state',6:'probes',7:'room',24:'state',25:'state',26:'state'};
+async function sendAndWait(reg,val,expectedKind=responseKindForRegister[reg],timeoutMs=5000){
+ if(!expectedKind)return send(reg,val);
+ let response;
+ try{response=bleResponseGate.waitFor(expectedKind,timeoutMs)}catch(error){log(error.message||error);return false}
+ const written=await send(reg,val);
+ if(!written){bleResponseGate.cancel(new Error('Écriture BLE non confirmée.'));await response.catch(()=>{});return false}
+ try{await response;return true}catch(error){log('Réponse VMI attendue absente : '+(error.message||error));return false}
+}
 async function setClock(){if(!chC){showError('Connecte-toi d’abord à la VMI.');return false}const d=new Date();const ok=await writeFrame(timeFrame(d));$('dlp').textContent=ok?'Heure envoyée : '+d.toLocaleString('fr-FR'):'Heure non envoyée.';return ok}
 
 const handleNotification = createBluetoothNotificationHandler({
@@ -220,7 +231,8 @@ const handleNotification = createBluetoothNotificationHandler({
  updateLiveMetrics,
  log,
  hex,
- $
+ $,
+ onDecodedFrame:(kind,decoded)=>bleResponseGate.notify(kind,decoded)
 });
 function onNotification(ev){
  try{handleNotification(ev)}catch(e){log('Erreur de décodage d’une trame : '+(e.message||e));recordError('Décodage d’une trame : '+(e.message||e))}
@@ -261,9 +273,9 @@ async function poll(force=false){
  if(pollingSessionToken===token||!connected()||download.on||(manualCommandPending&&!force))return;
  pollingSessionToken=token;
  try{
-  for(const r of [3,6,7]){
-   if(token!==bleConnectionGeneration||!connected()||download.on)break;
-   const ok=await send(r,0);
+  for(const [r,kind] of [[3,'state'],[6,'probes'],[7,'room']]){
+   if(token!==bleConnectionGeneration||!connected()||download.on||manualCommandPending)break;
+   const ok=await sendAndWait(r,0,kind);
    if(!ok||token!==bleConnectionGeneration)break;
   }
  }finally{
@@ -299,6 +311,7 @@ function detachBleListeners(){
 }
 function cleanupConnection(){
  bleConnectionGeneration++;
+ bleResponseGate.cancel(new Error('Session Bluetooth terminée.'));
  clearInterval(freshnessTimer);freshnessTimer=null;bleConnectedAt=0;staleDisconnectRequested=false;
  if(download.on)finishDownload(false,true,true);
  clearInterval(pollTimer);clearInterval(snapTimer);clearTimeout(reconnectTimer);
@@ -465,16 +478,18 @@ document.querySelectorAll('[data-r]').forEach(b=>b.addEventListener('click',asyn
  const reg=Number(b.dataset.r),value=Number(b.dataset.v),[key,expected,label]=EXPECT[reg](value);
  const result=$('cmdResult');
  try{
+  while(pollingSessionToken===commandToken&&commandIsCurrent())await sleep(50);
+  if(!commandIsCurrent())return;
   result.textContent='Envoi de la commande à la VMI…';
   const t0=Date.now();
-  const sent=await send(reg,value);
+  const sent=await sendAndWait(reg,value,'state');
   if(!commandIsCurrent()){result.textContent='Connexion interrompue : l’état de la commande n’a pas pu être vérifié.';return}
   if(!sent){result.textContent='La commande n’a pas pu être envoyée (voir le journal Bluetooth).';return}
   result.textContent='Commande envoyée, vérification de l’état…';
   for(let i=0;i<10&&commandIsCurrent()&&!((lastSeen.state||0)>t0);i++)await sleep(200);
   if(!commandIsCurrent()){result.textContent='Connexion interrompue : l’état de la commande n’a pas pu être vérifié.';return}
   if(!((lastSeen.state||0)>t0)){
-   const readSent=await send(3,0);
+   const readSent=await sendAndWait(3,0,'state');
    if(!commandIsCurrent()){result.textContent='Connexion interrompue : l’état de la commande n’a pas pu être vérifié.';return}
    if(readSent)for(let i=0;i<10&&commandIsCurrent()&&!((lastSeen.state||0)>t0);i++)await sleep(200);
   }
@@ -482,7 +497,6 @@ document.querySelectorAll('[data-r]').forEach(b=>b.addEventListener('click',asyn
   if((lastSeen.state||0)>t0&&cur[key]===expected)result.textContent='✓ Confirmé par la VMI : '+label+'.';
   else if((lastSeen.state||0)>t0)result.textContent='⚠ La VMI a répondu mais l’état affiché n’est pas '+label.toLowerCase()+'. Vérifie sur la VMI ou dans VMI+.';
   else result.textContent='⚠ Commande envoyée mais aucune réponse de la VMI : l’état n’a pas pu être vérifié.';
-  poll(true);
  }catch(e){
   showError(e);result.textContent='Erreur pendant la commande.';
  }finally{
