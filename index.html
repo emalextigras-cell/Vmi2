@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#245b43">
-<meta http-equiv="Content-Security-Policy" content="script-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; object-src 'none'; base-uri 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; object-src 'none'; base-uri 'self'">
 <title>VMI Purevent – Supervision & optimisation</title>
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="css/style.css">
@@ -75,33 +75,35 @@
   <b>Boost :</b><button class="outline" data-r="25" data-v="1">Activer</button><button class="outline" data-r="25" data-v="0">Arrêter</button>
   <b>Vacances :</b><button class="outline" data-r="26" data-v="1">1 jour</button><button class="outline" data-r="26" data-v="7">7 jours</button><button class="outline" data-r="26" data-v="15">15 jours</button><button class="outline" data-r="26" data-v="0">Arrêter</button>
  </div>
- <div class="card compact">
-  <h3>Réglages avancés Purevent</h3>
-  <p class="note">Chaque action relit l’état juste avant l’écriture et vérifie ensuite la réponse. La consigne de préchauffage démarre le chauffage ; l’arrêt complet peut nécessiter deux écritures vérifiées.</p>
-  <div class="row">
-   <b>Surventilation :</b>
-   <button class="outline" data-advanced="surventilation" data-value="true">Activer</button>
-   <button class="outline" data-advanced="surventilation" data-value="false">Arrêter</button>
-  </div>
-  <div class="row">
-   <label for="summerLimitInput">Limite estivale (22–37 °C) :</label>
-   <select id="summerLimitInput"><option value="22">22 °C</option><option value="23">23 °C</option><option value="24">24 °C</option><option value="25">25 °C</option><option value="26">26 °C</option><option value="27">27 °C</option><option value="28">28 °C</option><option value="29">29 °C</option><option value="30">30 °C</option><option value="31">31 °C</option><option value="32" selected>32 °C</option><option value="33">33 °C</option><option value="34">34 °C</option><option value="35">35 °C</option><option value="36">36 °C</option><option value="37">37 °C</option></select>
-   <button class="outline" id="summerLimitApply">Appliquer</button>
-  </div>
-  <div class="row">
-   <b>Débit fixe :</b>
-   <button class="outline" data-advanced="fixedAirflow" data-value="true">Activer</button>
-   <button class="outline" data-advanced="fixedAirflow" data-value="false">Désactiver</button>
-  </div>
-  <div class="row">
-   <label for="preheatSetpointInput">Consigne préchauffage (12–18 °C) :</label>
-   <select id="preheatSetpointInput"><option value="12">12 °C</option><option value="13">13 °C</option><option value="14">14 °C</option><option value="15" selected>15 °C</option><option value="16">16 °C</option><option value="17">17 °C</option><option value="18">18 °C</option></select>
-   <button class="outline" id="preheatSetpointApply">Régler et démarrer</button>
-  </div>
-  <div class="row">
-   <b>Préchauffage :</b>
-   <button class="outline" data-advanced="preheatPower" data-value="true">Démarrer</button>
-   <button class="outline" data-advanced="preheatPower" data-value="false">Arrêter complètement</button>
+ <div class="card compact" id="unverifiedAdvancedCommands">
+  <h3>Réglages avancés Purevent — temporairement désactivés</h3>
+  <p class="note" role="status">Commandes masquées par précaution : les registres avancés proviennent de références publiques et ne sont pas encore validés sur cette VMI. Il faut capturer chaque action dans l’application officielle VMI+ avant toute réactivation, en particulier le préchauffage électrique.</p>
+  <div hidden aria-hidden="true">
+   <div class="row">
+    <b>Surventilation :</b>
+    <button class="outline" data-advanced="surventilation" data-value="true" disabled>Activer</button>
+    <button class="outline" data-advanced="surventilation" data-value="false" disabled>Arrêter</button>
+   </div>
+   <div class="row">
+    <label for="summerLimitInput">Limite estivale (22–37 °C) :</label>
+    <select id="summerLimitInput" disabled><option value="22">22 °C</option><option value="23">23 °C</option><option value="24">24 °C</option><option value="25">25 °C</option><option value="26">26 °C</option><option value="27">27 °C</option><option value="28">28 °C</option><option value="29">29 °C</option><option value="30">30 °C</option><option value="31">31 °C</option><option value="32" selected>32 °C</option><option value="33">33 °C</option><option value="34">34 °C</option><option value="35">35 °C</option><option value="36">36 °C</option><option value="37">37 °C</option></select>
+    <button class="outline" id="summerLimitApply" disabled>Appliquer</button>
+   </div>
+   <div class="row">
+    <b>Débit fixe :</b>
+    <button class="outline" data-advanced="fixedAirflow" data-value="true" disabled>Activer</button>
+    <button class="outline" data-advanced="fixedAirflow" data-value="false" disabled>Désactiver</button>
+   </div>
+   <div class="row">
+    <label for="preheatSetpointInput">Consigne préchauffage (12–18 °C) :</label>
+    <select id="preheatSetpointInput" disabled><option value="12">12 °C</option><option value="13">13 °C</option><option value="14">14 °C</option><option value="15" selected>15 °C</option><option value="16">16 °C</option><option value="17">17 °C</option><option value="18">18 °C</option></select>
+    <button class="outline" id="preheatSetpointApply" disabled>Régler et démarrer</button>
+   </div>
+   <div class="row">
+    <b>Préchauffage :</b>
+    <button class="outline" data-advanced="preheatPower" data-value="true" disabled>Démarrer</button>
+    <button class="outline" data-advanced="preheatPower" data-value="false" disabled>Arrêter complètement</button>
+   </div>
   </div>
  </div>
  <div id="cmdResult" class="status"></div>

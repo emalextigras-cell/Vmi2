@@ -35,3 +35,14 @@ test('APP_SHELL contient tous les fichiers JavaScript de js/ et aucun outil de v
   assert.ok(appVersion, 'APP_VERSION introuvable dans core.js');
   assert.ok(serviceWorker.includes(`const CACHE_NAME = 'vmi-test-v${appVersion}-cache-`), 'Le cache du service worker doit utiliser la même version applicative');
 });
+
+
+test('les commandes avancées non validées restent masquées et bloquées à l’exécution', async () => {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const app = await readFile(new URL('../js/app.js', import.meta.url), 'utf8');
+  assert.match(html, /id="unverifiedAdvancedCommands"/);
+  assert.match(html, /<div hidden aria-hidden="true">[\s\S]*data-advanced="preheatPower"[^>]*disabled/);
+  assert.match(html, /Commandes masquées par précaution[\s\S]*capturer chaque action dans l’application officielle VMI\+ avant toute réactivation/);
+  assert.match(app, /const ADVANCED_COMMANDS_ENABLED = false;/);
+  assert.match(app, /if\(!ADVANCED_COMMANDS_ENABLED\)[\s\S]*Commande avancée bloquée/);
+});

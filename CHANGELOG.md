@@ -1,3 +1,11 @@
+## Sécurité — commandes avancées non validées
+- Désactivation visible et verrouillage à l’exécution de toutes les écritures des réglages avancés Purevent (surventilation, limite estivale, débit fixe, consigne et marche du préchauffage).
+- Les commandes manuelles classiques (vitesse, Boost, vacances), la lecture d’état et les analyses restent disponibles.
+- Les références publiques ne sont pas considérées comme une preuve de compatibilité avec cette VMI. Réactivation conditionnée à une capture VMI+ officielle de chaque action et à une revue des trames.
+- Aucun essai matériel ni envoi de commande à la VMI n’a été réalisé.
+- CSP complétée avec `default-src 'self'` et directives de ressources explicites.
+- Cache du service worker porté à `vmi-test-v14-cache-83`.
+
 ## Correctif CI — moteur hygrométrique
 - Restauration de l'import local de `median` et des validateurs utilisés par `summarizeTemperatureLimit`, resté dans `analysis.js`.
 - Restauration du formateur de durée `fmtHours` dans le module hygrométrique après extraction.
@@ -41,7 +49,7 @@ Ce fichier conserve les évolutions fonctionnelles et techniques de **VMI Pureve
 
 Les numéros de version de l'interface et du cache du service worker sont deux identifiants distincts :
 - version affichée dans `index.html` (actuellement **v14**) ;
-- nom du cache dans `sw.js` (actuellement **vmi-test-v14-cache-77**).
+- nom du cache dans `sw.js` (actuellement **vmi-test-v14-cache-83**).
 
 Ils ne sont pas générés automatiquement. La convention de mise à jour est décrite à la fin de ce fichier.
 
