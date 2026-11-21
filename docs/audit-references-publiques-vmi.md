@@ -693,3 +693,15 @@ Aucune commande envoyée à la VMI ; comparaison documentaire uniquement.
 - La tolérance ne change pas l'horodatage d'origine et n'est pas appliquée à l'import CSV ni aux autres appels de correction.
 - Tests ajoutés : +6 secondes conservé avec la tolérance Bluetooth ; +60 secondes rejeté ; comportement strict sans option inchangé.
 - Validation matérielle à effectuer lors d'une prochaine connexion utilisateur ; aucun accès BLE ni commande envoyée pendant ce correctif.
+
+
+## 3.23 — Commit fiable de la synchronisation historique (21/11/2026)
+
+- La tolérance de 30 secondes du téléchargement Bluetooth était appliquée dans `fixClock`, mais le filtre strict de `mergeImportedHistory` supprimait encore un relevé situé à +6 secondes.
+- `mergeImportedHistory` accepte maintenant une tolérance optionnelle plafonnée à 120 secondes ; elle reste nulle par défaut et n'est activée que pour le téléchargement BLE.
+- Nouveau module `history-sync-commit.js` : fusion, limitation de l'historique et écriture transactionnelle des clés `hist` et `meta`.
+- La date `lastSync` et les éventuelles nouvelles références de compteur ne sont validées en mémoire qu'après confirmation de la transaction IndexedDB. En cas d'échec, la synchronisation est signalée comme non validée.
+- Les imports CSV/Excel attendent également la fin de la sauvegarde avant d'annoncer la fin de leur traitement.
+- Tests ajoutés : conservation à +6 secondes, rejet à +60 secondes, filtrage strict sans option, écriture conjointe des métadonnées et rejet de la promesse en cas d'échec de stockage.
+- Cache du service worker incrémenté à `vmi-test-v14-cache-77`, avec le nouveau module ajouté à `APP_SHELL`.
+- Validation matérielle non réalisée : aucun périphérique BLE n'a été connecté et aucune commande n'a été envoyée.
