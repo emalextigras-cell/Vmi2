@@ -4,7 +4,7 @@
  * de référence lorsqu’il identifie leur rôle. Les octets non identifiés restent bruts.
  */
 /**
- * @typedef {{kind:'invalid',type:number,length:number,requiredLength:number}|{kind:'history',valid:false,length:number}|{kind:'history',valid:true,payload:Uint8Array,fragmentCount:number,sequence:number,chunkIndex:number,received:number,final:boolean}|{kind:'state',filter:number,days:number,volume:number,maxTemperature:number,rawSpeed:number,boost:number,holiday:number}|{kind:'room',temperature:number,humidity:number}|{kind:'probes',firstTemperature:number,firstHumidity:number,secondTemperature:number,secondHumidity:number}|{kind:'history-total',total:number}|{kind:'unknown',type:number,length:number}} VmiNotification
+ * @typedef {{kind:'invalid',type:number,length:number,requiredLength:number}|{kind:'history',valid:false,length:number}|{kind:'history',valid:true,payload:Uint8Array,sequence:number,chunkIndex:number,received:number,final:boolean}|{kind:'state',filter:number,days:number,volume:number,maxTemperature:number,rawSpeed:number,boost:number,holiday:number}|{kind:'room',temperature:number,humidity:number}|{kind:'probes',firstTemperature:number,firstHumidity:number,secondTemperature:number,secondHumidity:number}|{kind:'history-total',total:number}|{kind:'unknown',type:number,length:number}} VmiNotification
  */
 /**
  * decodeVmiNotification — contrat discriminé d'entrée/sortie pour l'analyse statique.
@@ -33,7 +33,6 @@ export function decodeVmiNotification(input) {
       kind: 'history',
       valid: true,
       payload: bytes.slice(14, end),
-      fragmentCount: bytes[11],
       sequence: bytes[9] | (bytes[10] << 8),
       chunkIndex: bytes[12],
       received: bytes[9] | (bytes[10] << 8),
