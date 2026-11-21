@@ -1,44 +1,34 @@
 /** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
 /** @typedef {import('../types/vmi-types.js').UnknownRecord} UnknownRecord */
-/** @typedef {import('../types/vmi-types.js').EnergyReading} EnergyReading */
-/** @typedef {{hist:VmiRecord[],live:VmiRecord[],meta:UnknownRecord,energyReadings:EnergyReading[],addedHistory:number,enrichedHistory:number,addedLive:number,addedEnergyReadings:number}} BackupMergeResult */
+/** @typedef {{hist:VmiRecord[],live:VmiRecord[],meta:UnknownRecord,addedHistory:number,enrichedHistory:number,addedLive:number}} BackupMergeResult */
 
-/** Fonctions pures de création et de restauration des sauvegardes. */
 import { mergeRecordFields, isRawDateEligible } from './history.js';
-import { isValidEnergyReading } from './energy-meter.js';
 
-/**
- * Construit une sauvegarde versionnée sans modifier les données sources.
- * @param {{hist: VmiRecord[], live: VmiRecord[], meta: UnknownRecord, energyReadings?: EnergyReading[], exportedAt?: string}} options Données à sauvegarder et horodatage d'export.
+/** Construit une sauvegarde versionnée sans modifier les données sources.
+ * @param {{hist: VmiRecord[], live: VmiRecord[], meta: UnknownRecord, exportedAt?: string}} options Données à sauvegarder et horodatage d'export.
  * @returns {UnknownRecord} Instantané de sauvegarde compatible avec le format VMI.
  */
-export function createBackupSnapshot({ hist, live, meta, energyReadings, exportedAt = new Date().toISOString() }) {
-  const snapshot = {
+export function createBackupSnapshot({ hist, live, meta, exportedAt = new Date().toISOString() }) {
+  return {
     app: 'vmi-purevent', version: 1, exportedAt,
-    hist: Array.isArray(hist) ? hist : [], live: Array.isArray(live) ? live : [],
+    hist: Array.isArray(hist) ? hist : [],
+    live: Array.isArray(live) ? live : [],
     meta: meta && typeof meta === 'object' && !Array.isArray(meta) ? meta : {}
   };
-  // Champ facultatif pour conserver la compatibilité avec les sauvegardes v13 antérieures.
-  if (Array.isArray(energyReadings)) {
-    snapshot.energyReadings = energyReadings.filter(isValidEnergyReading);
-  }
-  return snapshot;
 }
 
-/** Fusionne une sauvegarde sans effacer les champs déjà connus à timestamp égal. */
-/**
- * Fusionne une sauvegarde dans les données locales en préservant les champs existants.
- * @param {{backup: UnknownRecord, currentHist?: VmiRecord[], currentLive?: VmiRecord[], currentMeta?: UnknownRecord, currentEnergyReadings?: EnergyReading[], minValid: number, maxLive?: number, maxTimestamp?: number}} options Sauvegarde et état local à fusionner.
+/** Fusionne une sauvegarde dans les données locales en préservant les champs existants.
+ * @param {{backup: UnknownRecord, currentHist?: VmiRecord[], currentLive?: VmiRecord[], currentMeta?: UnknownRecord, minValid: number, maxLive?: number, maxTimestamp?: number}} options Sauvegarde et état local à fusionner.
  * @returns {BackupMergeResult} Données fusionnées et compteurs d'import.
  */
 export function mergeBackupData({
   backup, currentHist = [], currentLive = [], currentMeta = {},
-  currentEnergyReadings = [], minValid, maxLive = 10000, maxTimestamp = Date.now()
+  minValid, maxLive = 10000, maxTimestamp = Date.now()
 }) {
   if (!backup || backup.app !== 'vmi-purevent' || !Array.isArray(backup.hist)) {
     throw new Error('Fichier de sauvegarde non reconnu.');
   }
-  const source = /** @type {UnknownRecord & {hist:VmiRecord[], live?:VmiRecord[], meta?:{lastSync?:string}, energyReadings?:EnergyReading[]}} */ (backup);
+  const source = /** @type {UnknownRecord & {hist:VmiRecord[], live?:VmiRecord[], meta?:{lastSync?:string}}} */ (backup);
   if (!Number.isFinite(minValid) || minValid <= 0) {
     throw new RangeError('minValid doit être un horodatage fini strictement positif.');
   }
@@ -68,8 +58,7 @@ export function mergeBackupData({
   const hist = [...history.values()].sort((a,b) => a.t-b.t);
 
   // Les horodatages futurs sont écartés des relevés directs, qu'ils viennent
-  // de la sauvegarde ou de l'état local. Ne pas appliquer minValid ici :
-  // les relevés live historiques n'ont pas les mêmes contraintes que hist.
+  // de la sauvegarde ou de l'état local.
   const isUsableLive = record => record && Number.isFinite(record.t) &&
     Number.isFinite(new Date(record.t).getTime()) && record.t <= maxTimestamp;
   let live = currentLive.filter(isUsableLive), addedLive = 0;
@@ -90,19 +79,5 @@ export function mergeBackupData({
   }
   const meta={...(currentMeta && typeof currentMeta === 'object' && !Array.isArray(currentMeta) ? currentMeta : {})};
   if(source.meta?.lastSync&&(!meta.lastSync||source.meta.lastSync>String(meta.lastSync))) meta.lastSync=source.meta.lastSync;
-
-  let energyReadings = Array.isArray(currentEnergyReadings)
-    ? currentEnergyReadings.filter(isValidEnergyReading) : [];
-  let addedEnergyReadings = 0;
-  if (Array.isArray(source.energyReadings)) {
-    const byId = new Map(energyReadings.map(reading => [reading.id, reading]));
-    for (const reading of source.energyReadings.filter(isValidEnergyReading)) {
-      if (!byId.has(reading.id)) {
-        byId.set(reading.id, reading);
-        addedEnergyReadings++;
-      }
-    }
-    energyReadings = [...byId.values()].sort((a,b) => a.t-b.t);
-  }
-  return { hist, live, meta, energyReadings, addedHistory, enrichedHistory, addedLive, addedEnergyReadings };
+  return { hist, live, meta, addedHistory, enrichedHistory, addedLive };
 }
