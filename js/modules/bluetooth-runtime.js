@@ -160,8 +160,8 @@ export function createBluetoothNotificationHandler(deps) {
       $('phSet').textContent = cur.preheatSetpoint > 0 ? cur.preheatSetpoint + ' °C' : 'Aucune';
       $('summerLimit').textContent = cur.summerLimit + ' °C';
       $('fixedFlow').textContent = cur.fixedAirflow ? 'Actif' : 'Inactif';
-      $('renewal').textContent = cur.airChangesPerHour.toFixed(3) + ' vol/h';
-      $('airflow').textContent = cur.airflowM3h + ' m³/h';
+      $('renewal').textContent = Number.isFinite(cur.airChangesPerHour) ? cur.airChangesPerHour.toFixed(3) + ' vol/h' : '–';
+      $('airflow').textContent = Number.isFinite(cur.airflowM3h) ? cur.airflowM3h + ' m³/h' : '–';
     } else if (decoded.kind === 'room') {
       cur.sal_t_raw = decoded.temperature;
       cur.sal_h_raw = decoded.humidity;
