@@ -595,6 +595,9 @@ async function startDownload(auto=false){
  download={on:true,rows:[],buf:'',sigs:new Set(hist.filter(r=>isHistorySyncBaseline(r)&&r.rk&&Number.isFinite(r.d)).map(sigOf)),got:false,lastPacket:Date.now(),timeout:null,historyStream:createHistoryStreamState(),integrityGap:false,dataStarted:false,announcedTotalRows:null};
  $('dlh').disabled=true;setCommandsDisabled(true);
  $('dlp').textContent=auto?'Téléchargement automatique de l’historique…':'Démarrage du téléchargement…';
+ // Terminer la requête de lecture déjà en cours avant d'envoyer les registres du flux historique.
+ while(pollingSessionToken===sessionToken&&connected())await sleep(50);
+ if(!download.on||sessionToken!==bleConnectionGeneration){abortDownload();return}
  const sequenceOk=await runBleSessionSequence({
   token:sessionToken,
   getToken:()=>bleConnectionGeneration,
