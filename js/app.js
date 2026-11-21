@@ -519,7 +519,7 @@ function finishDownload(reachedCut,timeout=false,interrupted=false){
  if(!download.on)return;
  download.on=false;clearTimeout(download.timeout);
  const count=download.rows.length;
- const complete=!timeout&&!interrupted&&!download.integrityGap&&!(download.invalidRows>0)&&(reachedCut||download.finalSeen===true);
+ const complete=!timeout&&!interrupted&&!download.integrityGap&&!(download.invalidRows>0)&&reachedCut;
  const syncObservedAt=Date.now();
  const newestCounterRecord=download.rows.find(record=>Number.isFinite(record.d));
  const counterAssessment=complete&&newestCounterRecord
