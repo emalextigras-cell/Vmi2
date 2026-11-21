@@ -4,6 +4,7 @@ import {
   createBluetoothNotificationHandler,
   createReconnectHandler
 } from '../js/modules/bluetooth-runtime.js';
+import { createHistoryStreamState, acceptHistoryFragment } from '../js/modules/bluetooth-history-stream.js';
 
 function makeNotificationHandler(overrides = {}) {
   const elements = new Map();
@@ -163,4 +164,42 @@ test('reconnexion échouée programme un nouvel essai après 7 secondes', async 
   await reconnect();
   assert.equal(timerCleared, 12);
   assert.equal(scheduledDelay, 7000);
+});
+
+
+test('attend les cinq fragments de la ligne de coupure avant de terminer la synchronisation', () => {
+  let current = null;
+  let downloadRef = null;
+  let finishCalls = 0;
+  const h = makeNotificationHandler({
+    decodeVmiNotification: () => current,
+    acceptHistoryFragment,
+    parseDownloadLine: () => { downloadRef.reachedCut = true; },
+    finishDownload: () => { finishCalls++; }
+  });
+  downloadRef = h.download;
+  h.download.on = true;
+  h.download.historyStream = createHistoryStreamState();
+
+  const fragments = [
+    [0, '12/11/2026 14:31:00;ligne connue;'],
+    [10, 'suite-1;'],
+    [20, 'suite-2;'],
+    [30, '\\n'],
+    [40, '']
+  ];
+  fragments.forEach(([chunkIndex, payload]) => {
+    current = {
+      kind: 'history',
+      valid: true,
+      payload: new TextEncoder().encode(payload),
+      sequence: 25,
+      chunkIndex
+    };
+    h.handler({ target: { value: new DataView(new Uint8Array([1]).buffer) } });
+    if (chunkIndex !== 40) assert.equal(finishCalls, 0);
+  });
+
+  assert.equal(finishCalls, 1);
+  assert.equal(h.download.historyStream.expectedChunk, 50);
 });
