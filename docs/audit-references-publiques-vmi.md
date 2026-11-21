@@ -603,3 +603,14 @@ Artefacts contrôlés : `00_A0_50_48_B4_A3-2026-11-10-16_55.csv` et `vmi-sauvega
 - Ajouter des tests simulant une réponse tardive de même type, le blocage des attentes sur session invalidée, et la réouverture uniquement après changement de session.
 
 **État :** anomalie d'orchestration identifiée par lecture croisée des trois implémentations ; correction logicielle à réaliser et valider. Aucun essai matériel ni commande BLE envoyée.
+
+**Correction implémentée sur la branche Vmi2 (21/11/2026) :**
+- La barrière `createBleResponseGate()` passe désormais en état invalidé après expiration ou annulation ; elle refuse toute nouvelle attente et ignore toutes les notifications tant que `reset()` n'a pas été appelé.
+- L'application réinitialise la barrière uniquement après établissement complet d'une nouvelle connexion et des notifications.
+- Après timeout ou échec d'écriture d'une requête avec réponse attendue, Vmi2 ferme la connexion GATT courante. La reconnexion automatique crée une nouvelle session de notifications avant de reprendre le polling.
+- Une commande dont l'ACK / réponse a expiré reste non confirmée. La reconnexion peut récupérer l'état actuel, mais ne prouve pas rétroactivement l'exécution de la commande.
+- Tests ajoutés : timeout verrouille la session, réponse tardive ignorée, attente impossible avant reset, reset sur nouvelle session, et assertions d'intégration sur la fermeture / réinitialisation.
+- Les tests sont simulés ; aucune connexion ni commande à la VMI physique n'a été utilisée pour cette validation.
+- Cache service worker incrémenté à `vmi-test-v14-cache-72`.
+
+**Limite résiduelle :** le mécanisme empêche qu'une notification reçue après expiration, sur la connexion invalidée, soit associée à une nouvelle attente. Il ne peut pas prouver l'exécution d'une commande dont la réponse a expiré ; l'interface doit continuer à la signaler comme non confirmée.
