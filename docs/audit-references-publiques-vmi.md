@@ -443,3 +443,5 @@ Artefacts contrôlés : `00_A0_50_48_B4_A3-2026-11-10-16_55.csv` et `vmi-sauvega
 - La sémantique des offsets est celle de la référence Purevent 6.4.002. Les trames HCI de l'utilisateur ne contiennent pas encore une commande de réglage ou un état explicitement documenté de tous ces modes ; aucune commande physique n'a été envoyée.
 
 **Cache service worker :** `vmi-test-v14-cache-68`.
+
+- GitHub Actions #1020, commit `b7670c3e03d632d24e2a84efba23f2a67cdc8f5c` : **554 tests réussis, 0 échec** ; syntaxe JavaScript, ESLint et types JSDoc réussis.
