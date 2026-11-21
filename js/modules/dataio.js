@@ -5,6 +5,7 @@
 import { DAY, pad, num } from './date-utils.js';
 
 // Indices de secours du CSV VMI+ réel (en-tête sur la 4e ligne).
+// 39 = Tempext extérieur ; 40–42 = sonde résistances ; 43–45 = air après résistance.
 const FALLBACK_COLUMN = Object.freeze({
   date: 0, event: 1, volume: 2, mode: 3, consRes: 4, consHydroR: 5,
   consTmax: 7, durationDays: 11, season: 12, systemState: 13, failure: 14,
@@ -179,6 +180,7 @@ export function recFrom(row, spreadsheet = globalThis.XLSX, mapping = null) {
     h1: num(row[columns.probeHumidity]),
     // Les valeurs Hum abs de VMI+ restent brutes : leur unité n'est pas confirmée.
     vmiAbsP0: num(row[columns.probeAbsHumidity]),
+    // Température et humidité de l’air après résistance (colonnes VMI+ 43–44).
     te: num(row[columns.incomingTemp]),
     he: num(row[columns.incomingHumidity]),
     vmiAbsP1: num(row[columns.incomingAbsHumidity]),
