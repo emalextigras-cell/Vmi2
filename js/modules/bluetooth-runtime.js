@@ -146,15 +146,17 @@ export function createBluetoothNotificationHandler(deps) {
       $('tp').textContent = cur.sal_t;
       $('hp').textContent = cur.sal_h;
     } else if (decoded.kind === 'probes') {
-      cur.s1_t = decoded.firstTemperature;
-      cur.s1_h = decoded.firstHumidity;
-      cur.s2_t = decoded.secondTemperature;
-      cur.s2_h = decoded.secondHumidity;
+      // Le protocole VMI+ utilise la localisation 0x08 pour un emplacement vide.
+      // La capture Purevent confirme ce marqueur sur les trois derniers slots.
+      cur.s1_t = decoded.firstLocation === 0x08 ? null : decoded.firstTemperature;
+      cur.s1_h = decoded.firstLocation === 0x08 ? null : decoded.firstHumidity;
+      cur.s2_t = decoded.secondLocation === 0x08 ? null : decoded.secondTemperature;
+      cur.s2_h = decoded.secondLocation === 0x08 ? null : decoded.secondHumidity;
       lastSeen.probes = timestamp;
-      $('ti').textContent = cur.s1_t;
-      $('hi').textContent = cur.s1_h;
-      $('t2').textContent = cur.s2_t;
-      $('h2').textContent = cur.s2_h;
+      $('ti').textContent = cur.s1_t ?? '–';
+      $('hi').textContent = cur.s1_h ?? '–';
+      $('t2').textContent = cur.s2_t ?? '–';
+      $('h2').textContent = cur.s2_h ?? '–';
     } else {
       return;
     }
