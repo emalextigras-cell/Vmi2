@@ -535,7 +535,7 @@ function finishDownload(completeBoundary,timeout=false,interrupted=false){
  const count=download.rows.length;
  const complete=!timeout&&!interrupted&&!download.integrityGap&&!(download.invalidRows>0)&&completeBoundary;
  const syncObservedAt=Date.now();
- const newestCounterRecord=/** @type {VmiRecord[]} */ (download.rows).find(record=>Number.isFinite(record.d));
+ const newestCounterRecord=(/** @type {VmiRecord[]} */ (download.rows)).find(record=>Number.isFinite(record.d));
  const counterAssessment=complete&&newestCounterRecord
   ? evaluateCounterBaseline({
    baseline:/** @type {{d:number,observedAt:number}|undefined} */ (meta.counterBaseline),
