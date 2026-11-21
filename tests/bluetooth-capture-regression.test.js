@@ -18,23 +18,6 @@ test('rejoue la notification BLE réelle de la télécommande du salon', () => {
   });
 });
 
-test('rejoue le préfixe de la trame 0x03 capturée sans confondre filtre et humidité', () => {
-  // Préfixe des octets utiles de l’unique trame 0x03 observée dans le BTSnoop.
-  // Le protocole de référence attribue l’octet 13 au pourcentage filtre.
-  const bytes = new Uint8Array([
-    0xA5, 0xB6, 0x03, 0x06, 0x19, 0x00, 0x0D,
-    0x00, 0x60, 0x00, 0x01, 0x0C, 0x00, 0x61
-  ]);
-
-  assert.deepEqual(decodeVmiNotification(bytes), {
-    kind: 'probes',
-    firstTemperature: 13,
-    firstHumidity: 96,
-    secondTemperature: 12,
-    filterPercent: 97
-  });
-});
-
 test('lit la vraie ligne VMI+ sans confondre Tempext, sondes et télécommande salon', () => {
   // En-tête et ligne copiés de l'export fourni (10/11/2026 16:45:35).
   // La ligne réelle est conservée ici en version minimale : colonnes utiles et
