@@ -106,6 +106,8 @@ function makeBluetoothFixture() {
     isCommandPending: () => false,
     onSnapshot: () => {},
     onAutoHistory: () => {},
+    onManualConnectRequested: () => {},
+    onManualConnectSettled: () => {},
     setTimeoutFn: () => 1,
     clearTimeoutFn: () => {},
     setIntervalFn: () => 1,
