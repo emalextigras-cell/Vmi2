@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { runBleSessionSequence } from '../js/modules/bluetooth-session.js';
-import { createReconnectHandler } from '../js/modules/bluetooth-runtime.js';
+import { createBluetoothService } from '../js/modules/bluetooth-service.js';
 
 test('arrête la séquence dès que la session BLE change', async () => {
   let token = 1;
@@ -50,79 +50,108 @@ test('arrête la séquence après un échec d’écriture', async () => {
   assert.deepEqual(sent, [1]);
 });
 
-test('les scrutations et notifications sont liées à leur session BLE', async () => {
-  const source = await readFile(new URL('../js/app.js', import.meta.url), 'utf8');
-  assert.ok(source.includes('pollingSessionToken===token'));
-  assert.ok(source.includes('token!==bleConnectionGeneration||!connected()||download.on'));
-  assert.ok(source.includes('if(!sessionIsCurrent(token,device)||!connected())return;'));
-  assert.ok(source.includes('if(ev.target!==characteristicT&&ev.target!==characteristicC)return;'));
-  assert.ok(source.includes('if(sessionIsCurrent(token,device)&&connected())autoHistory()'));
-  assert.ok(source.includes('const commandIsCurrent=()=>sessionIsCurrent(commandToken,commandDevice)&&connected()'));
-  assert.ok(source.includes("if(!commandIsCurrent()){result.textContent='Connexion interrompue : l’état de la commande n’a pas pu être vérifié.';return}"));
-  assert.ok(source.includes('if(pollingSessionToken===token||!connected()||download.on'));
-  assert.ok(source.includes("document.querySelectorAll('[data-advanced]')"));
-  assert.ok(source.includes('if(commandToken===bleConnectionGeneration){manualCommandPending=false;controls.forEach(x=>x.disabled=download.on)}'));
-  assert.ok(source.includes("removeEventListener('characteristicvaluechanged',bleNotificationHandler)"));
-  assert.ok(source.includes('if(connectionRequestPending)return;'));
-  assert.ok(source.includes('const intent=++connectionIntentGeneration;'));
-  assert.ok(source.includes('if(intent!==connectionIntentGeneration||connectionRequestPending)return;'));
-  assert.ok(source.includes('if(intent===connectionIntentGeneration){\n   connectionRequestPending=false;'));
-  assert.ok(source.includes('bleResponseGate.reset();'));
-  assert.ok(source.includes('function disconnectAfterBleCorrelationLoss()'));
-  assert.ok(source.includes('if(!bleResponseGate.isInvalidated||!connected())return;'));
-  assert.ok(source.includes('disconnectAfterBleCorrelationLoss();'));
-});
-
-test('installe les écouteurs de notification avant d’activer les notifications BLE', async () => {
-  const source = await readFile(new URL('../js/app.js', import.meta.url), 'utf8');
-  const start = source.indexOf('async function connectCharacteristics(');
-  const end = source.indexOf('\nfunction preferredBluetoothDeviceId()', start);
-  assert.ok(start >= 0 && end > start);
-  const connection = source.slice(start, end);
-  assert.ok(connection.indexOf("addEventListener('characteristicvaluechanged'") < connection.indexOf('await characteristicT.startNotifications()'));
-  assert.ok(connection.indexOf("addEventListener('characteristicvaluechanged'") < connection.indexOf('await characteristicC.startNotifications()'));
-});
-
-function reconnectDeps(overrides = {}) {
-  return {
-    isManualDisconnect: () => false,
-    getDevice: () => ({ id: 'vmi' }),
-    isConnectionRequestPending: () => false,
-    getConnectionIntentGeneration: () => 1,
-    connectDevice: async () => true,
-    log: () => {},
-    clearTimeout: () => {},
-    setTimeout: () => 1,
-    getReconnectTimer: () => null,
-    setReconnectTimer: () => {},
-    ...overrides
+function makeBluetoothFixture() {
+  const events = [];
+  const listeners = new Map();
+  const makeCharacteristic = name => ({
+    name,
+    properties: { write: true },
+    addEventListener: type => events.push(name + ':add:' + type),
+    removeEventListener: type => events.push(name + ':remove:' + type),
+    startNotifications: async () => { events.push(name + ':start'); },
+    writeValueWithResponse: async () => {
+      events.push(name + ':write');
+      queueMicrotask(() => service.notifyResponse('state', { ok: true }));
+    }
+  });
+  const command = makeCharacteristic('command');
+  const telemetry = makeCharacteristic('telemetry');
+  const server = {
+    getPrimaryService: async uuid => ({
+      getCharacteristic: async characteristicUuid =>
+        characteristicUuid === '0003cbb1-0000-1000-8000-00805f9b0131' ? command : telemetry
+    })
   };
+  const device = {
+    id: 'purevent-test',
+    name: 'Purevent simulée',
+    addEventListener: (type, callback) => listeners.set(type, callback),
+    removeEventListener: type => listeners.delete(type),
+    gatt: {
+      connected: false,
+      connect: async () => {
+        device.gatt.connected = true;
+        return server;
+      },
+      disconnect: () => {
+        device.gatt.connected = false;
+        listeners.get('gattserverdisconnected')?.();
+      }
+    }
+  };
+  let service;
+  const calls = { connected: 0, cleanup: 0, notifications: 0 };
+  service = createBluetoothService({
+    navigatorRef: { bluetooth: { requestDevice: async () => device, getDevices: async () => [device] } },
+    storageRef: { getItem: () => '', setItem: () => {} },
+    sleep: async () => {},
+    setStatus: () => {},
+    log: () => {},
+    showError: () => {},
+    onNotification: () => { calls.notifications++; },
+    onSessionCleanup: () => { calls.cleanup++; },
+    onConnected: () => { calls.connected++; },
+    getLastStateAt: () => 0,
+    isDownloadActive: () => true,
+    isCommandPending: () => false,
+    onSnapshot: () => {},
+    onAutoHistory: () => {},
+    setTimeoutFn: () => 1,
+    clearTimeoutFn: () => {},
+    setIntervalFn: () => 1,
+    clearIntervalFn: () => {}
+  });
+  return { service, device, events, calls };
 }
 
-test('une reconnexion automatique en attente ne démarre pas pendant le sélecteur manuel', async () => {
-  let connectCalls = 0;
-  const reconnect = createReconnectHandler(reconnectDeps({
-    isConnectionRequestPending: () => true,
-    connectDevice: async () => { connectCalls++; }
-  }));
-  await reconnect();
-  assert.equal(connectCalls, 0);
+test('le service BLE installe les écouteurs avant startNotifications', async () => {
+  const { service, events, calls } = makeBluetoothFixture();
+  await service.connectBLE();
+  assert.equal(service.connected(), true);
+  assert.equal(calls.connected, 1);
+  const commandListener = events.indexOf('command:add:characteristicvaluechanged');
+  const telemetryListener = events.indexOf('telemetry:add:characteristicvaluechanged');
+  const commandStart = events.indexOf('command:start');
+  const telemetryStart = events.indexOf('telemetry:start');
+  assert.ok(commandListener >= 0 && telemetryListener >= 0);
+  assert.ok(commandListener < commandStart);
+  assert.ok(telemetryListener < telemetryStart);
 });
 
-test('une reconnexion déjà engagée est invalidée par une nouvelle intention utilisateur', async () => {
-  let intent = 4;
-  let scheduled = false;
-  let logged = false;
-  const reconnect = createReconnectHandler(reconnectDeps({
-    getConnectionIntentGeneration: () => intent,
-    connectDevice: async () => {
-      intent++;
-      throw new Error('connexion annulée');
-    },
-    log: () => { logged = true; },
-    setTimeout: () => { scheduled = true; return 1; }
-  }));
-  await reconnect();
-  assert.equal(logged, false);
-  assert.equal(scheduled, false);
+test('le service BLE corrèle une réponse typée à son écriture', async () => {
+  const { service } = makeBluetoothFixture();
+  await service.connectBLE();
+  const result = await service.sendAndWait(3, 0, 'state', 100);
+  assert.deepEqual(result, { written: true, responded: true, response: { ok: true } });
+});
+
+test('une déconnexion manuelle nettoie la session et invalide son token', async () => {
+  const { service, calls } = makeBluetoothFixture();
+  await service.connectBLE();
+  const token = service.getSessionToken();
+  service.disconnect();
+  assert.equal(service.connected(), false);
+  assert.notEqual(service.getSessionToken(), token);
+  assert.equal(calls.cleanup, 1);
+});
+
+test('app.js délègue le transport et le cycle de vie BLE au service dédié', async () => {
+  const source = await readFile(new URL('../js/app.js', import.meta.url), 'utf8');
+  assert.ok(source.includes("import { createBluetoothService } from './modules/bluetooth-service.js'"));
+  assert.ok(source.includes('bluetoothService=createBluetoothService('));
+  for (const forbidden of [
+    'navigator.bluetooth', 'requestDevice(', 'getPrimaryService(', 'startNotifications(',
+    'createBleWriteQueue(', 'createBleResponseGate(', 'async function connectDevice(',
+    'function connectCharacteristics(', 'function checkBleFreshness(', 'function poll('
+  ]) assert.equal(source.includes(forbidden), false, 'app.js ne doit plus contenir ' + forbidden);
 });
