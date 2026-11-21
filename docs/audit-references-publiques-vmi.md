@@ -488,3 +488,25 @@ Artefacts contrôlés : `00_A0_50_48_B4_A3-2026-11-10-16_55.csv` et `vmi-sauvega
 - Le compteur global annoncé par `0x04/0x02` ne doit pas être traité comme nombre de lignes reçues dans le transfert ; la capture ne montre qu'un flux incrémental.
 - La réponse `0x04` arrive après la demande de compteur `0x20`, mais sa sémantique et son caractère obligatoire ne sont pas documentés dans le dépôt Purevent public. Ne pas en faire une condition bloquante sans nouvelle preuve.
 - La fin de transfert reste certifiée uniquement à la rencontre d'une ligne déjà connue et après réception de tous ses fragments observés ; timeout, lacune ou ligne rejetée laissent les relevés partiels non certifiés.
+
+
+### 3.14 Fin de synchronisation incrémentale et borne de coupure
+
+**Constats vérifiés dans la capture HCI fournie :**
+- Les notifications de type 0x30 portent un index de séquence aux octets 9–10 et un index de fragment à l'octet 12.
+- Les blocs de métadonnées observés occupent les séquences 0 à 24, avec un fragment chacun.
+- Les lignes CSV datées observées occupent les séquences 25 à 398, avec cinq fragments (indices 0, 10, 20, 30 et 40). Le premier fragment contient déjà la date complète ; les fragments transportent jusqu'à 85 caractères utiles dans les trames examinées.
+- La séquence 399 ne contient que le fragment 0 dans le fichier HCI. Sa ligne commence par 01/05/2018 01:34:36.
+- Cette ligne n'est présente ni dans le CSV du 10/11/2026 (dont le relevé le plus ancien est du 12/04/2018), ni dans la sauvegarde JSON du 20/11/2026 (dont la date brute la plus ancienne est du 19/05/2018). La séquence 399 n'est donc pas une borne déjà connue dans ces deux sources.
+- La capture s'arrête au milieu de cette ligne. Elle ne démontre ni un arrêt normal du firmware, ni un arrêt incrémental, ni la réception des cinq fragments de la séquence 399.
+
+**Écart de synchronisation identifié :**
+- Les lignes observées ne se terminent pas par un séparateur CSV dans leur dernier fragment ; le saut de ligne arrive au début du fragment 0 de la séquence suivante.
+- Le parseur reconnaissait donc une ligne déjà connue au moment où le flux avait déjà avancé sur la séquence suivante. L'ancien contrôle vérifiait alors la complétude de cette nouvelle séquence et attendait ses cinq fragments, ce qui pouvait télécharger une ligne ancienne supplémentaire ou retarder la fin jusqu'au timeout si le flux s'interrompait après son premier fragment.
+- Le runtime mémorise désormais l'état de complétude de la séquence précédente avant d'accepter le fragment suivant. Si ce fragment permet de terminer et reconnaître la ligne précédente déjà connue, la synchronisation s'arrête immédiatement et le fragment partiel de la ligne plus ancienne est abandonné.
+- Si la ligne précédente n'avait pas ses cinq fragments, cette voie d'arrêt n'est pas utilisée. Une lacune déjà détectée continue également à empêcher la certification du transfert.
+
+**Tests :**
+- Test runtime avec cinq fragments de ligne et saut de ligne placé au début de la séquence suivante.
+- Vérification que la borne connue arrête le flux dès la reconnaissance de la ligne précédente complète, sans attendre les cinq fragments de la ligne plus ancienne.
+- Aucun ordre BLE envoyé à la VMI ; validation logicielle uniquement.
