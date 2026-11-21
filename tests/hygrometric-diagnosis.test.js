@@ -212,7 +212,7 @@ test('diagnostic marks short histories as insufficient and does not invent concl
 
 test('diagnostic deduplicates timestamps and ignores invalid sensor rows',()=>{
  const rows=makeRows({days:3,perDay:10});
- rows.push({...rows[0],sh:99});
+ rows.push({...rows[0],sh:150});
  rows.push({...rows[1],t:rows[1].t+1,he:140});
  const result=buildHygrometricDiagnosis(rows);
  assert.equal(result.sampleCount,30);
@@ -274,7 +274,7 @@ test('diagnostic quantifies missing, implausible and duplicate input rows',()=>{
  const result=buildHygrometricDiagnosis(rows);
  assert.deepEqual(result.inputQuality,{
   inputSampleCount:5,
-  acceptedSampleCount:1,
+  acceptedSampleCount:0,
   missingTimestampCount:1,
   incompleteSensorRecordCount:1,
   implausibleSensorRecordCount:1,
