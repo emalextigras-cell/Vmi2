@@ -4,7 +4,7 @@
  * de référence lorsqu’il identifie leur rôle. Les octets non identifiés restent bruts.
  */
 /**
- * @typedef {{kind:'history',valid:false,length:number}|{kind:'history',valid:true,payload:Uint8Array,sequence:number,chunkIndex:number,received:number,final:boolean}|{kind:'state',filter:number,days:number,volume:number,maxTemperature:number,rawSpeed:number,boost:number,holiday:number}|{kind:'room',temperature:number,humidity:number}|{kind:'probes',firstTemperature:number,firstHumidity:number,secondTemperature:number,secondHumidity:number}|{kind:'history-total',total:number}|{kind:'unknown',type:number,length:number}} VmiNotification
+ * @typedef {{kind:'invalid',type:number,length:number,requiredLength:number}|{kind:'history',valid:false,length:number}|{kind:'history',valid:true,payload:Uint8Array,sequence:number,chunkIndex:number,received:number,final:boolean}|{kind:'state',filter:number,days:number,volume:number,maxTemperature:number,rawSpeed:number,boost:number,holiday:number}|{kind:'room',temperature:number,humidity:number}|{kind:'probes',firstTemperature:number,firstHumidity:number,secondTemperature:number,secondHumidity:number}|{kind:'history-total',total:number}|{kind:'unknown',type:number,length:number}} VmiNotification
  */
 /**
  * decodeVmiNotification — contrat discriminé d'entrée/sortie pour l'analyse statique.
@@ -17,6 +17,11 @@ export function decodeVmiNotification(input) {
   if (bytes.length < 3 || bytes[0] !== 0xA5 || bytes[1] !== 0xB6) return null;
 
   const type = bytes[2];
+  const requiredLengths = { 0x01: 54, 0x02: 14, 0x03: 14, 0x04: 8 };
+  const requiredLength = requiredLengths[type];
+  if (requiredLength && bytes.length < requiredLength) {
+    return { kind: 'invalid', type, length: bytes.length, requiredLength };
+  }
 
   if (type === 0x30) {
     if (bytes.length < 14) {
@@ -35,7 +40,7 @@ export function decodeVmiNotification(input) {
     };
   }
 
-  if (type === 0x01 && bytes.length > 53) {
+  if (type === 0x01) {
     return {
       kind: 'state',
       filter: bytes[28] | (bytes[29] << 8),
@@ -48,11 +53,11 @@ export function decodeVmiNotification(input) {
     };
   }
 
-  if (type === 0x02 && bytes.length > 13) {
+  if (type === 0x02) {
     return { kind: 'room', temperature: bytes[11], humidity: bytes[13] };
   }
 
-  if (type === 0x03 && bytes.length > 13) {
+  if (type === 0x03) {
     return {
       kind: 'probes',
       firstTemperature: bytes[6],
@@ -62,7 +67,7 @@ export function decodeVmiNotification(input) {
     };
   }
 
-  if (type === 0x04 && bytes.length > 7) {
+  if (type === 0x04) {
     return { kind: 'history-total', total: bytes[6] | (bytes[7] << 8) };
   }
 
