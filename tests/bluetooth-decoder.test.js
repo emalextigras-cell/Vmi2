@@ -26,14 +26,14 @@ test('décode les champs de la trame état aux offsets historiques', () => {
   });
 });
 
-test('conserve les mesures de température et humidité aux offsets existants', () => {
+test('décode la trame salon 0x02 et distingue le pourcentage filtre de la trame 0x03', () => {
   const room = frame(0x02, 14); room[11] = 21; room[13] = 56;
   assert.deepEqual(decodeVmiNotification(room), { kind: 'room', temperature: 21, humidity: 56 });
   const probes = frame(0x03, 14);
   probes[6] = 8; probes[8] = 9; probes[11] = 10; probes[13] = 11;
   assert.deepEqual(decodeVmiNotification(probes), {
     kind: 'probes', firstTemperature: 8, firstHumidity: 9,
-    secondTemperature: 10, secondHumidity: 11
+    secondTemperature: 10, filterPercent: 11
   });
 });
 
