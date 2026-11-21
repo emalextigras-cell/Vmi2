@@ -1,7 +1,7 @@
 /**
  * Décodage pur des notifications VMI observées.
- * Les offsets et seuils de longueur reprennent strictement le parseur historique.
- * Aucune interprétation physique ni correction de valeur n'est ajoutée ici.
+ * Les offsets reprennent les trames observées ; les noms de champs suivent le protocole
+ * de référence lorsqu’il identifie leur rôle. Les octets non identifiés restent bruts.
  */
 /**
  * @typedef {{kind:'history',valid:false,length:number}|{kind:'history',valid:true,payload:Uint8Array,sequence:number,chunkIndex:number,received:number,final:boolean}|{kind:'state',filter:number,days:number,volume:number,maxTemperature:number,rawSpeed:number,boost:number,holiday:number}|{kind:'room',temperature:number,humidity:number}|{kind:'probes',firstTemperature:number,firstHumidity:number,secondTemperature:number,filterPercent:number}|{kind:'history-total',total:number}|{kind:'unknown',type:number,length:number}} VmiNotification
