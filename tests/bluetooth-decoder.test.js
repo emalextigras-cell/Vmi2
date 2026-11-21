@@ -93,9 +93,11 @@ test('rejette les notifications connues dont le contrôle XOR est incorrect', ()
   });
 });
 
-test('valide la structure de 0x04 sans supposer la signification de sa charge utile', () => {
-  const total = frame(0x04, 11); total[6] = 0x34; total[7] = 0x12;
-  assert.deepEqual(decodeVmiNotification(seal(total)), { kind: 'unknown', type: 0x04, length: 11 });
+test('décode le compteur global annoncé par la trame Purevent 0x04 observée', () => {
+  const total = frame(0x04, 11); total[5] = 0x02; total[6] = 0x38; total[7] = 0x03;
+  assert.deepEqual(decodeVmiNotification(seal(total)), { kind: 'history-count', count: 824, length: 11 });
+  const otherSimpleData = frame(0x04, 11); otherSimpleData[5] = 0x01;
+  assert.deepEqual(decodeVmiNotification(seal(otherSimpleData)), { kind: 'unknown', type: 0x04, length: 11 });
 
   const history = frame(0x30, 116);
   history[9] = 7; history[10] = 1; history[13] = 1;
