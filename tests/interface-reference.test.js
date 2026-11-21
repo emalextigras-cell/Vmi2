@@ -11,8 +11,8 @@ test('les graphiques de débit affichent l’unité m³/h', async () => {
 });
 
 test('le code identifie l’unité Debit en m³/h', async () => {
-  const analysis = await readFile(new URL('../js/modules/analysis.js', import.meta.url), 'utf8');
-  assert.ok(analysis.includes("unit: 'm³/h', verified: true"));
+  const operating = await readFile(new URL('../js/modules/operating-analysis.js', import.meta.url), 'utf8');
+  assert.ok(operating.includes("unit: 'm³/h', verified: true"));
 });
 
 test('la référence Vision’R et les limites constructeur sont documentées', async () => {

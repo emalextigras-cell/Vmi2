@@ -722,3 +722,7 @@ Aucune commande envoyée à la VMI ; comparaison documentaire uniquement.
 - Ajout de tests de non-régression pour les états sans données et les comparaisons insuffisantes.
 - Cache de service worker : `vmi-test-v14-cache-79`.
 - Validation matérielle non réalisée ; aucun périphérique BLE n'a été connecté et aucune commande n'a été envoyée.
+
+
+### 3.26 — Extraction du moteur d'analyse des modes et périodes
+Le module `analysis.js` délègue désormais les analyses comparatives des niveaux manuels, les contextes horaires, les comparaisons de périodes et les références des champs Mode/Vitesse à `operating-analysis.js`. La fonction statistique médiane est isolée dans `statistics.js`. Les exports historiques restent disponibles depuis `analysis.js` afin de préserver les consommateurs existants. Cette étape est structurelle : les règles, seuils, agrégations et limites d'interprétation restent inchangés. Les modules sont ajoutés au précache du service worker. CI réussie : 598 tests sur 598, syntaxe, ESLint et vérification JSDoc/TypeScript validés. Aucun essai matériel Bluetooth n'est réalisé.
