@@ -18,15 +18,15 @@ test('ignore les notifications sans en-tête VMI complet', () => {
 test('décode les champs de la trame état aux offsets historiques', () => {
   const bytes = frame(0x01, 54);
   bytes[22] = 0x34; bytes[23] = 0x12;
-  bytes[26] = 19; bytes[28] = 2; bytes[34] = 1;
+  bytes[26] = 19; bytes[27] = 1; bytes[28] = 2; bytes[29] = 1; bytes[34] = 1;
   bytes[38] = 35; bytes[43] = 1; bytes[44] = 0;
   assert.deepEqual(decodeVmiNotification(bytes), {
-    kind: 'state', filter: 2, days: 19, volume: 0x1234,
+    kind: 'state', filter: 258, days: 275, volume: 0x1234,
     maxTemperature: 35, rawSpeed: 1, boost: 0, holiday: 1
   });
 });
 
-test('décode la trame salon 0x02 et distingue le pourcentage filtre de la trame 0x03', () => {
+test('décode les mesures salon et les deux sondes de la trame 0x03', () => {
   const room = frame(0x02, 14); room[11] = 21; room[13] = 56;
   assert.deepEqual(decodeVmiNotification(room), { kind: 'room', temperature: 21, humidity: 56 });
   const probes = frame(0x03, 14);
