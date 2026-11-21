@@ -168,6 +168,13 @@ Artefacts contrôlés : `00_A0_50_48_B4_A3-2026-11-10-16_55.csv` et `vmi-sauvega
 - `mergeRecordFields` conserve les champs déjà connus lorsqu'une source ne les fournit pas et permet qu'un relevé partiel soit complété par une source complète. Les imports/restaurations fusionnent les données ; ils ne remplacent pas aveuglément l'historique local.
 - La restauration sauvegarde `hist`, `live` et `energyReadings` dans une transaction IndexedDB unique. L'état mémoire n'est actualisé qu'après succès de cette transaction.
 
+
+**Contrôle temporel et complétude des mesures dans le JSON :**
+- Les 848 relevés sont triés par `t` ; l'intervalle médian entre deux relevés est de 60 minutes. Les champs `st`, `sh`, `t1`, `h1`, `te`, `he`, `rpm` et `fil` sont tous renseignés dans les 848 objets.
+- Treize intervalles dépassent deux heures. Un intervalle particulièrement long dure environ 173 h 43, entre le 27/10/2026 à 10:15 (compteur `d=172`) et le 03/11/2026 à 15:57 (compteur `d=179`). C'est une lacune temporelle observée dans la sauvegarde ; elle ne prouve pas à elle seule une perte de données dans la VMI (arrêt, absence de journalisation ou export incomplet restent possibles).
+- Les 35 relevés `fixed: true` ont une date brute `rk` de 2018, mais un horodatage `t` corrigé en 2026. Ils illustrent concrètement pourquoi les deux champs doivent être conservés et audités séparément.
+- Le diagnostic applicatif signale déjà les trous de plus de deux heures. Il faudra distinguer dans l'interface une interruption de mesure observée, une lacune de transfert BLE et une ligne rejetée : ces événements n'ont pas la même signification.
+
 **Point à poursuivre :** construire des tests de rapprochement sur des lignes identiques dont `rk` change, sur un compteur `d` réinitialisé, et sur deux relevés distincts partageant un même horodatage corrigé. Ne pas modifier la signature ou la clé de fusion avant d'avoir établi ces cas à partir des données et du comportement réel de la VMI.
 
 ## 4. Enseignements pour Vmi2
