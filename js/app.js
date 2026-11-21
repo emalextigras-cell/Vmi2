@@ -24,6 +24,7 @@ import { summarizeWeeklyDiagnostic } from './modules/weekly-diagnostic.js';
 import { chooseAuthorizedDevice } from './modules/bluetooth-autoconnect.js';
 import { createBluetoothNotificationHandler, createReconnectHandler } from './modules/bluetooth-runtime.js';
 import { isBleStateStale } from './modules/bluetooth-freshness.js';
+import { createLiveMeasurementFilters } from './modules/measurement-filter.js';
 import { createBleResponseGate, BLE_RESPONSE_KIND_BY_REGISTER } from './modules/bluetooth-response-gate.js';
 import { buildLiveFreshnessText } from './modules/live-freshness.js';
 import { formatDiagnosisConfidence } from './modules/diagnostic-confidence.js';
@@ -79,6 +80,7 @@ const DB='VMI_PUREVENT_DB_TEST',STORE='data';
 const { get: dbGet, set: dbSet, setMany: dbSetMany } = createStore({ databaseName: DB, storeName: STORE, onError: message => log(message) });
 const connected=()=>!!(chC&&dev&&dev.gatt&&dev.gatt.connected);
 const bleResponseGate=createBleResponseGate();
+const liveMeasurementFilters=createLiveMeasurementFilters();
 const bleWriteQueue=createBleWriteQueue({
  isConnected:connected,
  getCharacteristic:()=>chC,
@@ -276,6 +278,7 @@ function takeSnapshot(){
  if(!lastSeen.salon||now-lastSeen.salon>90000)return;
  const pf=lastSeen.probes&&now-lastSeen.probes<=90000;
  const row={t:now,st:cur.sal_t,sh:cur.sal_h,t1:pf?cur.s1_t:null,h1:pf?cur.s1_h:null,te:pf?cur.s2_t:null,he:pf?cur.s2_h:null,
+  stRaw:cur.sal_t_raw,shRaw:cur.sal_h_raw,t1Raw:pf?cur.s1_t_raw:null,h1Raw:pf?cur.s1_h_raw:null,teRaw:pf?cur.s2_t_raw:null,heRaw:pf?cur.s2_h_raw:null,
   rpm:null,fil:Number.isFinite(cur.filtre)?cur.filtre:null,vit:Number.isFinite(cur.vit)?cur.vit:null,
   boost:cur.boost!=null?cur.boost:null,hol:cur.hol!=null?cur.hol:null};
  if(!Number.isFinite(row.st)&&!Number.isFinite(row.sh))return;
@@ -329,6 +332,7 @@ function detachBleListeners(){
 }
 function cleanupConnection(){
  bleConnectionGeneration++;
+ liveMeasurementFilters.resetAll();
  bleResponseGate.cancel(new Error('Session Bluetooth terminée.'));
  clearInterval(freshnessTimer);freshnessTimer=null;bleConnectedAt=0;staleDisconnectRequested=false;
  if(download.on)finishDownload(false,true,true);
@@ -407,6 +411,7 @@ async function connectDevice(device,intent=connectionIntentGeneration){
   if(!connectionIsCurrent()){if(sessionIsCurrent(token,device))cleanupConnection();return false}
   const characteristicsReady=await connectCharacteristics(server,token,device);
   if(!characteristicsReady||!connectionIsCurrent()){if(sessionIsCurrent(token,device))cleanupConnection();return false}
+  liveMeasurementFilters.resetAll();
   lastSeen={};
   bleConnectedAt=Date.now();staleDisconnectRequested=false;
   setStatus('Connecté à '+(dev.name||'la VMI')+'. Synchronisation des données…',true);
