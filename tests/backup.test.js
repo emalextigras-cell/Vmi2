@@ -62,43 +62,15 @@ test('la sauvegarde conserve les champs historiques et les nouveaux champs bruts
   assert.deepEqual(Object.keys(snapshot),['app','version','exportedAt','hist','live','meta']);
 });
 
-test('la sauvegarde complète conserve les index de compteurs externes', () => {
-  const energyReadings = [
-    { id:'total:100', meterType:'total', t:100, kwh:12.5, note:'compteur global' }
-  ];
-  const snapshot = createBackupSnapshot({
-    hist:[], live:[], meta:{}, energyReadings,
-    exportedAt:'2026-11-15T05:00:00.000Z'
+test('les anciens champs de compteurs externes sont ignorés dans les sauvegardes', () => {
+  const snapshot = createBackupSnapshot({ hist:[], live:[], meta:{}, energyReadings:[{ id:'legacy-meter', kwh:12 }] });
+  assert.equal(Object.hasOwn(snapshot, 'energyReadings'), false);
+  const restored = mergeBackupData({
+    backup:{ app:'vmi-purevent', hist:[], energyReadings:[{ id:'legacy-meter', kwh:12 }] },
+    minValid:MIN_VALID
   });
-  assert.deepEqual(snapshot.energyReadings, energyReadings);
+  assert.equal(Object.hasOwn(restored, 'energyReadings'), false);
 });
-
-test('la restauration fusionne les index de compteurs sans doublons et garde les anciennes sauvegardes compatibles', () => {
-  const current = [{ id:'total:100', meterType:'total', t:100, kwh:12 }];
-  const backup = {
-    app:'vmi-purevent', hist:[],
-    energyReadings:[
-      { id:'total:100', meterType:'total', t:100, kwh:99 },
-      { id:'total:200', meterType:'total', t:200, kwh:13 }
-    ]
-  };
-  const result = mergeBackupData({
-    backup, currentEnergyReadings:current, minValid:MIN_VALID
-  });
-  assert.deepEqual(result.energyReadings, [
-    current[0],
-    { id:'total:200', meterType:'total', t:200, kwh:13 }
-  ]);
-  assert.equal(result.addedEnergyReadings, 1);
-
-  const legacy = mergeBackupData({
-    backup:{app:'vmi-purevent',hist:[]},
-    currentEnergyReadings:current, minValid:MIN_VALID
-  });
-  assert.deepEqual(legacy.energyReadings, current);
-  assert.equal(legacy.addedEnergyReadings, 0);
-});
-
 
 test('refuse les paramètres de restauration invalides avant toute fusion', () => {
   const backup = { app:'vmi-purevent', hist:[], live:[{t:1}] };
