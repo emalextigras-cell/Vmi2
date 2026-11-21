@@ -339,7 +339,7 @@ function cleanupConnection(){
  if(download.on)finishDownload(false,true,true);
  clearInterval(pollTimer);clearInterval(snapTimer);clearTimeout(reconnectTimer);
  manualCommandPending=false;
- document.querySelectorAll('[data-r], [data-advanced]').forEach(control=>control.disabled=download.on);
+ document.querySelectorAll<HTMLButtonElement>('[data-r], [data-advanced]').forEach(control=>control.disabled=download.on);
  detachBleListeners();
  chC=null;chT=null;
 }
@@ -526,7 +526,7 @@ document.querySelectorAll('[data-r]').forEach(b=>b.addEventListener('click',asyn
   if(commandToken===bleConnectionGeneration){manualCommandPending=false;controls.forEach(x=>x.disabled=download.on)}
  }
 }));
-const setCommandsDisabled=dis=>document.querySelectorAll('[data-r], [data-advanced]').forEach(x=>x.disabled=dis);
+const setCommandsDisabled=dis=>document.querySelectorAll<HTMLButtonElement>('[data-r], [data-advanced]').forEach(x=>x.disabled=dis);
 
 async function runAdvancedCommand(action,value,label){
  if(manualCommandPending||download.on)return;
@@ -536,7 +536,7 @@ async function runAdvancedCommand(action,value,label){
  manualCommandPending=true;
  const commandToken=bleConnectionGeneration,commandDevice=dev;
  const commandIsCurrent=()=>sessionIsCurrent(commandToken,commandDevice)&&connected();
- const controls=[...document.querySelectorAll('[data-r], [data-advanced]')];
+ const controls=[...document.querySelectorAll<HTMLButtonElement>('[data-r], [data-advanced]')];
  controls.forEach(control=>control.disabled=true);
  showError('');
  const result=$('cmdResult');
@@ -586,11 +586,11 @@ document.querySelectorAll('[data-advanced]').forEach(button=>button.addEventList
  void runAdvancedCommand(action,value,labels[action]);
 }));
 $('summerLimitApply').addEventListener('click',()=>{
- const value=Number($('summerLimitInput').value);
+ const value=Number((/** @type {HTMLSelectElement} */ ($('summerLimitInput'))).value);
  void runAdvancedCommand('summerLimit',value,'Limite estivale '+value+' °C');
 });
 $('preheatSetpointApply').addEventListener('click',()=>{
- const value=Number($('preheatSetpointInput').value);
+ const value=Number((/** @type {HTMLSelectElement} */ ($('preheatSetpointInput'))).value);
  void runAdvancedCommand('preheatSetpoint',value,'Consigne de préchauffage '+value+' °C');
 });
 $('clk').onclick=()=>setClock(false);
