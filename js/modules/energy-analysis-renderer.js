@@ -33,7 +33,7 @@ export function renderFanEnergyEstimate(data,{fanEnergyEstimate,fanEnergyByMode,
   '<div class="metric"><b>'+format(coverage)+' %</b><span>Couverture ('+coverageLabel+')</span></div></div>'+
   '<p class="note">Période : '+formatShort(result.firstAt)+' → '+formatShort(result.lastAt)+' · '+format(result.coveredHours)+' h intégrées sur '+format(result.observedHours)+' h · '+result.acceptedIntervalCount+' intervalle(s) retenu(s).</p>'+
   '<p class="note">'+duplicateNotice+'</p>'+
-  '<p class="note">Il s’agit d’une estimation du ventilateur, pas d’une mesure au compteur. La pression réelle du réseau, l’état du filtre et les conditions d’installation peuvent modifier la puissance absorbée.</p>'+
+  '<p class="note">Il s’agit d’une estimation du ventilateur, pas d’une mesure électrique directe. La pression réelle du réseau, l’état du filtre et les conditions d’installation peuvent modifier la puissance absorbée.</p>'+
   '<p class="note"><strong>Préchauffage et total VMI : non estimables avec les champs actuellement validés.</strong> Le champ « Cons Res » n’est pas converti en watts ou en kWh.</p>'+
   '<details><summary>Méthode et limites</summary><ul>'+result.limits.map(item=>'<li>'+item+'</li>').join('')+'</ul><p class="note">Référence : notice officielle PUREVENT, valeurs de puissance mesurées par TÜV SÜD à 50, 125, 200, 245 et 350 m³/h.</p></details>';
   const modeBox=fanEnergyByMode;
@@ -77,7 +77,7 @@ export function renderDailyEnergyClimateContext(data,{dailyEnergyClimateContext,
   const value=(number,unit)=>number==null?'–':format(number)+' '+unit;
   html+='<tr><td>'+label+'</td><td>'+value(item.estimatedKwh,'kWh')+'<br><small>'+format(item.fanHours)+' h intégrées</small></td><td>'+value(item.averagePowerW,'W')+'</td><td>'+value(item.medianIndoorAbsHumidity,'g/m³')+'</td><td>'+value(item.medianIncomingAbsHumidity,'g/m³')+'</td><td>'+value(item.medianDeltaAbsHumidity,'g/m³')+'</td></tr>';
  }
- html+='</tbody></table></div><p class="note">Lecture : ce tableau met côte à côte des observations des mêmes journées. Il ne démontre pas qu’une puissance plus élevée assèche davantage le logement et ne calcule pas de rendement. L’énergie est estimée à partir du débit et de la courbe constructeur, pas mesurée au compteur.</p>';
+ html+='</tbody></table></div><p class="note">Lecture : ce tableau met côte à côte des observations des mêmes journées. Il ne démontre pas qu’une puissance plus élevée assèche davantage le logement et ne calcule pas de rendement. L’énergie est estimée à partir du débit et de la courbe constructeur, pas mesurée directement.</p>';
  html+='<details><summary>Critères et limites</summary><ul>'+result.limits.map(item=>'<li>'+item+'</li>').join('')+'</ul></details>';
  box.className='advice';
  box.innerHTML=html;
