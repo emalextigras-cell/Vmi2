@@ -302,6 +302,58 @@ test('termine dès que la ligne de coupure complète est reconnue au début de l
 });
 
 
+test('ne termine pas sur une borne apparente si la séquence précédente est incomplète', () => {
+  let current = null;
+  let finishCalls = 0;
+  const h = makeNotificationHandler({
+    decodeVmiNotification: () => current,
+    acceptHistoryFragment,
+    parseDownloadLine: () => {},
+    finishDownload: () => { finishCalls++; }
+  });
+  h.download.on = true;
+  h.download.historyStream = createHistoryStreamState();
+  h.download.buf = 'Date;Event;Vol(m3);mode;Duree\\r';
+
+  for (let sequence = 0; sequence < 25; sequence++) {
+    acceptHistoryFragment(h.download.historyStream, {
+      sequence, chunkIndex: 0, payload: 'metadata-' + sequence
+    });
+  }
+
+  const row = '12/11/2026 14:31:00;35;337;1;04;00;28;25;09,3;1;6.4.2;188;' + 'x'.repeat(270);
+  const fragments = [
+    [0, '\\n' + row.slice(0, 84)],
+    [10, row.slice(84, 169)],
+    [20, row.slice(169, 254)],
+    [30, row.slice(254, 339)]
+  ];
+  for (const [chunkIndex, payload] of fragments) {
+    current = {
+      kind: 'history',
+      valid: true,
+      payload: new TextEncoder().encode(payload),
+      sequence: 25,
+      chunkIndex
+    };
+    h.handler({ target: { value: new DataView(new Uint8Array([1]).buffer) } });
+  }
+
+  current = {
+    kind: 'history',
+    valid: true,
+    payload: new TextEncoder().encode('\\n12/11/2026 14:20:00;ligne suivante;'),
+    sequence: 26,
+    chunkIndex: 0
+  };
+  h.handler({ target: { value: new DataView(new Uint8Array([1]).buffer) } });
+
+  assert.equal(h.download.integrityGap, true);
+  assert.equal(h.download.on, true);
+  assert.equal(finishCalls, 0);
+});
+
+
 test('conserve les mesures BLE brutes tout en exposant les valeurs filtrées', () => {
   const h = makeNotificationHandler({
     decodeVmiNotification: () => ({ kind: 'room', temperature: 20, humidity: 55 }),
