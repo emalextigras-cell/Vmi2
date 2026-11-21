@@ -63,10 +63,10 @@ test('notification état met à jour les valeurs VMI et l’horodatage', () => {
   assert.equal(h.updates, 1);
 });
 
-test('notification sondes affiche le pourcentage filtre sans le traiter comme humidité', () => {
+test('notification sondes met à jour les deux températures et humidités', () => {
   const decoded = {
     kind: 'probes', firstTemperature: 13, firstHumidity: 96,
-    secondTemperature: 12, filterPercent: 97
+    secondTemperature: 12, secondHumidity: 97
   };
   const h = makeNotificationHandler({ decodeVmiNotification: () => decoded });
 
@@ -75,13 +75,11 @@ test('notification sondes affiche le pourcentage filtre sans le traiter comme hu
   assert.equal(h.cur.s1_t, 13);
   assert.equal(h.cur.s1_h, 96);
   assert.equal(h.cur.s2_t, 12);
-  assert.equal(h.cur.s2_h, null);
-  assert.equal(h.cur.filterPercent, 97);
+  assert.equal(h.cur.s2_h, 97);
   assert.equal(h.elements.get('ti').textContent, 13);
   assert.equal(h.elements.get('hi').textContent, 96);
   assert.equal(h.elements.get('t2').textContent, 12);
-  assert.equal(h.elements.get('filterPct').textContent, 97);
-  assert.equal(h.elements.has('h2'), false);
+  assert.equal(h.elements.get('h2').textContent, 97);
   assert.equal(h.updates, 1);
 });
 
