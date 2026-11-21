@@ -490,8 +490,7 @@ async function startDownload(auto=false){
 }
 $('dlh').onclick=()=>startDownload(false);
 function autoHistory(){
- if(autoDone||download.on||!connected())return;
- autoDone=true; /* une seule fois par connexion : pas de boucle déconnexion/reconnexion */
+ if(download.on||!connected())return;
  startDownload(true).catch(e=>{const message='Téléchargement automatique impossible : '+(e.message||e);log(message);recordError(message)});
 }
 
