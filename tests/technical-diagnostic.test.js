@@ -41,7 +41,7 @@ test('champ absent ou non fini reste non disponible', () => {
     cur: { jours: Number.NaN, vol: null, boost: false },
     lastSeen: { state: 99000 }, connected: true, now: 100000
   });
-  assert.equal(result.items.find(item => item.key === 'days').value, 'Non disponible');
-  assert.equal(result.items.find(item => item.key === 'volume').value, 'Non disponible');
+  assert.equal(result.items.find(item => item.key === 'jours').value, 'Non disponible');
+  assert.equal(result.items.find(item => item.key === 'vol').value, 'Non disponible');
   assert.equal(result.items.find(item => item.key === 'boost').value, 'Arrêté');
 });

@@ -31,6 +31,7 @@ const APP_SHELL = [
   './js/modules/dataio.js',
   './js/modules/date-utils.js',
   './js/modules/diagnostic-confidence.js',
+  './js/modules/technical-diagnostic.js',
   './js/modules/energy-climate.js',
   './js/modules/energy-estimate.js',
   './js/modules/energy-meter.js',
