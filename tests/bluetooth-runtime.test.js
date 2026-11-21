@@ -86,7 +86,7 @@ test('notification sondes met à jour les deux températures et humidités', () 
 
 test('identifie les lignes historiques CSV et attend leurs cinq fragments', () => {
   let received = null;
-  const payload = '\\n12/11/2026 14:31:00;35;337;1;';
+  const payload = '\n12/11/2026 14:31:00;35;337;1;';
   const h = makeNotificationHandler({
     decodeVmiNotification: () => ({
       kind: 'history', valid: true, payload: new TextEncoder().encode(payload),
