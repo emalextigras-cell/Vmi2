@@ -510,3 +510,21 @@ Artefacts contrôlés : `00_A0_50_48_B4_A3-2026-11-10-16_55.csv` et `vmi-sauvega
 - Test runtime avec cinq fragments de ligne et saut de ligne placé au début de la séquence suivante.
 - Vérification que la borne connue arrête le flux dès la reconnaissance de la ligne précédente complète, sans attendre les cinq fragments de la ligne plus ancienne.
 - Aucun ordre BLE envoyé à la VMI ; validation logicielle uniquement.
+
+
+### 3.15 Synchronisation initiale sans borne déjà connue
+
+**Comportement établi dans le code Vmi2 :**
+- Au démarrage, la borne de coupure est construite à partir des relevés persistés qui ne sont pas marqués syncPartial. Si aucun relevé de référence n'existe, l'ensemble des signatures est vide et aucune ligne reçue ne peut déclencher reachedCut.
+- Le compteur 0x04/0x02 est affiché comme total annoncé, mais n'est pas utilisé pour certifier la fin. Sa sémantique précise n'est pas décrite dans la référence Purevent publique et la capture fournie s'arrête avant la fin du flux.
+- Aucun marqueur de fin Purevent vérifié n'a été observé. Le type 0x21 StopCSV provient de références génériques et n'a pas été validé sur cette Purevent ; il ne doit pas être envoyé ni utilisé comme preuve.
+- Sans borne connue, le timeout de 20 secondes clôt le transfert comme incomplet. Les lignes reçues sont conservées avec syncPartial=true et ne deviennent pas une borne de synchronisation ultérieure.
+
+**Conséquence fonctionnelle :**
+- Une première synchronisation Bluetooth depuis une base vide ne peut actuellement pas être certifiée complète par Vmi2. Les données reçues restent conservées, mais une nouvelle tentative ne dispose toujours pas d'une borne complète.
+- Ce comportement est volontairement conservateur : il évite de présenter comme complet un historique tronqué. Il révèle toutefois une limite de bootstrap qui doit être résolue avant de considérer la synchronisation initiale comme fiable.
+
+**Preuve nécessaire avant correction :**
+- Capturer une synchronisation complète jusqu'à sa terminaison naturelle et rapprocher le nombre de lignes CSV reçues, le dernier index de séquence, le compteur 0x04/0x02 et les éventuels messages terminaux.
+- Vérifier si 0x04/0x02 représente le nombre total de lignes stockées, le nombre de lignes transférables ou une autre grandeur. Les valeurs 800 (CSV), 824 (capture HCI) et 848 (sauvegarde JSON) ne suffisent pas à établir seules cette sémantique, car les exports ne sont pas strictement identiques.
+- Tant que cette preuve manque, ne pas transformer le compteur annoncé en condition de fin et ne pas envoyer StopCSV.
