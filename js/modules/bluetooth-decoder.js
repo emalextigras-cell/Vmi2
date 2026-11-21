@@ -88,6 +88,10 @@ export function decodeVmiNotification(input) {
   }
 
   if (type === 0x02) {
+    // Le type 0x02 est une liste de capteurs dans la référence VMI+ ;
+    // dans la capture Purevent, le premier emplacement (octet 10) est la télécommande (type 0x03).
+    // Ne pas lire température/humidité aux offsets 11/13 si ce n'est pas une télécommande.
+    if (bytes[10] !== 0x03) return { kind: 'unknown', type, length: frameLength };
     return { kind: 'room', temperature: bytes[11], humidity: bytes[13] };
   }
 
