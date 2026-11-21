@@ -22,6 +22,9 @@ import { summarizeDailyEnergyClimateContext } from './modules/energy-climate.js'
 import { summarizeWeeklyDiagnostic } from './modules/weekly-diagnostic.js';
 import { createLiveMeasurementFilters } from './modules/measurement-filter.js';
 import { applyAdvancedCommand } from './modules/bluetooth-advanced-commands.js';
+
+// Garde volontairement fermée jusqu'à validation des registres sur capture VMI+.
+const ADVANCED_COMMANDS_ENABLED = false;
 import { buildLiveFreshnessText } from './modules/live-freshness.js';
 import { formatDiagnosisConfidence } from './modules/diagnostic-confidence.js';
 import { analyzeSeasonalVentilation } from './modules/seasonal-advice.js';
@@ -327,6 +330,10 @@ document.querySelectorAll('[data-r]').forEach(b=>b.addEventListener('click',asyn
 const setCommandsDisabled=dis=>[...document.querySelectorAll('[data-r]'), ...document.querySelectorAll('[data-advanced]')].forEach(x=>x.disabled=dis);
 
 async function runAdvancedCommand(action,value,label){
+ if(!ADVANCED_COMMANDS_ENABLED){
+  $('cmdResult').textContent='Commande avancée bloquée : registre non validé sur cette VMI. Capturer l’action dans VMI+ officielle avant réactivation.';
+  return;
+ }
  if(manualCommandPending||download.on)return;
  if(!connected()){showError('VMI non connectée.');$('cmdResult').textContent='';return}
  if(action==='preheatSetpoint'&&!confirm('Régler une consigne démarre le préchauffage électrique. Confirmer ?'))return;
