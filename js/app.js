@@ -1,5 +1,6 @@
 import { DAY, pad, localDay, shiftDay, fmt, num, MIN_VALID, HIST_MAX } from './modules/date-utils.js';
-import { pruneHistory, mergeImportedHistory } from './modules/history.js';
+import { pruneHistory } from './modules/history.js';
+import { commitHistorySync } from './modules/history-sync-commit.js';
 import { createBackupSnapshot, mergeBackupData } from './modules/backup.js';
 import { $, sleep, APP_VERSION } from './modules/core.js';
 import { createStore, normalizeStoreSnapshot } from './modules/store.js';
@@ -77,6 +78,12 @@ const liveMeasurementFilters=createLiveMeasurementFilters();
 function showError(e){$('err').textContent=e?String(e.message||e):''}
 function persist(key,value,label='Sauvegarde IndexedDB'){
  return dbSet(key,value).catch(error=>{
+  const message=label+' impossible : '+(error?.message||error);
+  showError(message);log(message);recordError('Échec IndexedDB : '+message);throw error;
+ });
+}
+function persistMany(entries,label='Sauvegarde transactionnelle'){
+ return dbSetMany(entries).catch(error=>{
   const message=label+' impossible : '+(error?.message||error);
   showError(message);log(message);recordError('Échec IndexedDB : '+message);throw error;
  });
@@ -225,7 +232,7 @@ bluetoothService=createBluetoothService({
  },
  onSessionCleanup:()=>{
   liveMeasurementFilters.resetAll();
-  if(download.on)finishDownload(false,true,true);
+  if(download.on)void finishDownload(false,true,true);
   manualCommandPending=false;
   [...document.querySelectorAll('[data-r]'), ...document.querySelectorAll('[data-advanced]')].forEach(control=>control.disabled=download.on);
  },
@@ -385,7 +392,7 @@ $('preheatSetpointApply').addEventListener('click',()=>{
 $('clk').onclick=()=>setClock(false);
 
 /* Correction des dates historiques isolée dans clock-correction.js. */
-function ingest(recs,label,maxTimestamp=Date.now(),options={}){
+async function ingest(recs,label,maxTimestamp=Date.now(),options={}){
  const future=recs.filter(record=>Number.isFinite(record.t)&&record.t>maxTimestamp);
  if(future.length)log(`${label} : dates futures reçues (${future.map(record=>record.rk+' · +'+Math.round((record.t-maxTimestamp)/1000)+' s').join(' ; ')})`);
  const {fixed,kept,futureDetails,counterReset,counterResetDetails,referenceCount,concordantCount,concordanceRate}=fixClock(recs,hist,MIN_VALID,maxTimestamp,options);
@@ -395,8 +402,19 @@ function ingest(recs,label,maxTimestamp=Date.now(),options={}){
  const keptSet=new Set(kept);
  const discarded=recs.filter(record=>!keptSet.has(record));
  if(discarded.length)log(`${label} : lignes écartées (${discarded.map(record=>record.rk+' · d='+record.d+' · brut='+new Date(record.t).toLocaleString('fr-FR')).join(' ; ')})`);
- hist=mergeImportedHistory(hist,kept,maxTimestamp);
- pruneHist();void persist('hist',hist,'Sauvegarde de l’historique').catch(()=>{});source='hist';
+ const committed=await commitHistorySync({
+  currentRecords:hist,
+  importedRecords:kept,
+  maxTimestamp,
+  futureToleranceMs:options.futureToleranceMs,
+  maxRecords:HIST_MAX,
+  metadata:options.metadataToCommit,
+  persistMany:entries=>persistMany(entries,'Sauvegarde de l’historique')
+ });
+ hist=committed.history;
+ if(options.metadataToCommit!==undefined)meta=options.metadataToCommit;
+ if(committed.removed)log(`Historique limité à ${HIST_MAX} relevés (les plus anciens supprimés).`);
+ source='hist';
  // Conserver le jour choisi : une synchronisation en arrière-plan ne doit pas réinitialiser les graphiques.
  const lost=recs.length-kept.length;
  $('importInfo').textContent=`${label} : ${recs.length} relevés lus${fixed?`, dont ${fixed} dont la date a été corrigée (horloge de la VMI fausse)`:''}${lost?`, ${lost} écartés (date invalide ou postérieure à la synchronisation)`:''}.`;
@@ -427,36 +445,65 @@ function parseDownloadLine(line){
  const rec=recFrom(f);if(rec)download.rows.push(rec);
 }
 function armTimer(){armDownloadTimeout(download,finishDownload)}
-function finishDownload(completeBoundary,timeout=false,interrupted=false){
+async function finishDownload(completeBoundary,timeout=false,interrupted=false){
  if(!download.on)return;
  download.on=false;clearTimeout(download.timeout);
  const count=download.rows.length;
  const complete=!timeout&&!interrupted&&!download.integrityGap&&!(download.invalidRows>0)&&completeBoundary;
  const syncObservedAt=Date.now();
- const newestCounterRecord=findNewestCounterRecord(download.rows);
- const counterAssessment=complete&&newestCounterRecord
-  ? evaluateCounterBaseline({
-   baseline:/** @type {{d:number,observedAt:number}|undefined} */ (meta.counterBaseline),
-   candidate:/** @type {{d:number,observedAt:number}|null|undefined} */ (meta.counterCandidate),
-   currentDays:newestCounterRecord.d,observedAt:syncObservedAt
-  })
-  : null;
- const ingestResult=count?ingest(markHistoryRows(download.rows,complete),'Téléchargement',syncObservedAt,{
-  allowPre2020RawDates:true,
-  forceCounterReset:counterAssessment?.discontinuity===true,
-  counterResetReason:counterAssessment?.reason,
-  counterPreviousDays:counterAssessment?.previousDays ?? (/** @type {{d?:number}|undefined} */ (meta.counterBaseline))?.d,
-  // La VMI peut dater sa dernière ligne de quelques secondes après la fin locale du transfert.
-  // Tolérer 30 s évite de perdre le relevé courant, sans accepter les lignes futures éloignées.
-  futureToleranceMs:30_000
- }):null;
- if(complete){
-  meta.lastSync=syncObservedAt;
-  if(counterAssessment){meta.counterBaseline=counterAssessment.baseline;meta.counterCandidate=counterAssessment.candidate}
-  void persist('meta',meta,'Sauvegarde des métadonnées').catch(()=>{});renderFreshness()
+ let ingestResult=null,persistenceError=null,counterAssessment=null;
+ try{
+  const newestCounterRecord=findNewestCounterRecord(download.rows);
+  counterAssessment=complete&&newestCounterRecord
+   ? evaluateCounterBaseline({
+    baseline:/** @type {{d:number,observedAt:number}|undefined} */ (meta.counterBaseline),
+    candidate:/** @type {{d:number,observedAt:number}|null|undefined} */ (meta.counterCandidate),
+    currentDays:newestCounterRecord.d,observedAt:syncObservedAt
+   })
+   : null;
+  const nextMeta=complete?{
+   ...meta,
+   lastSync:syncObservedAt,
+   ...(counterAssessment?{
+    counterBaseline:counterAssessment.baseline,
+    counterCandidate:counterAssessment.candidate
+   }:{})
+  }:undefined;
+  if(count)ingestResult=await ingest(markHistoryRows(download.rows,complete),'Téléchargement',syncObservedAt,{
+   allowPre2020RawDates:true,
+   forceCounterReset:counterAssessment?.discontinuity===true,
+   counterResetReason:counterAssessment?.reason,
+   counterPreviousDays:counterAssessment?.previousDays ?? (/** @type {{d?:number}|undefined} */ (meta.counterBaseline))?.d,
+   // La VMI peut dater sa dernière ligne de quelques secondes après la fin locale du transfert.
+   // La même tolérance est appliquée jusqu'à la fusion, sans modifier les autres imports.
+   futureToleranceMs:30_000,
+   metadataToCommit:nextMeta
+  });
+  else if(nextMeta){
+   await persist('meta',nextMeta,'Sauvegarde des métadonnées de synchronisation');
+   meta=nextMeta;
+  }
+  if(complete)renderFreshness();
+ }catch(error){
+  persistenceError=error;
+  const message='Synchronisation non validée : sauvegarde IndexedDB impossible ('+(error?.message||error)+').';
+  showError(message);log(message);recordError(message);
  }
  $('dlh').disabled=false;setCommandsDisabled(false);
- $('dlp').textContent=`Terminé : ${count} nouvelles lignes${download.invalidRows>0?' · lignes rejetées : synchronisation non certifiée, relance nécessaire':download.integrityGap?' · lacune détectée : synchronisation non certifiée, relance nécessaire':interrupted?(download.got?' · transfert interrompu, données partielles conservées ; relance la synchronisation':' · transfert interrompu avant réception')  :completeBoundary?' · historique synchronisé':timeout?(download.got?' · arrêt après une pause de 20 s':' · aucune réponse de la VMI'):(download.bootstrap?' · synchronisation initiale non certifiée':download.sigs.size?' · attention : trou possible avant la dernière ligne mémorisée':' · historique complet')}`;
+ const completionMessage=persistenceError
+  ? ' · échec de sauvegarde, synchronisation non validée'
+  : download.invalidRows>0
+   ? ' · lignes rejetées : synchronisation non certifiée, relance nécessaire'
+   : download.integrityGap
+    ? ' · lacune détectée : synchronisation non certifiée, relance nécessaire'
+    : interrupted
+     ? (download.got?' · transfert interrompu, données partielles conservées ; relance la synchronisation':' · transfert interrompu avant réception')
+     : completeBoundary
+      ? ' · historique synchronisé'
+      : timeout
+       ? (download.got?' · arrêt après une pause de 20 s':' · aucune réponse de la VMI')
+       : (download.bootstrap?' · synchronisation initiale non certifiée':download.sigs.size?' · attention : trou possible avant la dernière ligne mémorisée':' · historique complet');
+ $('dlp').textContent=`Terminé : ${count} nouvelles lignes${completionMessage}`;
  if(Number.isSafeInteger(download.announcedTotalRows)) $('dlp').textContent+=` · total annoncé par la VMI : ${download.announcedTotalRows} lignes`;
  if(download.bootstrap&&!complete) $('dlp').textContent+=' · lignes déjà enregistrées ignorées, relance possible pour rechercher les suivantes';
  if(ingestResult?.counterReset){
@@ -472,7 +519,7 @@ async function startDownload(auto=false){
  if(download.on)return;
  const sessionToken=bluetoothService.getSessionToken();
  const abortDownload=()=>{
-  if(download.on)finishDownload(false,true,true);
+  if(download.on)void finishDownload(false,true,true);
  };
  showError('');dlFrames=0;
  const baselineRecords=hist.filter(r=>isHistorySyncBaseline(r)&&r.rk&&Number.isFinite(r.d));
@@ -537,7 +584,7 @@ $('fx').onchange=async e=>{
   if(headerIndex<0)throw new Error('En-tête VMI+ introuvable : les colonnes Date, mode et Debit doivent être présentes dans les 20 premières lignes. Aucun relevé n’a été importé.');
   const columnMapping=getColumnMapping(rows[headerIndex]);
   const recs=[];for(let i=headerIndex+1;i<rows.length;i++){const r=recFrom(rows[i],spreadsheet,columnMapping);if(r)recs.push(r)}
-  ingest(recs,'Import');
+  await ingest(recs,'Import');
  }catch(err){showError('Import impossible : '+err.message)}
  input.value='';
 };
