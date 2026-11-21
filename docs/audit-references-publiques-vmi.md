@@ -733,3 +733,27 @@ Les analyses de périodes hygrométriques, tendances journalières, profils hora
 
 ### Correctif CI — extraction hygrométrique
 L'échec du premier passage CI a révélé deux dépendances oubliées lors du déplacement : les imports de `median`, `isPlaceholderSensorRecord` et `isPlausibleTemperature` encore nécessaires à `summarizeTemperatureLimit` dans `analysis.js`, ainsi que le formateur `fmtHours` utilisé par `buildHygrometricDiagnosis`. Ces dépendances sont rétablies sans changement des règles de calcul. Cache du service worker porté à v82. Nouvelle validation CI réussie sur le correctif : syntaxe, ESLint, tests JavaScript et vérification JSDoc/TypeScript. Aucun essai matériel Bluetooth.
+
+
+## 2026-11-21 — Garde de sécurité des commandes avancées Vmi2
+
+### État de validation
+Les registres avancés référencés dans le code Vmi2 ne sont pas prouvés par la capture HCI fournie comme étant les commandes effectivement émises par l’application VMI+ officielle sur cette VMI. Une référence publique décrit un protocole potentiel ; elle ne constitue pas une validation du modèle, du firmware et de la sémantique de chaque action sur l’appareil de l’utilisateur.
+
+| Fonction | Registre dans le code | Validation sur cette VMI |
+|---|---:|---|
+| Surventilation | `0x0B` | Non démontrée |
+| Limite estivale | `0x17` | Non démontrée |
+| Débit fixe | `0x1B` | Non démontrée |
+| Consigne de préchauffage | `0x1C` | Non démontrée |
+| Marche/arrêt préchauffage | `0x2F` | Non démontrée |
+
+### Mesure de précaution appliquée
+- Toutes les écritures de réglages avancés sont masquées dans l’interface et désactivées dans le DOM.
+- Le point d’entrée applicatif `runAdvancedCommand` refuse toute action tant que `ADVANCED_COMMANDS_ENABLED` vaut `false`.
+- Les commandes manuelles classiques (vitesse, Boost, vacances) restent indépendantes et disponibles.
+- Les tests unitaires du module de commandes restent des simulations : ils vérifient les séquences logicielles, jamais la compatibilité matérielle.
+- Aucun envoi de commande réelle n’a été effectué pour cet audit.
+
+### Conditions de réactivation
+Capturer séparément, avec VMI+ officielle, les échanges pendant chaque action concernée (avant/après, état lu, trame de commande, réponse et firmware identifié). Comparer les octets et les registres, puis faire relire les changements et tests avant toute réactivation. Le préchauffage électrique requiert une validation spécifique et ne doit pas servir de commande d’essai improvisée.
