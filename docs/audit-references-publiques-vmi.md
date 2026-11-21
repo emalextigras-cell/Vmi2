@@ -623,3 +623,30 @@ Artefacts contrôlés : `00_A0_50_48_B4_A3-2026-11-10-16_55.csv` et `vmi-sauvega
 - Vérification JSDoc : réussie.
 - Un premier essai local du scénario de timeout a révélé une différence de casse dans le message d'erreur attendu par le test ; le message a été normalisé, puis le workflow complet a validé le correctif.
 - La validation reste logicielle/simulée ; aucune commande BLE n'a été envoyée à la VMI.
+
+### 3.19 Écart fonctionnel — entités Purevent vérifiées vs fonctions Urban
+
+**Sources examinées :** `sensor.py`, `number.py`, `switch.py`, `select.py`, `button.py`, `binary_sensor.py`, `protocol.py` de `ha-vmi-purevent`, et le tableau d'entités du README de `ha-vmi-plus`.
+
+**Fonctions présentes dans la référence Purevent :**
+- Mesures : température/humidité sonde interne, température/humidité télécommande, température d'entrée d'air.
+- État / diagnostic : durée filtre en jours, débit théorique, consigne préchauffage, jours de fonctionnement, volume à ventiler, trame d'état brute, connexion et marche du préchauffage.
+- Commandes privées utilisateur : vitesse, Boost, vacances (jours), surventilation, débit fixe, limite estivale, consigne de préchauffage et bouton d'arrêt du préchauffage.
+- Le débit théorique est calculé depuis volume × renouvellement, et non mesuré directement.
+
+**Fonctions listées dans le README générique Urban, non démontrées par les modules Purevent examinés :**
+- Programmes horaires / service `set_day_schedule`.
+- Capteur VOC et période de mesure.
+- Bypass échangeur (position et température).
+- Capteurs d'auto-test, version logicielle, turbo heater et GTC / Modbus.
+- Compteur de capteurs sans fil appairés, localisation de l'unité, boutons de remplacement de filtre.
+
+Ces fonctions sont des pistes de comparaison, pas des capacités Purevent établies. Certaines peuvent exister sur certains modèles Purevent ou firmware, mais les fichiers Purevent examinés ne les exposent pas ; aucune implémentation Vmi2 ne doit les supposer présentes.
+
+**Décision pour Vmi2 :**
+1. Priorité aux données de diagnostic Purevent vérifiées déjà disponibles dans la trame d'état : rendre accessibles les jours de fonctionnement, le volume, le débit théorique, la consigne/état préchauffage et la trame brute, avec indication de fraîcheur.
+2. Étudier les programmes horaires seulement après identification d'un registre et d'une réponse Purevent confirmés ; le README Urban n'est pas une preuve.
+3. VOC, bypass, auto-test, firmware et GTC restent « non pris en charge / non vérifiés » tant qu'une source Purevent ou une capture existante ne confirme pas leur structure.
+4. Ne pas implémenter les registres installateur, SAV, reset ou firmware update ; le README Urban les exclut délibérément et leur risque est disproportionné.
+
+Aucune commande envoyée à la VMI ; comparaison documentaire uniquement.
