@@ -57,7 +57,7 @@ test('débit fixe : écrit 1 ou 0 selon l’état demandé', async () => {
 });
 
 test('consigne de préchauffage : refuse hors plage et confirme 0x1C', async () => {
-  const h = harness({ preheatSetpoint: 0 }, [{ preheatSetpoint: 15 }]);
+  const h = harness({ preheatSetpoint: 0, preheatOn: false }, [{ preheatSetpoint: 15, preheatOn: true }]);
   await applyAdvancedCommand(h.deps, 'preheatSetpoint', 15);
   assert.deepEqual(h.writes, [[0x1C, 15]]);
   await assert.rejects(applyAdvancedCommand(h.deps, 'preheatSetpoint', 19), RangeError);
