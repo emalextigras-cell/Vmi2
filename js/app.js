@@ -503,7 +503,7 @@ function ingest(recs,label,maxTimestamp=Date.now(),options={}){
    pour interrompre le flux de la VMI (elle ne sait pas s'arrêter seule). */
 const sigOf=r=>r.rk+'|'+r.d;
 function parseDownloadLine(line){
- if(!download.on)return;
+ if(!download.on||download.reachedCut)return;
  if(!download.dataStarted){
   if(String(line).trimStart().startsWith('Date;Event;'))download.dataStarted=true;
   return;
