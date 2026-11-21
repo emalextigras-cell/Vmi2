@@ -4,7 +4,7 @@ import { commitHistorySync } from '../js/modules/history-sync-commit.js';
 
 test('la synchronisation conserve la dernière ligne à +6 s et commit historique et métadonnées ensemble', async () => {
   const syncFinishedAt = 1_800_000_000_000;
-  const latest = { t: syncFinishedAt + 6_000, d: 197 };
+  const latest = { t: syncFinishedAt + 6_000, d: 197, st: 20, sh: 50 };
   const metadata = { lastSync: syncFinishedAt };
   let committedEntries;
 
@@ -54,8 +54,8 @@ test('un échec IndexedDB fait échouer le commit et ne retourne aucun succès',
   let attemptedEntries;
   await assert.rejects(
     commitHistorySync({
-      currentRecords: [{ t: now - 1, d: 196 }],
-      importedRecords: [{ t: now + 6_000, d: 197 }],
+      currentRecords: [{ t: now - 1, d: 196, st: 19, sh: 48 }],
+      importedRecords: [{ t: now + 6_000, d: 197, st: 20, sh: 50 }],
       maxTimestamp: now,
       futureToleranceMs: 30_000,
       metadata: { lastSync: now },
