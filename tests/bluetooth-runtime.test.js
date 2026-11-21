@@ -116,6 +116,20 @@ test('une trame SimpleData inconnue ne certifie pas la fin du téléchargement',
   assert.equal(h.download.rows.length, 0);
 });
 
+test('conserve le compteur global annoncé sans le confondre avec les lignes téléchargées', () => {
+  const h = makeNotificationHandler({
+    decodeVmiNotification: () => ({ kind: 'history-count', count: 824, length: 11 })
+  });
+  h.download.on = true;
+
+  h.handler({ target: { value: new DataView(new Uint8Array([1, 2]).buffer) } });
+
+  assert.equal(h.download.announcedTotalRows, 824);
+  assert.equal(h.download.rows.length, 0);
+  assert.equal(h.download.on, true);
+  assert.match(h.logs.join(' '), /824/);
+});
+
 test('notification historique invalide marque le flux incomplet', () => {
   let invalidated = false;
   const h = makeNotificationHandler({
