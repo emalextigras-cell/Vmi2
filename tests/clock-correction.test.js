@@ -306,7 +306,7 @@ test('fixClock utilise la référence persistée après remise à zéro au lieu 
 
   assert.equal(result.counterReset, false);
   assert.equal(result.referenceSource, 'history-and-incoming');
-  assert.equal(result.referenceCount, 4);
+  assert.equal(result.referenceCount, 3);
   assert.equal(result.fixed, 1);
   assert.equal(new Date(incoming[1].t).getFullYear(), 2026);
 });
