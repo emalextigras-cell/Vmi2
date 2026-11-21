@@ -49,7 +49,7 @@ export function createBluetoothNotificationHandler(deps) {
       return;
     }
 
-    if (decoded.kind === 'state' || decoded.kind === 'room' || decoded.kind === 'probes') {
+    if (decoded.kind === 'state' || decoded.kind === 'room' || decoded.kind === 'probes' || decoded.kind === 'ack') {
       onDecodedFrame(decoded.kind, decoded);
     }
 
