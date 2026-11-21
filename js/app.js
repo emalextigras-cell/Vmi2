@@ -37,7 +37,6 @@ import { renderFanEnergyEstimate, renderDailyEnergyClimateContext, renderWeeklyD
 
 /** @typedef {import('./types/vmi-types.js').VmiRecord} VmiRecord */
 /** @typedef {import('./types/vmi-types.js').UnknownRecord} UnknownRecord */
-/** @typedef {import('./types/vmi-types.js').EnergyReading} EnergyReading */
 
 
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{})}
@@ -71,7 +70,6 @@ let manualCommandPending=false,bluetoothService=null;
 /** @type {UnknownRecord} */ let meta={};
 let cur={},lastSeen={};
 /** @type {VmiRecord[]} */ let live=[],hist=[];
-/** @type {EnergyReading[]} */ let energyReadings=[];
 let source='hist',selectedDate=null,daysSetting=30;
 let logLines=[],dlFrames=0;
 let download={on:false,rows:[],buf:'',sigs:new Set(),knownSigs:new Set(),seenSigs:new Set(),bootstrap:false,got:false,lastPacket:0,timeout:null,historyStream:createHistoryStreamState(),integrityGap:false,dataStarted:false,announcedTotalRows:null};
@@ -119,11 +117,10 @@ async function readOldDatabase(){
 async function init(){
  const storedLive=await dbGet('live'),storedHistory=await dbGet('hist');
  const storedMeta=await dbGet('meta');
- const storedEnergyReadings=await dbGet('energyReadings');
  const snapshot=normalizeStoreSnapshot({
-  history:storedHistory,live:storedLive,energyReadings:storedEnergyReadings,meta:storedMeta
+  history:storedHistory,live:storedLive,meta:storedMeta
  });
- live=/** @type {VmiRecord[]} */ (snapshot.live);hist=/** @type {VmiRecord[]} */ (snapshot.history);meta=snapshot.meta;energyReadings=/** @type {EnergyReading[]} */ (snapshot.energyReadings);
+ live=/** @type {VmiRecord[]} */ (snapshot.live);hist=/** @type {VmiRecord[]} */ (snapshot.history);meta=snapshot.meta;
  const migrated=await dbGet('migrated');
  // Le marqueur est l'unique preuve d'une migration achevée. Des données déjà présentes
  // ne doivent pas empêcher une nouvelle tentative après une migration interrompue.
@@ -629,17 +626,17 @@ function histToCsv(rows){
  }
  return lines.join('\r\n');
 }
-function makeBackup(){return createBackupSnapshot({hist,live,meta,energyReadings})}
+function makeBackup(){return createBackupSnapshot({hist,live,meta})}
 /** @param {UnknownRecord} obj Sauvegarde JSON validée comme objet. */
 async function restoreBackup(obj){
- const result=mergeBackupData({backup:obj,currentHist:hist,currentLive:live,currentMeta:meta,currentEnergyReadings:energyReadings,minValid:MIN_VALID});
+ const result=mergeBackupData({backup:obj,currentHist:hist,currentLive:live,currentMeta:meta,minValid:MIN_VALID});
  const nextHist=pruneHistory(result.hist,HIST_MAX).records;
- const entries=/** @type {Array<[IDBValidKey, unknown]>} */ ([['hist',nextHist],['live',result.live],['energyReadings',result.energyReadings]]);
+ const entries=/** @type {Array<[IDBValidKey, unknown]>} */ ([['hist',nextHist],['live',result.live]]);
  if(result.meta.lastSync!==meta.lastSync)entries.push(['meta',result.meta]);
  // Ne modifier l'état en mémoire qu'après validation atomique du stockage local.
  await dbSetMany(entries);
- hist=nextHist;live=result.live;meta=result.meta;energyReadings=result.energyReadings;
- return {add:result.addedHistory,enriched:result.enrichedHistory,addL:result.addedLive,addEnergy:result.addedEnergyReadings};
+ hist=nextHist;live=result.live;meta=result.meta;
+ return {add:result.addedHistory,enriched:result.enrichedHistory,addL:result.addedLive};
 }
 $('expHist').onclick=()=>{
  const rows=hist.filter(r=>r.t>=MIN_VALID&&r.t<=Date.now());
@@ -659,8 +656,8 @@ $('restoreFile').onchange=async e=>{
   const parsed=JSON.parse(await file.text());
   if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))throw new Error('Fichier de sauvegarde invalide : objet attendu.');
   const obj=/** @type {UnknownRecord} */ (parsed);
-  const {add,enriched,addL,addEnergy}=await restoreBackup(obj);
-  $('backupInfo').textContent='Sauvegarde restaurée : '+add+' relevés d’historique ajoutés, '+enriched+' complétés, '+addL+' relevés en direct et '+addEnergy+' index de compteur ajoutés.';
+  const {add,enriched,addL}=await restoreBackup(obj);
+  $('backupInfo').textContent='Sauvegarde restaurée : '+add+' relevés d’historique ajoutés, '+enriched+' complétés et '+addL+' relevés en direct.';
   render();
  }catch(err){$('backupInfo').textContent='Restauration impossible : '+err.message}
  input.value='';
@@ -1032,7 +1029,7 @@ function render(){
  const lastRpm=[...hist].reverse().find(r=>Number.isFinite(r.rpm));
  $('rpm').textContent=lastRpm?lastRpm.rpm:'–';
  const quality=getDataQuality(analysisData);
- renderVmiAssistant(analysisData,{targetRH:Number($('targetRH').value),minSamples:Number($('minSamples').value),energyReadings,meterHistory:hist,onError:log});
+ renderVmiAssistant(analysisData,{targetRH:Number($('targetRH').value),minSamples:Number($('minSamples').value),onError:log});
  const qualityBox=$('dataQuality');
  const coreCoverage=quality.fieldCoverage.filter(field=>quality.coreSensorKeys.includes(String(field.key)));
  const missingDetails=coreCoverage.filter(field=>Number(field.missingCount)>0)
