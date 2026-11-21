@@ -67,6 +67,10 @@ test('les scrutations et notifications sont liées à leur session BLE', async (
   assert.ok(source.includes('const intent=++connectionIntentGeneration;'));
   assert.ok(source.includes('if(intent!==connectionIntentGeneration||connectionRequestPending)return;'));
   assert.ok(source.includes('if(intent===connectionIntentGeneration){\n   connectionRequestPending=false;'));
+  assert.ok(source.includes('bleResponseGate.reset();'));
+  assert.ok(source.includes('function disconnectAfterBleCorrelationLoss()'));
+  assert.ok(source.includes('if(!bleResponseGate.isInvalidated||!connected())return;'));
+  assert.ok(source.includes('disconnectAfterBleCorrelationLoss();'));
 });
 
 test('installe les écouteurs de notification avant d’activer les notifications BLE', async () => {
