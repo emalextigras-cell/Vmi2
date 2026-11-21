@@ -4,7 +4,7 @@
  * Les octets non identifiés restent bruts.
  */
 /**
- * @typedef {{kind:'invalid',type:number,length:number,requiredLength:number,reason:'truncated'|'length'|'checksum'}|{kind:'history',valid:false,length:number,reason:'truncated'|'length'|'checksum'}|{kind:'history',valid:true,payload:Uint8Array,sequence:number,chunkIndex:number,received:number,final:boolean}|{kind:'state',filter:number,days:number,volume:number,maxTemperature:number,rawSpeed:number,boost:number,holiday:number}|{kind:'room',temperature:number,humidity:number}|{kind:'probes',firstTemperature:number,firstHumidity:number,secondTemperature:number,secondHumidity:number}|{kind:'history-total',total:number}|{kind:'unknown',type:number,length:number}} VmiNotification
+ * @typedef {{kind:'invalid',type:number,length:number,requiredLength:number,reason:'truncated'|'length'|'checksum'}|{kind:'history',valid:false,length:number,reason:'truncated'|'length'|'checksum'}|{kind:'history',valid:true,payload:Uint8Array,sequence:number,chunkIndex:number,received:number}|{kind:'state',filter:number,days:number,volume:number,maxTemperature:number,rawSpeed:number,boost:number,holiday:number}|{kind:'room',temperature:number,humidity:number}|{kind:'probes',firstTemperature:number,firstHumidity:number,secondTemperature:number,secondHumidity:number}|{kind:'history-total',total:number}|{kind:'unknown',type:number,length:number}} VmiNotification
  */
 
 /**
@@ -68,8 +68,7 @@ export function decodeVmiNotification(input) {
       payload: bytes.slice(14, end),
       sequence: bytes[9] | (bytes[10] << 8),
       chunkIndex: bytes[12],
-      received: bytes[9] | (bytes[10] << 8),
-      final: bytes[13] === 1
+      received: bytes[9] | (bytes[10] << 8)
     };
   }
 
