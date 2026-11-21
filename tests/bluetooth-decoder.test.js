@@ -33,7 +33,7 @@ test('décode la trame salon 0x02 et distingue le pourcentage filtre de la trame
   probes[6] = 8; probes[8] = 9; probes[11] = 10; probes[13] = 11;
   assert.deepEqual(decodeVmiNotification(probes), {
     kind: 'probes', firstTemperature: 8, firstHumidity: 9,
-    secondTemperature: 10, filterPercent: 11
+    secondTemperature: 10, secondHumidity: 11
   });
 });
 
