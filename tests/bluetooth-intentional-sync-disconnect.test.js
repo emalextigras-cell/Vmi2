@@ -21,9 +21,9 @@ test('onDisconnect absorbe une déconnexion volontaire sans programmer de reconn
 
 test('une reconnexion ne réinitialise pas la synchronisation automatique', () => {
   const connect = service.slice(service.indexOf('async function connectDevice('), service.indexOf('function onDisconnect()'));
-  assert.doesNotMatch(connect, /autoHistoryDone=false/);
+  assert.doesNotMatch(connect, /autoHistoryDone\s*=\s*false/);
   assert.match(connect, /!autoHistoryDone/);
-  assert.match(connect, /autoHistoryDone=true/);
+  assert.match(connect, /autoHistoryDone\s*=\s*true/);
 });
 
 test('un nouveau clic utilisateur autorise une nouvelle synchronisation initiale', () => {
