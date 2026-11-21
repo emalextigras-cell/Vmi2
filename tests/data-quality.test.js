@@ -231,3 +231,10 @@ test('un doublon au même horodatage ne masque pas un pic transitoire', () => {
   assert.equal(result.candidates[0].timestamp, start + 5 * 60_000);
   assert.equal(result.candidates[0].value, 36);
 });
+
+
+test('la plage de température admissible suit la référence Purevent jusqu’à 70 °C', () => {
+  assert.equal(isPlausibleTemperature(65), true);
+  assert.equal(isPlausibleTemperature(70), true);
+  assert.equal(isPlausibleTemperature(70.1), false);
+});
