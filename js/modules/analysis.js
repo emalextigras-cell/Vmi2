@@ -1018,13 +1018,14 @@ export function buildHygrometricDiagnosis(data, {
  * @param {VmiRecord[]} inputRows Historique brut à analyser.
  */
 function prepareHygrometricRows(inputRows) {
-  const unique = new Map();
+  const byTimestamp = new Map();
   let missingTimestampCount = 0;
   let incompleteSensorRecordCount = 0;
   let implausibleSensorRecordCount = 0;
   let placeholderSensorRecordCount = 0;
   let transientSpikeRecordCount = 0;
   let duplicateTimestampCount = 0;
+  let conflictingTimestampCount = 0;
   const transientCoreTimestamps = new Set(detectTransientSensorSpikes(inputRows).candidates
     .filter(candidate => ['st', 'sh', 'te', 'he'].includes(candidate.key))
     .map(candidate => candidate.timestamp));
@@ -1051,12 +1052,28 @@ function prepareHygrometricRows(inputRows) {
     if (missingSensor) incompleteSensorRecordCount++;
     if (implausibleSensor) implausibleSensorRecordCount++;
     if (missingSensor || implausibleSensor) continue;
+    const group = byTimestamp.get(r.t) || [];
+    group.push(r);
+    byTimestamp.set(r.t, group);
+  }
+  const unique = new Map();
+  for (const [timestamp, group] of byTimestamp) {
+    duplicateTimestampCount += Math.max(0, group.length - 1);
+    // Deux relevés valides au même instant mais avec des mesures différentes
+    // sont ambigus : ne pas choisir arbitrairement la première ou la dernière ligne.
+    const fingerprints = new Set(group.map(row =>
+      JSON.stringify([row.st, row.sh, row.te, row.he])
+    ));
+    if (fingerprints.size > 1) {
+      conflictingTimestampCount++;
+      continue;
+    }
+    const r = group[0];
     const indoor = absoluteHumidity(r.st, r.sh);
     const incoming = absoluteHumidity(r.te, r.he);
     if (!Number.isFinite(indoor) || !Number.isFinite(incoming)) continue;
-    if (unique.has(r.t)) duplicateTimestampCount++;
-    unique.set(r.t, {
-      t:r.t, st:r.st, sh:r.sh, te:r.te, he:r.he,
+    unique.set(timestamp, {
+      t:timestamp, st:r.st, sh:r.sh, te:r.te, he:r.he,
       indoorHA:indoor, incomingHA:incoming, delta:indoor-incoming,
       indoorDew:dewPoint(r.st,r.sh), incomingDew:dewPoint(r.te,r.he)
     });
@@ -1069,7 +1086,8 @@ function prepareHygrometricRows(inputRows) {
     implausibleSensorRecordCount,
     placeholderSensorRecordCount,
     transientSpikeRecordCount,
-    duplicateTimestampCount
+    duplicateTimestampCount,
+    conflictingTimestampCount
   };
 }
 
@@ -1081,7 +1099,8 @@ function prepareHygrometricRows(inputRows) {
     implausibleSensorRecordCount,
     placeholderSensorRecordCount,
     transientSpikeRecordCount,
-    duplicateTimestampCount
+    duplicateTimestampCount,
+    conflictingTimestampCount
   } = prepareHygrometricRows(inputRows);
   const dayKey=t=>{
     const d=new Date(t);
@@ -1294,6 +1313,7 @@ function prepareHygrometricRows(inputRows) {
       placeholderSensorRecordCount,
       transientSpikeRecordCount,
       duplicateTimestampCount,
+      conflictingTimestampCount,
       excludedSampleCount:inputRows.length-rows.length
     },
     coverageLevel,
