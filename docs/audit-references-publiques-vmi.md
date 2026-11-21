@@ -412,3 +412,34 @@ Artefacts contrôlés : `00_A0_50_48_B4_A3-2026-11-10-16_55.csv` et `vmi-sauvega
 **Cache service worker :** `vmi-test-v14-cache-67`.
 
 - GitHub Actions #1011, commit `f1dbd01442358b41d4eb037c6a11acf9a8f7410f` : **554 tests réussis, 0 échec** ; syntaxe JavaScript, ESLint et types JSDoc réussis.
+
+
+### 3.11 Décodage étendu de la trame d'état Purevent (0x01)
+
+**Source principale :** `clemvillon/ha-vmi-purevent/custom_components/vmi_plus/protocol.py`, qui indique que les registres et offsets ci-dessous ont été vérifiés sur une Purevent firmware 6.4.002. La documentation source précise que le mapping de certains champs a été confirmé par une capture du 04/10/2026 propre à l'auteur du dépôt ; ce n'est pas la capture HCI de l'utilisateur.
+
+**Champs supplémentaires documentés dans l'état de 61 octets :**
+- Offset 33 : surventilation, logique inversée ; valeur 0 = active.
+- Offset 35 : consigne de préchauffage en °C ; 0 = aucune consigne.
+- Offset 38 : limite de température estivale en °C.
+- Offset 45 : débit fixe ; 1 = actif.
+- Offsets 47–48 : renouvellement d'air little-endian, en volumes par heure multipliés par 1000.
+- Offset 53 : préchauffage en marche ; 1 = actif.
+- Le débit théorique affiché par la référence Purevent est calculé par `round(renouvellement × volume / 1000)`.
+
+**Écart dans Vmi2 et correction :**
+- Vmi2 décodait déjà volume, jours, filtre, vitesse, boost et vacances, mais ignorait les champs ci-dessus.
+- Le décodeur expose maintenant les valeurs brutes et les booléens interprétés, le taux de renouvellement en vol/h et le débit théorique calculé.
+- Le runtime met à jour les indicateurs de l'interface sans effectuer de requête Bluetooth supplémentaire.
+- Les tests vérifient la logique inversée de la surventilation, le débit fixe, les deux états distincts du préchauffage, la consigne, la limite estivale et le calcul du débit.
+
+**Commandes volontairement non activées dans cette étape :**
+- Le registre `0x0B` est une bascule et non une commande idempotente. La référence Purevent relit l'état avant de l'envoyer et ne l'envoie que si l'état voulu diffère ; Vmi2 ne doit pas le proposer comme un simple bouton « basculer » sans cette garde.
+- Le registre `0x1C` règle la consigne de préchauffage et peut démarrer le préchauffage. Le registre `0x2F` commande sa marche/son arrêt ; la référence prévoit une séquence d'arrêt vérifiée et peut compléter par une consigne à zéro. Ces actions ne sont pas ajoutées à l'interface tant que leur orchestration et leur confirmation ne sont pas testées.
+- Les registres `0x17` (limite été) et `0x1B` (débit fixe) sont identifiés, mais leurs commandes seront ajoutées séparément avec contrôles de plage et confirmation d'état.
+
+**Précaution :**
+- Le débit affiché est une valeur théorique dérivée du volume et du renouvellement annoncé, pas une mesure directe au débitmètre.
+- La sémantique des offsets est celle de la référence Purevent 6.4.002. Les trames HCI de l'utilisateur ne contiennent pas encore une commande de réglage ou un état explicitement documenté de tous ces modes ; aucune commande physique n'a été envoyée.
+
+**Cache service worker :** `vmi-test-v14-cache-68`.
