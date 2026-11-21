@@ -107,6 +107,36 @@ export interface AnalysisOptions {
   threshold?: number;
 }
 
+export interface PsychrometricResult {
+  haIn: NullableNumber;
+  haOut: NullableNumber;
+  dewIn: NullableNumber;
+  dewOut: NullableNumber;
+}
+
+export interface SeasonalVentilationSummary {
+  status: 'available' | 'insufficient-data';
+  currentSeason: 'hiver' | 'été' | 'intersaison' | null;
+  latestAt: number | null;
+  seasons: Array<{
+    season: 'été' | 'hiver' | 'intersaison';
+    sampleCount: number;
+    dayCount: number;
+    thermalSampleCount: number;
+    medianOutdoorMinusIndoor: NullableNumber;
+    medianHumidityDelta: NullableNumber;
+    opportunityDayCount: number;
+    opportunityDays: string[];
+    enough: boolean;
+    codeCounts: Record<string, number>;
+  }>;
+  advice: string;
+  minSamples: number;
+  minDays: number;
+  temperatureMargin: number;
+  limits: string[];
+}
+
 export interface TransientSpikeSummary {
   count: number;
   candidates: Array<{
