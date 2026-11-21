@@ -469,3 +469,22 @@ Artefacts contrôlés : `00_A0_50_48_B4_A3-2026-11-10-16_55.csv` et `vmi-sauvega
 
 **Tests logiciels :** les tests dédiés couvrent l'état déjà conforme, la bascule unique, l'absence de renvoi après non-confirmation, les plages numériques, l'activation/désactivation du débit fixe, la séquence d'arrêt du préchauffage, le repli après échec de relecture et l'absence d'écriture si la liaison est coupée. Ils utilisent des callbacks simulés ; aucun ordre n'est envoyé à une VMI physique.
 - GitHub Actions #1035, commit testé `459e64a0243d401bb49e41809a3308b31deb737d` : **566 tests réussis, 0 échec** ; syntaxe JavaScript, ESLint et JSDoc réussis.
+
+
+### 3.13 Référence du compteur après synchronisation historique
+
+**Anomalie trouvée dans `finishDownload()` :**
+- Le code cherchait le relevé de compteur avec `download.rows.find(...)`. Or les lignes sont ajoutées dans l'ordre des séquences BLE : `find()` renvoyait donc le premier nouveau relevé, et non le plus récent.
+- La référence persistée après synchronisation complète pouvait rester en retard de plusieurs relevés. Cela faussait le point de départ du contrôle d'une remise à zéro ultérieure.
+- Il ne faut pas remplacer cette sélection par le maximum numérique : le compteur `d` peut réellement repartir à zéro. La référence correcte est le dernier relevé exploitable dans l'ordre du flux.
+
+**Correction apportée :**
+- Nouveau helper pur `findNewestCounterRecord()` dans `js/modules/sync.js`, qui parcourt les lignes depuis la fin et retient le dernier compteur entier, fini et non négatif.
+- `finishDownload()` utilise désormais ce helper avant l'évaluation et la persistance de la référence.
+- Tests : ordre croissant, remise à zéro (190, 191, 2, 3), compteurs invalides et historique vide.
+- GitHub Actions #1037, commit testé `785b81b17d0d674545c65b3abc2a6738abf7b378` : **570 tests réussis, 0 échec** ; syntaxe JavaScript, ESLint et JSDoc réussis.
+
+**Points de synchronisation qui restent à confirmer :**
+- Le compteur global annoncé par `0x04/0x02` ne doit pas être traité comme nombre de lignes reçues dans le transfert ; la capture ne montre qu'un flux incrémental.
+- La réponse `0x04` arrive après la demande de compteur `0x20`, mais sa sémantique et son caractère obligatoire ne sont pas documentés dans le dépôt Purevent public. Ne pas en faire une condition bloquante sans nouvelle preuve.
+- La fin de transfert reste certifiée uniquement à la rencontre d'une ligne déjà connue et après réception de tous ses fragments observés ; timeout, lacune ou ligne rejetée laissent les relevés partiels non certifiés.
