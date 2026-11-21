@@ -85,6 +85,27 @@ test('notification sondes met à jour les deux températures et humidités', () 
 });
 
 
+
+test('ignore les emplacements de sondes marqués vides par le protocole', () => {
+  const decoded = {
+    kind: 'probes',
+    firstLocation: 0x08, firstTemperature: 0, firstHumidity: 0,
+    secondLocation: 1, secondTemperature: 12, secondHumidity: 97
+  };
+  const h = makeNotificationHandler({ decodeVmiNotification: () => decoded });
+
+  h.handler({ target: { value: new DataView(new Uint8Array([1, 2]).buffer) } });
+
+  assert.equal(h.cur.s1_t, null);
+  assert.equal(h.cur.s1_h, null);
+  assert.equal(h.cur.s2_t, 12);
+  assert.equal(h.cur.s2_h, 97);
+  assert.equal(h.elements.get('ti').textContent, '–');
+  assert.equal(h.elements.get('hi').textContent, '–');
+  assert.equal(h.elements.get('t2').textContent, 12);
+  assert.equal(h.elements.get('h2').textContent, 97);
+});
+
 test('identifie les lignes historiques CSV et attend leurs cinq fragments', () => {
   let received = null;
   const payload = '\n12/11/2026 14:31:00;35;337;1;';
