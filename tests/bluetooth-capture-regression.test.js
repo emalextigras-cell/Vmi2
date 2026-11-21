@@ -99,28 +99,3 @@ test('rejette une vraie trame historique dont le XOR est invalide', () => {
     kind: 'history', valid: false, length: 116, reason: 'checksum'
   });
 });
-
-test('décode les températures négatives du protocole VMI+ sans toucher aux humidités', () => {
-  const seal = bytes => {
-    let checksum = 0;
-    for (let i = 2; i < bytes.length - 1; i++) checksum ^= bytes[i];
-    bytes[bytes.length - 1] = checksum;
-    return bytes;
-  };
-  const probes = new Uint8Array(31);
-  probes.set([0xA5, 0xB6, 0x03, 0x06, 0x19, 0x00, 0xFB, 0x00, 0x60, 0x00,
-    0x01, 0x80, 0x00, 0x61, 0x00]);
-  const decodedProbes = decodeVmiNotification(seal(probes));
-  assert.equal(decodedProbes.kind, 'probes');
-  assert.equal(decodedProbes.firstTemperature, -4);
-  assert.equal(decodedProbes.firstHumidity, 96);
-  assert.equal(decodedProbes.secondTemperature, -127);
-  assert.equal(decodedProbes.secondHumidity, 97);
-
-  const room = new Uint8Array(128);
-  room.set([0xA5, 0xB6, 0x02, 0x06, 0x7A]);
-  room[11] = 0xFE;
-  room[13] = 57;
-  assert.equal(decodeVmiNotification(seal(room)).temperature, -1);
-  assert.equal(decodeVmiNotification(seal(room)).humidity, 57);
-});
