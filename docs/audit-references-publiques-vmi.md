@@ -467,4 +467,5 @@ Artefacts contrôlés : `00_A0_50_48_B4_A3-2026-11-10-16_55.csv` et `vmi-sauvega
 
 **Limite conservée :** les trames ne contiennent pas d'identifiant de transaction. La sérialisation des requêtes et la lecture préalable réduisent le risque d'associer une notification tardive, sans l'éliminer mathématiquement.
 
-**Tests logiciels :** les tests dédiés couvrent l'état déjà conforme, la bascule unique, l'absence de renvoi après non-confirmation, les plages numériques, l'activation/désactivation du débit fixe, la séquence d'arrêt du préchauffage et l'absence d'écriture si la liaison est coupée. Ils utilisent des callbacks simulés ; aucun ordre n'est envoyé à une VMI physique.
+**Tests logiciels :** les tests dédiés couvrent l'état déjà conforme, la bascule unique, l'absence de renvoi après non-confirmation, les plages numériques, l'activation/désactivation du débit fixe, la séquence d'arrêt du préchauffage, le repli après échec de relecture et l'absence d'écriture si la liaison est coupée. Ils utilisent des callbacks simulés ; aucun ordre n'est envoyé à une VMI physique.
+- GitHub Actions #1035, commit testé `459e64a0243d401bb49e41809a3308b31deb737d` : **566 tests réussis, 0 échec** ; syntaxe JavaScript, ESLint et JSDoc réussis.
