@@ -7,6 +7,8 @@ const APP_SHELL = [
   './css/style.css',
   './js/app.js',
   './js/modules/analysis.js',
+  './js/modules/operating-analysis.js',
+  './js/modules/statistics.js',
   './js/modules/assistant-renderer.js',
   './js/modules/assistant-summary.js',
   './js/modules/assistant-view.js',
