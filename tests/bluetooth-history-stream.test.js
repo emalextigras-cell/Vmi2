@@ -76,17 +76,17 @@ test('signale une ligne incomplète lorsque le fragment final manque avant la s�
   const state = createHistoryStreamState();
   for (let sequence = 0; sequence < 25; sequence++) {
     assert.equal(acceptHistoryFragment(state, {
-      sequence, chunkIndex: 0, fragmentCount: 1, payload: 'metadata-' + sequence
+      sequence, chunkIndex: 0, expectedFragments: 1, payload: 'metadata-' + sequence
     }).accepted, true);
   }
   for (const chunkIndex of [0, 10, 20, 30]) {
     assert.equal(acceptHistoryFragment(state, {
-      sequence: 25, chunkIndex, fragmentCount: 5, payload: 'row-25-' + chunkIndex
+      sequence: 25, chunkIndex, expectedFragments: 5, payload: 'row-25-' + chunkIndex
     }).accepted, true);
   }
 
   const next = acceptHistoryFragment(state, {
-    sequence: 26, chunkIndex: 0, fragmentCount: 5, payload: 'row-26-0'
+    sequence: 26, chunkIndex: 0, expectedFragments: 5, payload: 'row-26-0'
   });
   assert.equal(next.accepted, true);
   assert.equal(next.gap, true);
@@ -99,16 +99,16 @@ test('ne signale pas de lacune lorsque les cinq fragments de la ligne sont prés
   const state = createHistoryStreamState();
   for (let sequence = 0; sequence < 25; sequence++) {
     acceptHistoryFragment(state, {
-      sequence, chunkIndex: 0, fragmentCount: 1, payload: 'metadata-' + sequence
+      sequence, chunkIndex: 0, expectedFragments: 1, payload: 'metadata-' + sequence
     });
   }
   for (const chunkIndex of [0, 10, 20, 30, 40]) {
     assert.equal(acceptHistoryFragment(state, {
-      sequence: 25, chunkIndex, fragmentCount: 5, payload: 'row-25-' + chunkIndex
+      sequence: 25, chunkIndex, expectedFragments: 5, payload: 'row-25-' + chunkIndex
     }).accepted, true);
   }
   const next = acceptHistoryFragment(state, {
-    sequence: 26, chunkIndex: 0, fragmentCount: 5, payload: 'row-26-0'
+    sequence: 26, chunkIndex: 0, expectedFragments: 5, payload: 'row-26-0'
   });
   assert.equal(next.accepted, true);
   assert.equal(next.gap, false);
@@ -119,7 +119,7 @@ test('ne signale pas de lacune lorsque les cinq fragments de la ligne sont prés
 test('rejette un index de fragment incompatible avec le nombre annoncé', () => {
   const state = createHistoryStreamState();
   const invalid = acceptHistoryFragment(state, {
-    sequence: 25, chunkIndex: 40, fragmentCount: 4, payload: 'fragment hors plage'
+    sequence: 25, chunkIndex: 40, expectedFragments: 4, payload: 'fragment hors plage'
   });
   assert.equal(invalid.accepted, false);
   assert.equal(invalid.gap, true);
