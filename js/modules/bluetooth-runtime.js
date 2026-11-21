@@ -150,6 +150,9 @@ export function createBluetoothNotificationHandler(deps) {
       $('hi').textContent = cur.s1_h;
       $('t2').textContent = cur.s2_t;
       $('h2').textContent = cur.s2_h;
+    } else if (decoded.kind === 'history-count') {
+      download.totalSequences = decoded.totalSequences;
+      return;
     } else {
       return;
     }
