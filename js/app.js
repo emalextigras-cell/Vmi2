@@ -6,9 +6,9 @@ import { createStore, normalizeStoreSnapshot } from './modules/store.js';
 import { fromOldRow } from './modules/legacy-migration.js';
 import { median, analyzeSpeedLevels, analyzeSpeedTimeContext, analyzeHygrometricPeriods, summarizeDailyTrends, analyzeHourlyPatterns, detectRapidChanges, compareOperatingPeriods, buildHygrometricDiagnosis } from './modules/analysis.js';
 import { renderCharts, resetChartViews } from './modules/charts.js';
-import { SVC_C, CH_C, SVC_T, CH_T, frame, timeFrame, hex } from './modules/ble.js';
+import { hex } from './modules/ble.js';
+import { createBluetoothService } from './modules/bluetooth-service.js';
 import { decodeVmiNotification } from './modules/bluetooth-decoder.js';
-import { createBleWriteQueue } from './modules/bluetooth-write-queue.js';
 import { runBleSessionSequence } from './modules/bluetooth-session.js';
 import { acceptHistoryFragment, createHistoryStreamState, isHistorySyncBaseline, markHistoryRows, markHistoryStreamInvalid } from './modules/bluetooth-history-stream.js';
 import { validateBluetoothHistoryRow } from './modules/bluetooth-history-row.js';
@@ -21,11 +21,8 @@ import { summarizeDataQuality, isPlausibleHumidity, isPlausibleTemperature } fro
 import { summarizeFanEnergyEstimate, summarizeFanEnergyByManualMode } from './modules/energy-estimate.js';
 import { summarizeDailyEnergyClimateContext } from './modules/energy-climate.js';
 import { summarizeWeeklyDiagnostic } from './modules/weekly-diagnostic.js';
-import { chooseAuthorizedDevice } from './modules/bluetooth-autoconnect.js';
-import { createBluetoothNotificationHandler, createReconnectHandler } from './modules/bluetooth-runtime.js';
-import { isBleStateStale } from './modules/bluetooth-freshness.js';
+import { createBluetoothNotificationHandler } from './modules/bluetooth-runtime.js';
 import { createLiveMeasurementFilters } from './modules/measurement-filter.js';
-import { createBleResponseGate, BLE_RESPONSE_KIND_BY_REGISTER } from './modules/bluetooth-response-gate.js';
 import { applyAdvancedCommand } from './modules/bluetooth-advanced-commands.js';
 import { buildLiveFreshnessText } from './modules/live-freshness.js';
 import { formatDiagnosisConfidence } from './modules/diagnostic-confidence.js';
@@ -42,7 +39,7 @@ import { renderTechnicalDiagnostic } from './modules/technical-diagnostic.js';
 
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{})}
 
-/* Protocole Bluetooth : UUID, registres et positions d'octets déduits d'une capture réelle de VMI+. */
+/* Le protocole et le transport Bluetooth sont encapsulés dans bluetooth-service.js. */
 
 
 
@@ -66,11 +63,8 @@ window.addEventListener('unhandledrejection',e=>recordError('Promesse rejetée :
 
 
 
-let dev=null,chC=null,chT=null,pollTimer=null,snapTimer=null,reconnectTimer=null;
-let bleConnectionGeneration=0,connectionIntentGeneration=0,connectionRequestPending=false;
-let freshnessTimer=null,bleConnectedAt=0,staleDisconnectRequested=false;
-let manualDisconnect=false,intentionalDisconnect=false,manualCommandPending=false,pollingSessionToken=null,autoDone=false;
-let bleNotificationHandler=null,bleNotificationCharacteristics=[],bleDisconnectHandler=null;
+let manualCommandPending=false,bluetoothService=null;
+let intentionalDisconnect=false;
 /** @type {UnknownRecord} */ let meta={};
 let cur={},lastSeen={};
 /** @type {VmiRecord[]} */ let live=[],hist=[];
@@ -80,24 +74,8 @@ let logLines=[],dlFrames=0;
 let download={on:false,rows:[],buf:'',sigs:new Set(),knownSigs:new Set(),seenSigs:new Set(),bootstrap:false,got:false,lastPacket:0,timeout:null,historyStream:createHistoryStreamState(),integrityGap:false,dataStarted:false,announcedTotalRows:null};
 const DB='VMI_PUREVENT_DB_TEST',STORE='data';
 const { get: dbGet, set: dbSet, setMany: dbSetMany } = createStore({ databaseName: DB, storeName: STORE, onError: message => log(message) });
-const connected=()=>!!(chC&&dev&&dev.gatt&&dev.gatt.connected);
-const bleResponseGate=createBleResponseGate();
+const connected=()=>!!(bluetoothService&&bluetoothService.connected());
 const liveMeasurementFilters=createLiveMeasurementFilters();
-const bleWriteQueue=createBleWriteQueue({
- isConnected:connected,
- getCharacteristic:()=>chC,
- getConnectionToken:()=>bleConnectionGeneration,
- sleep,
- onSuccess:bytes=>log('> '+hex(bytes)),
- onError:e=>{
-  if(e&&e.code==='BLE_SESSION_CHANGED'){
-   log('Commande Bluetooth en attente annulée après changement de session.');
-   return;
-  }
-  showError('Échec de l’envoi Bluetooth : '+(e.message||e));
-  log('Erreur commande : '+(e.message||e));
- }
-});
 
 function showError(e){$('err').textContent=e?String(e.message||e):''}
 function persist(key,value,label='Sauvegarde IndexedDB'){
@@ -208,42 +186,15 @@ function pruneHist(){
 
 
 
-function writeFrame(bytes){return bleWriteQueue.write(bytes)}
-const send=(reg,val)=>writeFrame(frame(reg,val));
-const responseKindForRegister=BLE_RESPONSE_KIND_BY_REGISTER;
-function disconnectAfterBleCorrelationLoss(){
- if(!bleResponseGate.isInvalidated||!connected())return;
- log('Corrélation des réponses BLE invalidée : fermeture de cette connexion avant toute nouvelle requête.');
- // Sans identifiant de transaction, aucune lecture ne peut être fiable après ce point.
- // La reconnexion crée une nouvelle session de notifications et réinitialise la barrière.
- dev.gatt.disconnect();
-}
-async function sendAndWait(reg,val,expectedKind=responseKindForRegister[reg],timeoutMs=5000){
- if(!expectedKind)return {written:await send(reg,val),responded:false};
- if(bleResponseGate.isInvalidated){disconnectAfterBleCorrelationLoss();return {written:false,responded:false}}
- if(bleResponseGate.pendingKind){log('Requête BLE ignorée : une réponse est déjà attendue.');return {written:false,responded:false}}
- const response=bleResponseGate.waitFor(expectedKind,timeoutMs);
- const written=await send(reg,val);
- if(!written){bleResponseGate.cancel(new Error('Écriture BLE non confirmée.'));await response.catch(()=>{});disconnectAfterBleCorrelationLoss();return {written:false,responded:false}}
- try{const value=await response;return {written:true,responded:true,response:value}}
- catch(error){log('Réponse VMI attendue absente : '+(error.message||error));disconnectAfterBleCorrelationLoss();return {written:true,responded:false,response:null}}
-}
-async function writeFrameAndWait(bytes,expectedKind,timeoutMs=5000){
- if(bleResponseGate.isInvalidated){disconnectAfterBleCorrelationLoss();return false}
- if(bleResponseGate.pendingKind){log('Écriture différée : une réponse Bluetooth est déjà attendue.');return false}
- const response=bleResponseGate.waitFor(expectedKind,timeoutMs);
- const written=await writeFrame(bytes);
- if(!written){bleResponseGate.cancel(new Error('Écriture BLE non confirmée.'));await response.catch(()=>{});disconnectAfterBleCorrelationLoss();return false}
- try{await response;return true}catch(error){log('Accusé VMI absent : '+(error.message||error));disconnectAfterBleCorrelationLoss();return false}
-}
+function writeFrame(bytes){return bluetoothService.writeFrame(bytes)}
+const send=(reg,val)=>bluetoothService.send(reg,val);
+function sendAndWait(reg,val,expectedKind,timeoutMs){return bluetoothService.sendAndWait(reg,val,expectedKind,timeoutMs)}
+function writeFrameAndWait(bytes,expectedKind,timeoutMs){return bluetoothService.writeFrameAndWait(bytes,expectedKind,timeoutMs)}
 async function setClock(allowDuringDownload=false){
- if(!chC){showError('Connecte-toi d’abord à la VMI.');return false}
+ if(!connected()){showError('Connecte-toi d’abord à la VMI.');return false}
  if(download.on&&!allowDuringDownload)return false;
- const token=bleConnectionGeneration;
- while(pollingSessionToken===token&&connected())await sleep(50);
- if(!connected()||token!==bleConnectionGeneration)return false;
  const d=new Date();
- const ok=await writeFrameAndWait(timeFrame(d),'ack');
+ const ok=await bluetoothService.setClock(d);
  $('dlp').textContent=ok?'Heure confirmée par la VMI : '+d.toLocaleString('fr-FR'):'Mise à l’heure écrite, mais accusé protocolaire absent.';
  return ok;
 }
@@ -263,11 +214,41 @@ const handleNotification = createBluetoothNotificationHandler({
  log,
  hex,
  $,
- onDecodedFrame:(kind,decoded)=>bleResponseGate.notify(kind,decoded)
+ onDecodedFrame:(kind,decoded)=>bluetoothService?.notifyResponse(kind,decoded)
 });
 function onNotification(ev){
  try{handleNotification(ev)}catch(e){log('Erreur de décodage d’une trame : '+(e.message||e));recordError('Décodage d’une trame : '+(e.message||e))}
 }
+bluetoothService=createBluetoothService({
+ sleep,
+ setStatus,
+ log,
+ showError,
+ onNotification,
+ getLastStateAt:()=>lastSeen.state,
+ isDownloadActive:()=>download.on,
+ isCommandPending:()=>manualCommandPending,
+ onSnapshot:takeSnapshot,
+ onAutoHistory:()=>autoHistory(),
+ onConnected:()=>{
+  liveMeasurementFilters.resetAll();
+  lastSeen={};
+ },
+ onSessionCleanup:()=>{
+  liveMeasurementFilters.resetAll();
+  if(download.on)finishDownload(false,true,true);
+  manualCommandPending=false;
+  [...document.querySelectorAll('[data-r]'), ...document.querySelectorAll('[data-advanced]')].forEach(control=>control.disabled=download.on);
+ },
+ onManualConnectRequested:()=>{
+  $('conn').disabled=true;
+  showError('');
+ },
+ onManualConnectSettled:isConnected=>{
+  $('conn').disabled=isConnected;
+ }
+});
+
 function refreshTechnicalDiagnostic(){
  renderTechnicalDiagnostic($('technicalDiagnostic'),{
   cur,lastSeen,connected:connected(),now:Date.now(),maxAgeMs:35000
@@ -304,205 +285,8 @@ function takeSnapshot(){
  if(source==='live')render();
 }
 
-/* Scrutation : chaque boucle appartient à une session BLE précise. */
-async function poll(force=false){
- const token=bleConnectionGeneration;
- if(pollingSessionToken===token||!connected()||download.on||(manualCommandPending&&!force))return;
- pollingSessionToken=token;
- try{
-  for(const [r,kind] of [[3,'state'],[6,'room'],[7,'probes']]){
-   if(token!==bleConnectionGeneration||!connected()||download.on||manualCommandPending)break;
-   const result=await sendAndWait(r,0,kind);
-   if(!result.responded||token!==bleConnectionGeneration)break;
-  }
- }finally{
-  if(pollingSessionToken===token)pollingSessionToken=null;
- }
-}
-function checkBleFreshness(){
- if(staleDisconnectRequested)return;
- if(!isBleStateStale({connected:connected(),downloadActive:download.on,commandPending:manualCommandPending,now:Date.now(),connectedAt:bleConnectedAt,lastStateAt:lastSeen.state,maxSilenceMs:35000}))return;
- staleDisconnectRequested=true;
- log('Aucune trame d’état valide depuis 35 s malgré une liaison GATT ouverte : reconnexion demandée.');
- setStatus('VMI silencieuse, reconnexion…');
- if(dev&&dev.gatt&&dev.gatt.connected)dev.gatt.disconnect();
-}
-function startPolling(){
- clearInterval(pollTimer);clearInterval(snapTimer);clearInterval(freshnessTimer);
- freshnessTimer=setInterval(checkBleFreshness,5000);
- const token=bleConnectionGeneration;
- poll();
- pollTimer=setInterval(()=>{if(token===bleConnectionGeneration)poll()},12000);
- setTimeout(()=>{if(token===bleConnectionGeneration&&connected())takeSnapshot()},15000);
- snapTimer=setInterval(()=>{if(token===bleConnectionGeneration&&connected())takeSnapshot()},300000);
-}
-function detachBleListeners(){
- if(bleNotificationHandler){
-  bleNotificationCharacteristics.forEach(characteristic=>characteristic.removeEventListener('characteristicvaluechanged',bleNotificationHandler));
-  bleNotificationHandler=null;bleNotificationCharacteristics=[];
- }
- if(dev&&bleDisconnectHandler){
-  dev.removeEventListener('gattserverdisconnected',bleDisconnectHandler);
-  bleDisconnectHandler=null;
- }
-}
-function cleanupConnection(){
- bleConnectionGeneration++;
- liveMeasurementFilters.resetAll();
- bleResponseGate.cancel(new Error('Session Bluetooth terminée.'));
- clearInterval(freshnessTimer);freshnessTimer=null;bleConnectedAt=0;staleDisconnectRequested=false;
- if(download.on)finishDownload(false,true,true);
- clearInterval(pollTimer);clearInterval(snapTimer);clearTimeout(reconnectTimer);
- manualCommandPending=false;
- [...document.querySelectorAll('[data-r]'), ...document.querySelectorAll('[data-advanced]')].forEach(control=>control.disabled=download.on);
- detachBleListeners();
- chC=null;chT=null;
-}
-function onDisconnect(){
- const wasIntentional=intentionalDisconnect;
- intentionalDisconnect=false;
- cleanupConnection();
- if(wasIntentional){setStatus('Synchronisation terminée. Bluetooth déconnecté.');return}
- setStatus('Déconnecté.');
- if(!manualDisconnect&&dev){setStatus('Connexion perdue, tentative de reconnexion…');clearTimeout(reconnectTimer);reconnectTimer=setTimeout(reconnect,4000)}
-}
-function sessionIsCurrent(token,device){
- return token===bleConnectionGeneration&&dev===device;
-}
-async function connectCharacteristics(server,token,device){
- const serviceC=await server.getPrimaryService(SVC_C);
- if(!sessionIsCurrent(token,device))return false;
- const characteristicC=await serviceC.getCharacteristic(CH_C);
- if(!sessionIsCurrent(token,device))return false;
- const serviceT=await server.getPrimaryService(SVC_T);
- if(!sessionIsCurrent(token,device))return false;
- const characteristicT=await serviceT.getCharacteristic(CH_T);
- if(!sessionIsCurrent(token,device))return false;
- // Installer les écouteurs avant d'activer les notifications : aucune trame initiale
- // ne doit pouvoir arriver dans la fenêtre entre startNotifications() et addEventListener().
- // Les caractéristiques ne deviennent disponibles aux commandes qu'après l'initialisation.
- bleNotificationHandler=ev=>{
-  if(!sessionIsCurrent(token,device)||!connected())return;
-  if(ev.target!==characteristicT&&ev.target!==characteristicC)return;
-  onNotification(ev);
- };
- bleNotificationCharacteristics=[characteristicT,characteristicC];
- characteristicT.addEventListener('characteristicvaluechanged',bleNotificationHandler);
- characteristicC.addEventListener('characteristicvaluechanged',bleNotificationHandler);
- await characteristicT.startNotifications();
- if(!sessionIsCurrent(token,device))return false;
- try{
-  await characteristicC.startNotifications();
- }catch(e){
-  if(!sessionIsCurrent(token,device))return false;
-  log('Notifications canal commande non disponibles : '+e.message);
- }
- if(!sessionIsCurrent(token,device))return false;
- chC=characteristicC;chT=characteristicT;
- return true;
-}
-function preferredBluetoothDeviceId(){
- try{return localStorage.getItem('vmi_bluetooth_device_id')||''}catch(e){return ''}
-}
-function rememberBluetoothDevice(device){
- try{if(device&&device.id)localStorage.setItem('vmi_bluetooth_device_id',device.id)}catch(e){}
-}
-async function connectDevice(device,intent=connectionIntentGeneration){
- if(!device||!device.gatt)throw new Error('Appareil Bluetooth invalide.');
- bleConnectionGeneration++;
- const token=bleConnectionGeneration;
- const connectionIsCurrent=()=>sessionIsCurrent(token,device)&&intent===connectionIntentGeneration;
- clearTimeout(reconnectTimer);
- detachBleListeners();
- chC=null;chT=null;
- dev=device;manualDisconnect=false;
- bleDisconnectHandler=()=>{
-  if(!sessionIsCurrent(token,device))return;
-  onDisconnect();
- };
- dev.addEventListener('gattserverdisconnected',bleDisconnectHandler);
- setStatus('Connexion à '+(dev.name||'la VMI')+'…');
- try{
-  const server=await dev.gatt.connect();
-  if(!connectionIsCurrent()){if(sessionIsCurrent(token,device))cleanupConnection();return false}
-  const characteristicsReady=await connectCharacteristics(server,token,device);
-  if(!characteristicsReady||!connectionIsCurrent()){if(sessionIsCurrent(token,device))cleanupConnection();return false}
-  liveMeasurementFilters.resetAll();
-  bleResponseGate.reset();
-  lastSeen={};
-  bleConnectedAt=Date.now();staleDisconnectRequested=false;
-  setStatus('Connecté à '+(dev.name||'la VMI')+'. Synchronisation des données…',true);
-  startPolling();
-  // Une reconnexion ne doit pas relancer la synchronisation automatique déjà effectuée.
-  setTimeout(()=>{if(sessionIsCurrent(token,device)&&connected())autoHistory()},3000);
-  return true;
- }catch(e){
-  if(!sessionIsCurrent(token,device))return false;
-  cleanupConnection();
-  if(intent!==connectionIntentGeneration)return false;
-  throw e;
- }
-}
-async function connectBLE(){
- // Un seul sélecteur utilisateur à la fois ; son intention prime sur l'auto-connexion en attente.
- if(connectionRequestPending)return;
- connectionRequestPending=true;
- const intent=++connectionIntentGeneration;
- $('conn').disabled=true;
- autoDone=false;manualDisconnect=false;clearTimeout(reconnectTimer);showError('');
- try{
-  if(!navigator.bluetooth){showError('Web Bluetooth indisponible. Utilise Chrome sur Android ou un navigateur compatible, en HTTPS.');return}
-  /* requestDevice reste directement dans le geste utilisateur requis par le navigateur. */
-  const device=await navigator.bluetooth.requestDevice({acceptAllDevices:true,optionalServices:[SVC_C,SVC_T]});
-  if(intent!==connectionIntentGeneration)return;
-  rememberBluetoothDevice(device);
-  await connectDevice(device,intent);
- }catch(e){
-  if(intent===connectionIntentGeneration){showError(e);setStatus('Connexion impossible.')}
- }finally{
-  if(intent===connectionIntentGeneration){
-   connectionRequestPending=false;
-   $('conn').disabled=connected();
-  }
- }
-}
-async function autoConnectAuthorizedDevice(){
- const intent=connectionIntentGeneration;
- if(connectionRequestPending)return;
- if(!navigator.bluetooth||typeof navigator.bluetooth.getDevices!=='function'){
-  setStatus('Autorisation Bluetooth requise : appuie sur « Se connecter ».');
-  return;
- }
- try{
-  const devices=await navigator.bluetooth.getDevices();
-  if(intent!==connectionIntentGeneration||connectionRequestPending)return;
-  const device=chooseAuthorizedDevice(devices,preferredBluetoothDeviceId());
-  if(!device){
-   setStatus(devices.length>1?'Plusieurs appareils sont autorisés. Appuie sur « Se connecter » pour choisir la VMI.':'VMI non encore autorisée. Appuie sur « Se connecter » une première fois.');
-   return;
-  }
-  log('VMI déjà autorisée détectée : tentative de reconnexion automatique.');
-  await connectDevice(device,intent);
- }catch(e){
-  if(intent!==connectionIntentGeneration)return;
-  log('Reconnexion automatique indisponible : '+(e.message||e));
-  setStatus('Reconnexion automatique impossible. Appuie sur « Se connecter ».');
- }
-}
-const reconnect=createReconnectHandler({
- isManualDisconnect:()=>manualDisconnect,
- getDevice:()=>dev,
- isConnectionRequestPending:()=>connectionRequestPending,
- getConnectionIntentGeneration:()=>connectionIntentGeneration,
- connectDevice,
- log,
- clearTimeout,
- setTimeout,
- getReconnectTimer:()=>reconnectTimer,
- setReconnectTimer:timer=>{reconnectTimer=timer}
-});
-$('conn').onclick=connectBLE;
-$('disc').onclick=()=>{manualDisconnect=true;cleanupConnection();if(dev&&dev.gatt&&dev.gatt.connected)dev.gatt.disconnect();setStatus('Déconnexion demandée.')};
+$('conn').onclick=()=>bluetoothService.connectBLE();
+$('disc').onclick=()=>bluetoothService.disconnect();
 
 /* Boutons de commande : une commande à la fois, avec vérification de l'état renvoyé par la VMI */
 const EXPECT={24:v=>['vit',v+1,'Vitesse '+(v+1)],25:v=>['boost',v,'Boost '+(v?'activé':'arrêté')],26:v=>['hol',v>0,'Mode vacances '+(v?`${v} jour(s)`:'arrêté')]};
@@ -510,15 +294,15 @@ document.querySelectorAll('[data-r]').forEach(b=>b.addEventListener('click',asyn
  if(manualCommandPending||download.on)return;
  if(!connected()){showError('VMI non connectée.');$('cmdResult').textContent='';return}
  manualCommandPending=true;
- const commandToken=bleConnectionGeneration,commandDevice=dev;
- const commandIsCurrent=()=>sessionIsCurrent(commandToken,commandDevice)&&connected();
+ const commandToken=bluetoothService.getSessionToken(),commandDevice=bluetoothService.getDevice();
+ const commandIsCurrent=()=>bluetoothService.isSessionCurrent(commandToken,commandDevice)&&connected();
  const controls=[...document.querySelectorAll('[data-r]')];
  controls.forEach(x=>x.disabled=true);
  showError('');
  const reg=Number(b.dataset.r),value=Number(b.dataset.v),[key,expected,label]=EXPECT[reg](value);
  const result=$('cmdResult');
  try{
-  while(pollingSessionToken===commandToken&&commandIsCurrent())await sleep(50);
+  while(bluetoothService.isPolling(commandToken)&&commandIsCurrent())await sleep(50);
   if(!commandIsCurrent())return;
   result.textContent='Envoi de la commande à la VMI…';
   const t0=Date.now();
@@ -539,7 +323,7 @@ document.querySelectorAll('[data-r]').forEach(b=>b.addEventListener('click',asyn
  }catch(e){
   showError(e);result.textContent='Erreur pendant la commande.';
  }finally{
-  if(commandToken===bleConnectionGeneration){manualCommandPending=false;controls.forEach(x=>x.disabled=download.on)}
+  if(bluetoothService.getSessionToken()===commandToken){manualCommandPending=false;controls.forEach(x=>x.disabled=download.on)}
  }
 }));
 const setCommandsDisabled=dis=>[...document.querySelectorAll('[data-r]'), ...document.querySelectorAll('[data-advanced]')].forEach(x=>x.disabled=dis);
@@ -689,17 +473,12 @@ function finishDownload(completeBoundary,timeout=false,interrupted=false){
    ? ` · dates recalées avec ${ingestResult.referenceCount} repères indépendants : vérification conseillée`
    : ' · pas assez de nouveaux repères fiables : dates anciennes laissées non corrigées';
  }
- if(completeBoundary&&dev&&dev.gatt&&dev.gatt.connected){
-  // La VMI ne sait pas arrêter seule le flux historique : cette coupure est volontaire.
-  // onDisconnect doit la distinguer d'une vraie perte de liaison.
-  intentionalDisconnect=true;
-  dev.gatt.disconnect();
- }
+ if(completeBoundary&&connected())bluetoothService.disconnectIntentional();
 }
 async function startDownload(auto=false){
- if(!chC||!connected()){if(!auto)showError('Connecte-toi d’abord à la VMI.');return}
+ if(!connected()){if(!auto)showError('Connecte-toi d’abord à la VMI.');return}
  if(download.on)return;
- const sessionToken=bleConnectionGeneration;
+ const sessionToken=bluetoothService.getSessionToken();
  const abortDownload=()=>{
   if(download.on)finishDownload(false,true,true);
  };
@@ -711,11 +490,11 @@ async function startDownload(auto=false){
  $('dlh').disabled=true;setCommandsDisabled(true);
  $('dlp').textContent=auto?'Téléchargement automatique de l’historique…':'Démarrage du téléchargement…';
  // Terminer la requête de lecture déjà en cours avant d'envoyer les registres du flux historique.
- while(pollingSessionToken===sessionToken&&connected())await sleep(50);
- if(!download.on||sessionToken!==bleConnectionGeneration){abortDownload();return}
+ while(bluetoothService.isPolling(sessionToken)&&connected())await sleep(50);
+ if(!download.on||sessionToken!==bluetoothService.getSessionToken()){abortDownload();return}
  const sequenceOk=await runBleSessionSequence({
   token:sessionToken,
-  getToken:()=>bleConnectionGeneration,
+  getToken:()=>bluetoothService.getSessionToken(),
   isActive:()=>download.on&&connected(),
   steps:[async()=>{await setClock(true);return true},()=>send(0x2c,0),()=>send(0x20,0),()=>send(0x22,0)]
  });
@@ -867,7 +646,7 @@ function buildDiagnostic(){
  const ago=t=>t?Math.round((Date.now()-t)/1000)+' s':'jamais';
  L.push(`VMI Purevent – diagnostic – version ${APP_VERSION} – ${new Date().toLocaleString('fr-FR')}`);
  L.push('Navigateur : '+navigator.userAgent);
- L.push(`Bluetooth : ${navigator.bluetooth?'disponible':'indisponible'} · connecté : ${connected()?'oui':'non'} · service worker : ${'serviceWorker' in navigator?(navigator.serviceWorker.controller?'actif':'non actif'):'absent'} · SheetJS : ${window.XLSX?'chargé':'non chargé'}`);
+ L.push(`Bluetooth : ${bluetoothService?.isAvailable()?'disponible':'indisponible'} · connecté : ${connected()?'oui':'non'} · service worker : ${'serviceWorker' in navigator?(navigator.serviceWorker.controller?'actif':'non actif'):'absent'} · SheetJS : ${window.XLSX?'chargé':'non chargé'}`);
  const valid=hist.filter(r=>r.t>=MIN_VALID&&r.t<=Date.now());
  L.push(`Historique : ${hist.length} relevés dont ${valid.length} valides`);
  if(valid.length){
@@ -1420,4 +1199,4 @@ $('themeBtn').onclick=()=>{
 };
 try{const theme=localStorage.getItem('vmi_modulaire_theme');if(theme)document.documentElement.dataset.theme=theme}catch(e){}
 if(!navigator.bluetooth)showError('Web Bluetooth indisponible : ouvre cette page en HTTPS dans Chrome sur Android.');
-init().then(autoConnectAuthorizedDevice).catch(e=>recordError('Initialisation impossible : '+(e.message||e)));
+init().then(()=>bluetoothService.autoConnectAuthorizedDevice()).catch(e=>recordError('Initialisation impossible : '+(e.message||e)));
