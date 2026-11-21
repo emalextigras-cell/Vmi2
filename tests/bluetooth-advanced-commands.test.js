@@ -98,3 +98,19 @@ test('aucune écriture si la connexion est absente', async () => {
   await assert.rejects(applyAdvancedCommand(h.deps, 'fixedAirflow', true), /interrompue/);
   assert.deepEqual(h.writes, []);
 });
+
+test('arrêt du préchauffage : le repli 0x1C=0 reste possible si la relecture intermédiaire échoue', async () => {
+  const h = harness({ preheatOn: true, preheatSetpoint: 15 }, [
+    null,
+    { preheatOn: false, preheatSetpoint: 0 }
+  ]);
+  const originalRead = h.deps.readState;
+  let readCount = 0;
+  h.deps.readState = async () => {
+    readCount++;
+    if (readCount === 2) throw new Error('timeout de relecture');
+    return originalRead();
+  };
+  await stopPreheating(h.deps);
+  assert.deepEqual(h.writes, [[0x2F, 0], [0x1C, 0]]);
+});
