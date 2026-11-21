@@ -92,17 +92,8 @@ export function createBluetoothNotificationHandler(deps) {
       if (download.on) {
         $('dlp').textContent = `${download.rows.length} nouvelles lignes (index historique ${decoded.sequence + 1} / ${download.total || '?'})`;
         armTimer();
-        if (decoded.final) {
-          if (download.buf.trim()) {
-            const tail = download.buf.split(/\r\n|\n|\r/);
-            download.buf = '';
-            tail.filter(line => line.trim()).forEach(parseDownloadLine);
-          }
-          if (download.on) {
-            download.finalSeen = true;
-            finishDownload(false);
-          }
-        }
+        // L’octet 13 n’est pas interprété comme marqueur de fin : sa sémantique
+        // n’est pas démontrée par la capture Purevent disponible.
       }
       return;
     }
