@@ -51,8 +51,8 @@ test('décode les mesures salon et les deux sondes après validation XOR', () =>
   const probes = frame(0x03, 31);
   probes[6] = 8; probes[8] = 9; probes[11] = 10; probes[13] = 11;
   assert.deepEqual(decodeVmiNotification(seal(probes)), {
-    kind: 'probes', firstTemperature: 8, firstHumidity: 9,
-    secondTemperature: 10, secondHumidity: 11
+    kind: 'probes', firstLocation: 0, firstTemperature: 8, firstHumidity: 9,
+    secondLocation: 0, secondTemperature: 10, secondHumidity: 11
   });
 });
 
