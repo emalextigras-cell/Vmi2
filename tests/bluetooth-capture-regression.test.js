@@ -83,3 +83,17 @@ test('lit la vraie ligne VMI+ sans confondre Tempext, sondes et télécommande s
   assert.equal(record.te, 17.6, 'la sonde P1 reste distincte de Tempext');
   assert.equal(record.he, 74);
 });
+
+test('rejette une vraie trame historique dont le XOR est invalide', () => {
+  // Fragment 40 de la séquence 77 : octet final 0x4f, XOR calculé 0x45.
+  const bytes = hexBytes(`
+    a5 b6 30 06 6e 37 27 51 12 4d 00 05 28 00 30 30 30 3b 30 35 34 3b 00 00
+    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+    30 3b 32 38 3b 32 35 3b 30 39 2c 33 3b 31 3b 36 2e 34 2e 32 3b 31 38 37
+    3b 30 31 3b 30 34 3b 30 30 3b 34 32 32 35 3b 34 37 3b 31 32 36 38 3b 39
+    39 3b 31 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 4f
+  `);
+  assert.deepEqual(decodeVmiNotification(bytes), {
+    kind: 'history', valid: false, length: 116, reason: 'checksum'
+  });
+});
