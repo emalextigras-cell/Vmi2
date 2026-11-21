@@ -555,3 +555,30 @@ Artefacts contrôlés : `00_A0_50_48_B4_A3-2026-11-10-16_55.csv` et `vmi-sauvega
 - Vérification du saut des lignes partielles déjà connues, de la collecte des lignes inconnues plus anciennes, de la déduplication au sein d'une session et de l'arrêt uniquement sur une borne complète.
 - Tests simulés uniquement ; aucun ordre BLE ni essai matériel.
 - GitHub Actions #1048, commit testé `f5882d30fa772a1ede87d3149a59de949a8bf045` : **572 tests réussis, 0 échec** ; vérification de syntaxe JavaScript, ESLint et types JSDoc réussies.
+
+### 3.17 Comparaison approfondie des trois implémentations BLE
+
+**Périmètre et compatibilité matérielle :**
+- `clemvillon/ha-vmi-purevent` documente explicitement une Purevent, firmware 6.4.002, avec des positions de registres vérifiées sur cette famille. Certaines vérifications de son auteur proviennent de sa propre capture du 04/10/2026 ; elles ne doivent pas être confondues avec la capture HCI fournie ici.
+- `srThibaultP/ha-vmi-plus` et `srThibaultP/vmi-plus-ble` déclarent leurs essais sur Urban / Urban 2. Leur protocole est une référence utile pour les structures communes et les fonctions VMI+, mais pas une autorité pour attribuer à la Purevent des sémantiques qui divergent.
+- Le README de `ha-vmi-plus` expose notamment les programmes horaires, capteurs sans fil, bypass, diagnostic et VOC. Ces fonctions ne sont pas automatiquement transposables à la Purevent : il faut une preuve de compatibilité de modèle et de firmware avant toute implémentation.
+
+**Différences de décodage à ne pas écraser :**
+- Octets 47–48 de l'état `0x01` : le décodeur Urban de `vmi-plus-ble` divise la valeur little-endian par 5 pour produire un débit théorique en m³/h. Le dépôt Purevent interprète ces octets comme un renouvellement en vol/h multiplié par 1000, puis calcule le débit théorique avec le volume. Vmi2 conserve le décodage Purevent (division par 1000) ; appliquer le facteur Urban /5 produirait une valeur incompatible.
+- Octet 43 / registre `0x1A` : la documentation Urban décrit un mode vacances booléen, avec durée conservée dans l'application. Le code Purevent traite l'octet 43 comme le nombre de jours restants et son registre comme une durée en jours. Vmi2 conserve la valeur brute `vacationDays` et dérive l'état actif par `> 0`, au lieu de réduire la donnée à `== 1`.
+- Octet 36 : le protocole Urban le décrit comme une consigne de préchauffage hydraulique. Le code Purevent le laisse explicitement non décodé et surveillé. Vmi2 ne l'interprète pas.
+- Octet 52 : le protocole Urban l'appelle `turbo_heater`; la référence Purevent le laisse non décodé et indique qu'il ne constitue pas un doublon fiable de la surventilation. Vmi2 ne l'expose pas comme état Purevent.
+- Températures négatives : le parseur Urban utilise `valeur - 255` pour les octets >= 128 ; le parseur Purevent utilise le complément à deux (`valeur - 256`). Aucune capture utilisateur sous 0 °C ne tranche pour cette VMI. Vmi2 laisse donc volontairement ce cas non interprété plutôt que de choisir silencieusement une convention.
+- Sondes : la bibliothèque Urban parcourt jusqu'à dix capteurs sans fil dans `0x02` et cinq sondes câblées dans `0x03`. La référence Purevent expose une structure plus réduite (télécommande dans `0x02`, deux mesures de sonde dans `0x03`) ; la capture utilisateur confirme le format effectivement consommé par Vmi2. Ne pas remplacer ce décodage par la structure Urban sans détection de variante.
+
+**Différences d'orchestration BLE :**
+- Purevent `device.py` conserve un verrou pendant l'ensemble écriture + attente de la réponse. Il suit la fraîcheur de la trame d'état, invalide les mesures à la reconnexion, abandonne les attentes à la perte de liaison, retente la fermeture d'une connexion qui n'a pas pu être libérée et ignore les notifications arrivant après l'abandon de la session.
+- `vmi-plus-ble/client.py` attend une réponse par classe de trame avec un délai par défaut de 10 s. Son verrou protège l'écriture GATT, mais pas toute la durée de `_request()` jusqu'à la réception. Les attentes sont regroupées par classe ; le gestionnaire de notification résout toutes les attentes de cette classe. Deux requêtes simultanées attendant le même type peuvent donc être satisfaites par une seule notification. Le coordinateur Home Assistant appelle normalement les lectures de `update()` en séquence, mais le client public ne sérialise pas lui-même tout le cycle requête/réponse.
+- Vmi2 a une barrière globale `createBleResponseGate()` qui refuse une seconde attente tant que la première n'est pas résolue, et une file d'écritures GATT. Les lectures périodiques, commandes et séquences historiques sont coordonnées dans `app.js`. Cette architecture évite le cas des attentes multiples par classe du client Urban.
+- Limite commune à garder visible : les réponses Purevent observées ne portent pas d'identifiant de transaction. Si une réponse arrive après expiration d'une attente et après l'ouverture d'une nouvelle attente du même type, le seul type de trame ne suffit pas à prouver à quelle requête elle appartient. La barrière Vmi2 réduit les chevauchements, mais ne peut pas résoudre mathématiquement cette ambiguïté. Il faut couvrir ce cas par simulation et maintenir un état « non confirmé » en cas de doute.
+
+**Décisions d'audit :**
+- Référence prioritaire pour les champs et commandes Purevent : `clemvillon/ha-vmi-purevent`, recoupée avec la capture HCI utilisateur quand elle contient effectivement le champ.
+- Référence secondaire pour les capacités générales VMI+ / Urban : `srThibaultP/ha-vmi-plus` et `srThibaultP/vmi-plus-ble`, en conservant explicitement l'étiquette « Urban / Urban 2 ».
+- Aucun registre installateur, usine, SAV ou mise à jour firmware n'est ajouté sur la seule base du protocole Urban. Les registres signalés dangereux par les sources restent exclus.
+- Aucun ordre Bluetooth matériel n'a été envoyé pendant cette comparaison.
