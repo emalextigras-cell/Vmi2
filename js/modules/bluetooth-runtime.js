@@ -137,6 +137,7 @@ export function createBluetoothNotificationHandler(deps) {
       cur.vit = decoded.rawSpeed + 1; // code brut VMI : ne jamais le traiter comme niveau manuel
       cur.boost = decoded.boost;
       cur.hol = decoded.holiday;
+      cur.holidayDays = decoded.vacationDays;
       cur.rpm = null;
       lastSeen.state = timestamp;
       $('fi').textContent = cur.filtre;
@@ -145,7 +146,7 @@ export function createBluetoothNotificationHandler(deps) {
       $('tm').textContent = cur.tmax;
       $('sp').textContent = cur.vit;
       $('bo').textContent = cur.boost ? 'Actif' : 'Arrêté';
-      $('ho').textContent = cur.hol ? 'Actif' : 'Arrêté';
+      $('ho').textContent = cur.hol ? `Actif · ${cur.holidayDays} j restants` : 'Arrêté';
     } else if (decoded.kind === 'room') {
       cur.sal_t_raw = decoded.temperature;
       cur.sal_h_raw = decoded.humidity;
