@@ -23,6 +23,7 @@ import { summarizeDailyEnergyClimateContext } from './modules/energy-climate.js'
 import { summarizeWeeklyDiagnostic } from './modules/weekly-diagnostic.js';
 import { chooseAuthorizedDevice } from './modules/bluetooth-autoconnect.js';
 import { createBluetoothNotificationHandler, createReconnectHandler } from './modules/bluetooth-runtime.js';
+import { isBleStateStale } from './modules/bluetooth-freshness.js';
 import { buildLiveFreshnessText } from './modules/live-freshness.js';
 import { formatDiagnosisConfidence } from './modules/diagnostic-confidence.js';
 import { analyzeSeasonalVentilation } from './modules/seasonal-advice.js';
@@ -63,6 +64,7 @@ window.addEventListener('unhandledrejection',e=>recordError('Promesse rejetée :
 
 let dev=null,chC=null,chT=null,pollTimer=null,snapTimer=null,reconnectTimer=null;
 let bleConnectionGeneration=0,connectionIntentGeneration=0,connectionRequestPending=false;
+let freshnessTimer=null,bleConnectedAt=0,staleDisconnectRequested=false;
 let manualDisconnect=false,intentionalDisconnect=false,manualCommandPending=false,pollingSessionToken=null,autoDone=false;
 let bleNotificationHandler=null,bleNotificationCharacteristics=[],bleDisconnectHandler=null;
 /** @type {UnknownRecord} */ let meta={};
@@ -268,8 +270,17 @@ async function poll(force=false){
   if(pollingSessionToken===token)pollingSessionToken=null;
  }
 }
+function checkBleFreshness(){
+ if(staleDisconnectRequested)return;
+ if(!isBleStateStale({connected:connected(),downloadActive:download.on,commandPending:manualCommandPending,now:Date.now(),connectedAt:bleConnectedAt,lastStateAt:lastSeen.state,maxSilenceMs:35000}))return;
+ staleDisconnectRequested=true;
+ log('Aucune trame d’état valide depuis 35 s malgré une liaison GATT ouverte : reconnexion demandée.');
+ setStatus('VMI silencieuse, reconnexion…');
+ if(dev&&dev.gatt&&dev.gatt.connected)dev.gatt.disconnect();
+}
 function startPolling(){
- clearInterval(pollTimer);clearInterval(snapTimer);
+ clearInterval(pollTimer);clearInterval(snapTimer);clearInterval(freshnessTimer);
+ freshnessTimer=setInterval(checkBleFreshness,5000);
  const token=bleConnectionGeneration;
  poll();
  pollTimer=setInterval(()=>{if(token===bleConnectionGeneration)poll()},12000);
@@ -288,6 +299,7 @@ function detachBleListeners(){
 }
 function cleanupConnection(){
  bleConnectionGeneration++;
+ clearInterval(freshnessTimer);freshnessTimer=null;bleConnectedAt=0;staleDisconnectRequested=false;
  if(download.on)finishDownload(false,true,true);
  clearInterval(pollTimer);clearInterval(snapTimer);clearTimeout(reconnectTimer);
  manualCommandPending=false;
@@ -364,6 +376,8 @@ async function connectDevice(device,intent=connectionIntentGeneration){
   if(!connectionIsCurrent()){if(sessionIsCurrent(token,device))cleanupConnection();return false}
   const characteristicsReady=await connectCharacteristics(server,token,device);
   if(!characteristicsReady||!connectionIsCurrent()){if(sessionIsCurrent(token,device))cleanupConnection();return false}
+  lastSeen={};
+  bleConnectedAt=Date.now();staleDisconnectRequested=false;
   setStatus('Connecté à '+(dev.name||'la VMI')+'. Synchronisation des données…',true);
   startPolling();
   // Une reconnexion ne doit pas relancer la synchronisation automatique déjà effectuée.
