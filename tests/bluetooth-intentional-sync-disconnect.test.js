@@ -13,10 +13,10 @@ test('la fin de synchronisation marque la déconnexion comme volontaire avant di
 
 test('onDisconnect absorbe une déconnexion volontaire sans programmer de reconnexion', () => {
   const handler = service.slice(service.indexOf('function onDisconnect()'), service.indexOf('async function reconnect()'));
-  assert.match(handler, /const wasIntentional=intentionalDisconnect;/);
-  assert.match(handler, /intentionalDisconnect=false;/);
+  assert.match(handler, /const wasIntentional\\s*=\\s*intentionalDisconnect;/);
+  assert.match(handler, /intentionalDisconnect\\s*=\\s*false;/);
   assert.match(handler, /if\(wasIntentional\)\{setStatus\('Synchronisation terminée\. Bluetooth déconnecté\.'\);return\}/);
-  assert.ok(handler.indexOf('if(wasIntentional)') < handler.indexOf('setTimeout(reconnect,4000)'));
+  assert.ok(handler.indexOf('if (wasIntentional)') < handler.indexOf('setTimeoutFn(reconnect, 4000)'));
 });
 
 test('une reconnexion ne réinitialise pas la synchronisation automatique', () => {
