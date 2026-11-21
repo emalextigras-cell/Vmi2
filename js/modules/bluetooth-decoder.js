@@ -5,7 +5,7 @@
  * les références Purevent et VMI+ divergent et aucune capture utilisateur sous 0 °C ne tranche.
  */
 /**
- * @typedef {{kind:'invalid',type:number,length:number,requiredLength:number,reason:'truncated'|'length'|'checksum'}|{kind:'history',valid:false,length:number,reason:'truncated'|'length'|'checksum'}|{kind:'history',valid:true,payload:Uint8Array,sequence:number,chunkIndex:number,received:number}|{kind:'state',filter:number,days:number,volume:number,maxTemperature:number,rawSpeed:number,boost:number,holiday:number}|{kind:'room',temperature:number,humidity:number}|{kind:'probes',firstLocation:number,firstTemperature:number,firstHumidity:number,secondLocation:number,secondTemperature:number,secondHumidity:number}|{kind:'unknown',type:number,length:number}} VmiNotification
+ * @typedef {{kind:'invalid',type:number,length:number,requiredLength:number,reason:'truncated'|'length'|'checksum'}|{kind:'history',valid:false,length:number,reason:'truncated'|'length'|'checksum'}|{kind:'history',valid:true,payload:Uint8Array,sequence:number,chunkIndex:number,received:number}|{kind:'history-count',count:number,length:number}|{kind:'state',filter:number,days:number,volume:number,maxTemperature:number,rawSpeed:number,boost:number,holiday:number}|{kind:'room',temperature:number,humidity:number}|{kind:'probes',firstLocation:number,firstTemperature:number,firstHumidity:number,secondLocation:number,secondTemperature:number,secondHumidity:number}|{kind:'unknown',type:number,length:number}} VmiNotification
  */
 
 /**
@@ -109,7 +109,13 @@ export function decodeVmiNotification(input) {
     };
   }
 
-  // 0x04 est nommé « SimpleData » dans la documentation VMI+ générique.
-  // Sa charge utile Purevent n'est pas spécifiée : ne pas l'utiliser comme borne de fin.
+  // Dans la capture Purevent fournie, 0x04 porte le sous-type 0x02 puis
+  // un compteur little-endian sur deux octets (824). On l'expose comme
+  // compteur global annoncé ; ce n'est pas une preuve que toutes les lignes
+  // ont été transférées et cela ne doit jamais terminer une synchro incrémentale.
+  if (type === 0x04 && bytes[5] === 0x02) {
+    return { kind: 'history-count', count: bytes[6] | (bytes[7] << 8), length: frameLength };
+  }
+  // Autres variantes SimpleData non caractérisées : rester conservateur.
   return { kind: 'unknown', type, length: frameLength };
 }
