@@ -86,7 +86,14 @@ export function mergeRecordFields(existing, incoming) {
   return merged;
 }
 
-/** Fusionne les imports par horodatage sans perdre les champs déjà renseignés. */
+/**
+ * Fusionne les imports par horodatage sans perdre les champs déjà renseignés.
+ * @param {VmiRecord[]} currentRecords Historique déjà stocké.
+ * @param {VmiRecord[]} importedRecords Relevés entrants.
+ * @param {number} [maxTimestamp] Horodatage maximal de référence.
+ * @param {{futureToleranceMs?: number}} [options] Tolérance future facultative, nulle par défaut et plafonnée à 120 secondes.
+ * @returns {VmiRecord[]} Historique fusionné et trié.
+ */
 export function mergeImportedHistory(currentRecords, importedRecords, maxTimestamp = Date.now(), options = {}) {
   const requestedTolerance = Number.isFinite(options.futureToleranceMs)
     ? Math.max(0, Math.floor(options.futureToleranceMs))
