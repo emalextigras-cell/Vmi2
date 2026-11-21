@@ -445,7 +445,10 @@ function finishDownload(completeBoundary,timeout=false,interrupted=false){
   allowPre2020RawDates:true,
   forceCounterReset:counterAssessment?.discontinuity===true,
   counterResetReason:counterAssessment?.reason,
-  counterPreviousDays:counterAssessment?.previousDays ?? (/** @type {{d?:number}|undefined} */ (meta.counterBaseline))?.d
+  counterPreviousDays:counterAssessment?.previousDays ?? (/** @type {{d?:number}|undefined} */ (meta.counterBaseline))?.d,
+  // La VMI peut dater sa dernière ligne de quelques secondes après la fin locale du transfert.
+  // Tolérer 30 s évite de perdre le relevé courant, sans accepter les lignes futures éloignées.
+  futureToleranceMs:30_000
  }):null;
  if(complete){
   meta.lastSync=syncObservedAt;
