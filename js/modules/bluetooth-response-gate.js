@@ -63,7 +63,7 @@ export function createBleResponseGate({
       };
       entry.timer = setTimeoutFn(() => {
         const error = new Error(
-          `Délai dépassé : aucune réponse VMI de type ${expectedKind} en ${timeoutMs} ms. Reconnexion requise pour éviter une réponse tardive ambiguë.`
+          `Délai dépassé : aucune réponse VMI de type ${expectedKind} en ${timeoutMs} ms. reconnexion requise pour éviter une réponse tardive ambiguë.`
         );
         invalidate(error);
       }, timeoutMs);
