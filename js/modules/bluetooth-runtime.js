@@ -89,6 +89,14 @@ export function createBluetoothNotificationHandler(deps) {
       download.buf = lines.pop();
       lines.forEach(parseDownloadLine);
 
+      // Une ligne déjà connue marque la borne de coupure, mais on attend tous
+      // les fragments observés de cette ligne avant de certifier la synchronisation.
+      if (download.on && download.reachedCut && download.historyStream.expectedFragments !== null &&
+          download.historyStream.expectedChunk === download.historyStream.expectedFragments * 10) {
+        finishDownload(true);
+        return;
+      }
+
       if (download.on) {
         $('dlp').textContent = `${download.rows.length} nouvelles lignes (index historique ${decoded.sequence + 1} / ${download.total || '?'})`;
         armTimer();
