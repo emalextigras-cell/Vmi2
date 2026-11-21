@@ -4,13 +4,17 @@ import { decodeVmiNotification } from '../js/modules/bluetooth-decoder.js';
 import { createBluetoothNotificationHandler } from '../js/modules/bluetooth-runtime.js';
 
 test('les états Boost et Vacances restent décodés après la vitesse brute', () => {
-  const bytes = new Uint8Array(54);
+  const bytes = new Uint8Array(61);
   bytes[0] = 0xA5;
   bytes[1] = 0xB6;
   bytes[2] = 0x01;
+  bytes[4] = 55;
   bytes[34] = 1;
   bytes[43] = 1;
   bytes[44] = 0;
+  let checksum = 0;
+  for (let i = 2; i < 60; i++) checksum ^= bytes[i];
+  bytes[60] = checksum;
 
   const decoded = decodeVmiNotification(bytes);
   assert.equal(decoded.kind, 'state');

@@ -26,7 +26,8 @@ export function createBluetoothNotificationHandler(deps) {
     log,
     hex,
     $,
-    now = Date.now
+    now = Date.now,
+    onDecodedFrame = () => {}
   } = deps;
 
   return function handleNotification(ev) {
@@ -38,20 +39,49 @@ export function createBluetoothNotificationHandler(deps) {
     const timestamp = now();
     const download = getDownload();
 
+    if (decoded.kind === 'invalid') {
+      const detail = decoded.reason === 'checksum'
+        ? 'contrôle XOR invalide'
+        : decoded.reason === 'length'
+          ? 'longueur déclarée incohérente'
+          : `notification tronquée : ${decoded.length}/${decoded.requiredLength} octets`;
+      log(`Notification VMI invalide (type 0x${decoded.type.toString(16).padStart(2, '0')}) : ${detail}, ignorée.`);
+      return;
+    }
+
+    if (decoded.kind === 'state' || decoded.kind === 'room' || decoded.kind === 'probes' || decoded.kind === 'ack') {
+      onDecodedFrame(decoded.kind, decoded);
+    }
+
+    if (decoded.kind === 'history-count') {
+      if (download.on) download.announcedTotalRows = decoded.count;
+      log(`Nombre total de lignes d’historique annoncé par la VMI : ${decoded.count}.`);
+      if (download.on) $('dlp').textContent = `Historique : ${decoded.count} lignes annoncées · réception des nouvelles lignes…`;
+      return;
+    }
+
     if (decoded.kind === 'history') {
       if (!download.on) return;
       if (!decoded.valid) {
         markHistoryStreamInvalid(download.historyStream);
         download.integrityGap = true;
         download.buf = '';
-        log('Trame d’historique trop courte : transfert marqué incomplet, synchronisation à relancer.');
+        const detail = decoded.reason === 'checksum'
+          ? 'contrôle XOR invalide'
+          : decoded.reason === 'length'
+            ? 'longueur déclarée incohérente'
+            : 'trame tronquée';
+        log(`Trame d’historique invalide (${detail}) : transfert marqué incomplet, synchronisation à relancer.`);
         return;
       }
 
       const payload = new TextDecoder('latin1').decode(decoded.payload);
+      // Dans la capture Purevent, les lignes CSV datées utilisent cinq fragments (0 à 40).
+      // Les blocs de métadonnées ne suivent pas ce format et ne sont pas soumis à cette règle.
       const integrity = acceptHistoryFragment(download.historyStream, {
         sequence: decoded.sequence,
         chunkIndex: decoded.chunkIndex,
+        expectedFragments: /^\s*\d{1,2}\/\d{1,2}\/\d{4} \d{1,2}:\d{2}:\d{2};/.test(payload) ? 5 : undefined,
         payload
       });
       if (integrity.duplicate) return;
@@ -71,20 +101,24 @@ export function createBluetoothNotificationHandler(deps) {
       download.buf = lines.pop();
       lines.forEach(parseDownloadLine);
 
+      // Une ligne déjà connue marque la borne de coupure, mais on attend tous
+      // les fragments observés de cette ligne avant de certifier la synchronisation.
+      const lineComplete = download.historyStream.expectedFragments !== null &&
+        download.historyStream.expectedChunk === download.historyStream.expectedFragments * 10;
+      if (download.on && lineComplete && download.reachedCut) {
+        // La dernière ligne peut ne pas se terminer par un séparateur CSV.
+        // La traiter avant de certifier la fin évite de perdre ce dernier relevé.
+        if (download.buf && download.buf.trim()) parseDownloadLine(download.buf);
+        download.buf = '';
+        finishDownload(true);
+        return;
+      }
+
       if (download.on) {
-        $('dlp').textContent = `${download.rows.length} nouvelles lignes (index historique ${decoded.sequence + 1} / ${download.total || '?'})`;
+        $('dlp').textContent = `${download.rows.length} nouvelles lignes (index historique ${decoded.sequence + 1})`;
         armTimer();
-        if (decoded.final) {
-          if (download.buf.trim()) {
-            const tail = download.buf.split(/\r\n|\n|\r/);
-            download.buf = '';
-            tail.filter(line => line.trim()).forEach(parseDownloadLine);
-          }
-          if (download.on) {
-            download.finalSeen = true;
-            finishDownload(false);
-          }
-        }
+        // L’octet 13 n’est pas interprété comme marqueur de fin : sa sémantique
+        // n’est pas démontrée par la capture Purevent disponible.
       }
       return;
     }
@@ -117,18 +151,17 @@ export function createBluetoothNotificationHandler(deps) {
       $('tp').textContent = cur.sal_t;
       $('hp').textContent = cur.sal_h;
     } else if (decoded.kind === 'probes') {
-      cur.s1_t = decoded.firstTemperature;
-      cur.s1_h = decoded.firstHumidity;
-      cur.s2_t = decoded.secondTemperature;
-      cur.s2_h = decoded.secondHumidity;
+      // Le protocole VMI+ utilise la localisation 0x08 pour un emplacement vide.
+      // La capture Purevent confirme ce marqueur sur les trois derniers slots.
+      cur.s1_t = decoded.firstLocation === 0x08 ? null : decoded.firstTemperature;
+      cur.s1_h = decoded.firstLocation === 0x08 ? null : decoded.firstHumidity;
+      cur.s2_t = decoded.secondLocation === 0x08 ? null : decoded.secondTemperature;
+      cur.s2_h = decoded.secondLocation === 0x08 ? null : decoded.secondHumidity;
       lastSeen.probes = timestamp;
-      $('ti').textContent = cur.s1_t;
-      $('hi').textContent = cur.s1_h;
-      $('t2').textContent = cur.s2_t;
-      $('h2').textContent = cur.s2_h;
-    } else if (decoded.kind === 'history-total') {
-      download.total = decoded.total;
-      return;
+      $('ti').textContent = cur.s1_t ?? '–';
+      $('hi').textContent = cur.s1_h ?? '–';
+      $('t2').textContent = cur.s2_t ?? '–';
+      $('h2').textContent = cur.s2_h ?? '–';
     } else {
       return;
     }

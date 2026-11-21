@@ -23,6 +23,8 @@ import { summarizeDailyEnergyClimateContext } from './modules/energy-climate.js'
 import { summarizeWeeklyDiagnostic } from './modules/weekly-diagnostic.js';
 import { chooseAuthorizedDevice } from './modules/bluetooth-autoconnect.js';
 import { createBluetoothNotificationHandler, createReconnectHandler } from './modules/bluetooth-runtime.js';
+import { isBleStateStale } from './modules/bluetooth-freshness.js';
+import { createBleResponseGate, BLE_RESPONSE_KIND_BY_REGISTER } from './modules/bluetooth-response-gate.js';
 import { buildLiveFreshnessText } from './modules/live-freshness.js';
 import { formatDiagnosisConfidence } from './modules/diagnostic-confidence.js';
 import { analyzeSeasonalVentilation } from './modules/seasonal-advice.js';
@@ -63,6 +65,7 @@ window.addEventListener('unhandledrejection',e=>recordError('Promesse rejetée :
 
 let dev=null,chC=null,chT=null,pollTimer=null,snapTimer=null,reconnectTimer=null;
 let bleConnectionGeneration=0,connectionIntentGeneration=0,connectionRequestPending=false;
+let freshnessTimer=null,bleConnectedAt=0,staleDisconnectRequested=false;
 let manualDisconnect=false,intentionalDisconnect=false,manualCommandPending=false,pollingSessionToken=null,autoDone=false;
 let bleNotificationHandler=null,bleNotificationCharacteristics=[],bleDisconnectHandler=null;
 /** @type {UnknownRecord} */ let meta={};
@@ -71,10 +74,11 @@ let cur={},lastSeen={};
 /** @type {EnergyReading[]} */ let energyReadings=[];
 let source='hist',selectedDate=null,daysSetting=30;
 let logLines=[],dlFrames=0;
-let download={on:false,rows:[],buf:'',total:0,sigs:new Set(),got:false,lastPacket:0,timeout:null,historyStream:createHistoryStreamState(),integrityGap:false,dataStarted:false};
+let download={on:false,rows:[],buf:'',sigs:new Set(),got:false,lastPacket:0,timeout:null,historyStream:createHistoryStreamState(),integrityGap:false,dataStarted:false,announcedTotalRows:null};
 const DB='VMI_PUREVENT_DB_TEST',STORE='data';
 const { get: dbGet, set: dbSet, setMany: dbSetMany } = createStore({ databaseName: DB, storeName: STORE, onError: message => log(message) });
 const connected=()=>!!(chC&&dev&&dev.gatt&&dev.gatt.connected);
+const bleResponseGate=createBleResponseGate();
 const bleWriteQueue=createBleWriteQueue({
  isConnected:connected,
  getCharacteristic:()=>chC,
@@ -202,7 +206,34 @@ function pruneHist(){
 
 function writeFrame(bytes){return bleWriteQueue.write(bytes)}
 const send=(reg,val)=>writeFrame(frame(reg,val));
-async function setClock(){if(!chC){showError('Connecte-toi d’abord à la VMI.');return false}const d=new Date();const ok=await writeFrame(timeFrame(d));$('dlp').textContent=ok?'Heure envoyée : '+d.toLocaleString('fr-FR'):'Heure non envoyée.';return ok}
+const responseKindForRegister=BLE_RESPONSE_KIND_BY_REGISTER;
+async function sendAndWait(reg,val,expectedKind=responseKindForRegister[reg],timeoutMs=5000){
+ if(!expectedKind)return {written:await send(reg,val),responded:false};
+ if(bleResponseGate.pendingKind){log('Requête BLE ignorée : une réponse est déjà attendue.');return {written:false,responded:false}}
+ const response=bleResponseGate.waitFor(expectedKind,timeoutMs);
+ const written=await send(reg,val);
+ if(!written){bleResponseGate.cancel(new Error('Écriture BLE non confirmée.'));await response.catch(()=>{});return {written:false,responded:false}}
+ try{await response;return {written:true,responded:true}}
+ catch(error){log('Réponse VMI attendue absente : '+(error.message||error));return {written:true,responded:false}}
+}
+async function writeFrameAndWait(bytes,expectedKind,timeoutMs=5000){
+ if(bleResponseGate.pendingKind){log('Écriture différée : une réponse Bluetooth est déjà attendue.');return false}
+ const response=bleResponseGate.waitFor(expectedKind,timeoutMs);
+ const written=await writeFrame(bytes);
+ if(!written){bleResponseGate.cancel(new Error('Écriture BLE non confirmée.'));await response.catch(()=>{});return false}
+ try{await response;return true}catch(error){log('Accusé VMI absent : '+(error.message||error));return false}
+}
+async function setClock(allowDuringDownload=false){
+ if(!chC){showError('Connecte-toi d’abord à la VMI.');return false}
+ if(download.on&&!allowDuringDownload)return false;
+ const token=bleConnectionGeneration;
+ while(pollingSessionToken===token&&connected())await sleep(50);
+ if(!connected()||token!==bleConnectionGeneration)return false;
+ const d=new Date();
+ const ok=await writeFrameAndWait(timeFrame(d),'ack');
+ $('dlp').textContent=ok?'Heure confirmée par la VMI : '+d.toLocaleString('fr-FR'):'Mise à l’heure écrite, mais accusé protocolaire absent.';
+ return ok;
+}
 
 const handleNotification = createBluetoothNotificationHandler({
  decodeVmiNotification,
@@ -218,7 +249,8 @@ const handleNotification = createBluetoothNotificationHandler({
  updateLiveMetrics,
  log,
  hex,
- $
+ $,
+ onDecodedFrame:(kind,decoded)=>bleResponseGate.notify(kind,decoded)
 });
 function onNotification(ev){
  try{handleNotification(ev)}catch(e){log('Erreur de décodage d’une trame : '+(e.message||e));recordError('Décodage d’une trame : '+(e.message||e))}
@@ -259,17 +291,26 @@ async function poll(force=false){
  if(pollingSessionToken===token||!connected()||download.on||(manualCommandPending&&!force))return;
  pollingSessionToken=token;
  try{
-  for(const r of [3,6,7]){
-   if(token!==bleConnectionGeneration||!connected()||download.on)break;
-   const ok=await send(r,0);
-   if(!ok||token!==bleConnectionGeneration)break;
+  for(const [r,kind] of [[3,'state'],[6,'room'],[7,'probes']]){
+   if(token!==bleConnectionGeneration||!connected()||download.on||manualCommandPending)break;
+   const result=await sendAndWait(r,0,kind);
+   if(!result.responded||token!==bleConnectionGeneration)break;
   }
  }finally{
   if(pollingSessionToken===token)pollingSessionToken=null;
  }
 }
+function checkBleFreshness(){
+ if(staleDisconnectRequested)return;
+ if(!isBleStateStale({connected:connected(),downloadActive:download.on,commandPending:manualCommandPending,now:Date.now(),connectedAt:bleConnectedAt,lastStateAt:lastSeen.state,maxSilenceMs:35000}))return;
+ staleDisconnectRequested=true;
+ log('Aucune trame d’état valide depuis 35 s malgré une liaison GATT ouverte : reconnexion demandée.');
+ setStatus('VMI silencieuse, reconnexion…');
+ if(dev&&dev.gatt&&dev.gatt.connected)dev.gatt.disconnect();
+}
 function startPolling(){
- clearInterval(pollTimer);clearInterval(snapTimer);
+ clearInterval(pollTimer);clearInterval(snapTimer);clearInterval(freshnessTimer);
+ freshnessTimer=setInterval(checkBleFreshness,5000);
  const token=bleConnectionGeneration;
  poll();
  pollTimer=setInterval(()=>{if(token===bleConnectionGeneration)poll()},12000);
@@ -288,6 +329,8 @@ function detachBleListeners(){
 }
 function cleanupConnection(){
  bleConnectionGeneration++;
+ bleResponseGate.cancel(new Error('Session Bluetooth terminée.'));
+ clearInterval(freshnessTimer);freshnessTimer=null;bleConnectedAt=0;staleDisconnectRequested=false;
  if(download.on)finishDownload(false,true,true);
  clearInterval(pollTimer);clearInterval(snapTimer);clearTimeout(reconnectTimer);
  manualCommandPending=false;
@@ -364,6 +407,8 @@ async function connectDevice(device,intent=connectionIntentGeneration){
   if(!connectionIsCurrent()){if(sessionIsCurrent(token,device))cleanupConnection();return false}
   const characteristicsReady=await connectCharacteristics(server,token,device);
   if(!characteristicsReady||!connectionIsCurrent()){if(sessionIsCurrent(token,device))cleanupConnection();return false}
+  lastSeen={};
+  bleConnectedAt=Date.now();staleDisconnectRequested=false;
   setStatus('Connecté à '+(dev.name||'la VMI')+'. Synchronisation des données…',true);
   startPolling();
   // Une reconnexion ne doit pas relancer la synchronisation automatique déjà effectuée.
@@ -451,24 +496,24 @@ document.querySelectorAll('[data-r]').forEach(b=>b.addEventListener('click',asyn
  const reg=Number(b.dataset.r),value=Number(b.dataset.v),[key,expected,label]=EXPECT[reg](value);
  const result=$('cmdResult');
  try{
+  while(pollingSessionToken===commandToken&&commandIsCurrent())await sleep(50);
+  if(!commandIsCurrent())return;
   result.textContent='Envoi de la commande à la VMI…';
   const t0=Date.now();
-  const sent=await send(reg,value);
+  const sent=await sendAndWait(reg,value,'state');
   if(!commandIsCurrent()){result.textContent='Connexion interrompue : l’état de la commande n’a pas pu être vérifié.';return}
-  if(!sent){result.textContent='La commande n’a pas pu être envoyée (voir le journal Bluetooth).';return}
-  result.textContent='Commande envoyée, vérification de l’état…';
-  for(let i=0;i<10&&commandIsCurrent()&&!((lastSeen.state||0)>t0);i++)await sleep(200);
+  if(!sent.written){result.textContent='La commande n’a pas pu être envoyée (voir le journal Bluetooth).';return}
+  result.textContent=sent.responded?'Commande envoyée et réponse reçue, vérification de l’état…':'Commande écrite, mais sans réponse typée : tentative de relecture de l’état…';
   if(!commandIsCurrent()){result.textContent='Connexion interrompue : l’état de la commande n’a pas pu être vérifié.';return}
   if(!((lastSeen.state||0)>t0)){
-   const readSent=await send(3,0);
+   const readSent=await sendAndWait(3,0,'state');
    if(!commandIsCurrent()){result.textContent='Connexion interrompue : l’état de la commande n’a pas pu être vérifié.';return}
-   if(readSent)for(let i=0;i<10&&commandIsCurrent()&&!((lastSeen.state||0)>t0);i++)await sleep(200);
+   if(!readSent.responded)log('La relecture de l’état n’a pas reçu de réponse typée.');
   }
   if(!commandIsCurrent()){result.textContent='Connexion interrompue : l’état de la commande n’a pas pu être vérifié.';return}
   if((lastSeen.state||0)>t0&&cur[key]===expected)result.textContent='✓ Confirmé par la VMI : '+label+'.';
   else if((lastSeen.state||0)>t0)result.textContent='⚠ La VMI a répondu mais l’état affiché n’est pas '+label.toLowerCase()+'. Vérifie sur la VMI ou dans VMI+.';
   else result.textContent='⚠ Commande envoyée mais aucune réponse de la VMI : l’état n’a pas pu être vérifié.';
-  poll(true);
  }catch(e){
   showError(e);result.textContent='Erreur pendant la commande.';
  }finally{
@@ -476,7 +521,7 @@ document.querySelectorAll('[data-r]').forEach(b=>b.addEventListener('click',asyn
  }
 }));
 const setCommandsDisabled=dis=>document.querySelectorAll('[data-r]').forEach(x=>x.disabled=dis);
-$('clk').onclick=setClock;
+$('clk').onclick=()=>setClock(false);
 
 /* Correction des dates historiques isolée dans clock-correction.js. */
 function ingest(recs,label,maxTimestamp=Date.now(),options={}){
@@ -503,7 +548,7 @@ function ingest(recs,label,maxTimestamp=Date.now(),options={}){
    pour interrompre le flux de la VMI (elle ne sait pas s'arrêter seule). */
 const sigOf=r=>r.rk+'|'+r.d;
 function parseDownloadLine(line){
- if(!download.on)return;
+ if(!download.on||download.reachedCut)return;
  if(!download.dataStarted){
   if(String(line).trimStart().startsWith('Date;Event;'))download.dataStarted=true;
   return;
@@ -511,15 +556,15 @@ function parseDownloadLine(line){
  const validation=validateBluetoothHistoryRow(line);
  if(!validation.valid){download.invalidRows=(download.invalidRows||0)+1;const reason='reason' in validation?validation.reason:'motif non précisé';log('Ligne historique Bluetooth rejetée ('+reason+') · date brute : '+String(line).split(';',1)[0]);return}
  const f=validation.fields,p=parseCell(f[0]);if(!p)return;
- if(download.sigs.size&&download.sigs.has(p.rk+'|'+num(f[11]))){finishDownload(true);return}
+ if(download.sigs.size&&download.sigs.has(p.rk+'|'+num(f[11]))){download.reachedCut=true;return}
  const rec=recFrom(f);if(rec)download.rows.push(rec);
 }
 function armTimer(){armDownloadTimeout(download,finishDownload)}
-function finishDownload(reachedCut,timeout=false,interrupted=false){
+function finishDownload(completeBoundary,timeout=false,interrupted=false){
  if(!download.on)return;
  download.on=false;clearTimeout(download.timeout);
  const count=download.rows.length;
- const complete=!timeout&&!interrupted&&!download.integrityGap&&!(download.invalidRows>0)&&(reachedCut||download.finalSeen===true);
+ const complete=!timeout&&!interrupted&&!download.integrityGap&&!(download.invalidRows>0)&&completeBoundary;
  const syncObservedAt=Date.now();
  const newestCounterRecord=download.rows.find(record=>Number.isFinite(record.d));
  const counterAssessment=complete&&newestCounterRecord
@@ -533,7 +578,7 @@ function finishDownload(reachedCut,timeout=false,interrupted=false){
   allowPre2020RawDates:true,
   forceCounterReset:counterAssessment?.discontinuity===true,
   counterResetReason:counterAssessment?.reason,
-  counterPreviousDays:counterAssessment?.previousDays
+  counterPreviousDays:counterAssessment?.previousDays ?? (/** @type {{d?:number}|undefined} */ (meta.counterBaseline))?.d
  }):null;
  if(complete){
   meta.lastSync=syncObservedAt;
@@ -541,14 +586,15 @@ function finishDownload(reachedCut,timeout=false,interrupted=false){
   void persist('meta',meta,'Sauvegarde des métadonnées').catch(()=>{});renderFreshness()
  }
  $('dlh').disabled=false;setCommandsDisabled(false);
- $('dlp').textContent=`Terminé : ${count} nouvelles lignes${download.invalidRows>0?' · lignes rejetées : synchronisation non certifiée, relance nécessaire':download.integrityGap?' · lacune détectée : synchronisation non certifiée, relance nécessaire':interrupted?(download.got?' · transfert interrompu, données partielles conservées ; relance la synchronisation':' · transfert interrompu avant réception') :reachedCut?' · historique à jour':timeout?(download.got?' · arrêt après une pause de 20 s':' · aucune réponse de la VMI'):(download.sigs.size?' · attention : trou possible avant la dernière ligne mémorisée':' · historique complet')}`;
+ $('dlp').textContent=`Terminé : ${count} nouvelles lignes${download.invalidRows>0?' · lignes rejetées : synchronisation non certifiée, relance nécessaire':download.integrityGap?' · lacune détectée : synchronisation non certifiée, relance nécessaire':interrupted?(download.got?' · transfert interrompu, données partielles conservées ; relance la synchronisation':' · transfert interrompu avant réception')  :completeBoundary?' · historique synchronisé':timeout?(download.got?' · arrêt après une pause de 20 s':' · aucune réponse de la VMI'):(download.sigs.size?' · attention : trou possible avant la dernière ligne mémorisée':' · historique complet')}`;
+ if(Number.isSafeInteger(download.announcedTotalRows)) $('dlp').textContent+=` · total annoncé par la VMI : ${download.announcedTotalRows} lignes`;
  if(ingestResult?.counterReset){
   $('dlp').textContent+=' · ⚠ discontinuité du compteur détectée';
   $('dlp').textContent+=ingestResult.referenceCount>=2
    ? ` · dates recalées avec ${ingestResult.referenceCount} repères indépendants : vérification conseillée`
    : ' · pas assez de nouveaux repères fiables : dates anciennes laissées non corrigées';
  }
- if(reachedCut&&dev&&dev.gatt&&dev.gatt.connected){
+ if(completeBoundary&&dev&&dev.gatt&&dev.gatt.connected){
   // La VMI ne sait pas arrêter seule le flux historique : cette coupure est volontaire.
   // onDisconnect doit la distinguer d'une vraie perte de liaison.
   intentionalDisconnect=true;
@@ -563,14 +609,17 @@ async function startDownload(auto=false){
   if(download.on)finishDownload(false,true,true);
  };
  showError('');dlFrames=0;
- download={on:true,rows:[],buf:'',total:0,sigs:new Set(hist.filter(r=>isHistorySyncBaseline(r)&&r.rk&&Number.isFinite(r.d)).map(sigOf)),got:false,lastPacket:Date.now(),timeout:null,historyStream:createHistoryStreamState(),integrityGap:false,dataStarted:false};
+ download={on:true,rows:[],buf:'',sigs:new Set(hist.filter(r=>isHistorySyncBaseline(r)&&r.rk&&Number.isFinite(r.d)).map(sigOf)),got:false,lastPacket:Date.now(),timeout:null,historyStream:createHistoryStreamState(),integrityGap:false,dataStarted:false,announcedTotalRows:null};
  $('dlh').disabled=true;setCommandsDisabled(true);
  $('dlp').textContent=auto?'Téléchargement automatique de l’historique…':'Démarrage du téléchargement…';
+ // Terminer la requête de lecture déjà en cours avant d'envoyer les registres du flux historique.
+ while(pollingSessionToken===sessionToken&&connected())await sleep(50);
+ if(!download.on||sessionToken!==bleConnectionGeneration){abortDownload();return}
  const sequenceOk=await runBleSessionSequence({
   token:sessionToken,
   getToken:()=>bleConnectionGeneration,
   isActive:()=>download.on&&connected(),
-  steps:[()=>setClock(),()=>send(0x2c,0),()=>send(0x20,0),()=>send(0x22,0)]
+  steps:[async()=>{await setClock(true);return true},()=>send(0x2c,0),()=>send(0x20,0),()=>send(0x22,0)]
  });
  if(!sequenceOk){abortDownload();return}
  armTimer();
