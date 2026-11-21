@@ -205,9 +205,3 @@ export function summarizeTemperatureLimit(data, {
  */
 
 
-
-function fmtHours(hours) {
-  if (!Number.isFinite(hours)) return '0 h';
-  if (hours < 1) return `${Math.round(hours*60)} min`;
-  return `${hours.toFixed(1)} h`;
-}
