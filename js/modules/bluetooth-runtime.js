@@ -79,7 +79,11 @@ export function createBluetoothNotificationHandler(deps) {
 
       const payload = new TextDecoder('latin1').decode(decoded.payload);
       // Dans la capture Purevent, les lignes CSV datées utilisent cinq fragments (0 à 40).
-      // Les blocs de métadonnées ne suivent pas ce format et ne sont pas soumis à cette règle.
+      // Le premier fragment contient déjà la date complète ; les blocs de métadonnées non datés
+      // ne sont pas soumis à cette règle.
+      const previousSequence = download.historyStream.sequence;
+      const previousLineComplete = download.historyStream.expectedFragments !== null &&
+        download.historyStream.expectedChunk === download.historyStream.expectedFragments * 10;
       const integrity = acceptHistoryFragment(download.historyStream, {
         sequence: decoded.sequence,
         chunkIndex: decoded.chunkIndex,
@@ -107,10 +111,15 @@ export function createBluetoothNotificationHandler(deps) {
       // les fragments observés de cette ligne avant de certifier la synchronisation.
       const lineComplete = download.historyStream.expectedFragments !== null &&
         download.historyStream.expectedChunk === download.historyStream.expectedFragments * 10;
-      if (download.on && lineComplete && download.reachedCut) {
-        // La dernière ligne peut ne pas se terminer par un séparateur CSV.
-        // La traiter avant de certifier la fin évite de perdre ce dernier relevé.
-        if (download.buf && download.buf.trim()) parseDownloadLine(download.buf);
+      // Les lignes de la capture se terminent par un fragment sans séparateur ; le saut
+      // de ligne arrive au début du fragment 0 de la séquence suivante. Dans ce cas,
+      // parseDownloadLine vient de reconnaître la borne précédente : ne pas attendre
+      // inutilement les cinq fragments de la ligne plus ancienne qui suit.
+      const previousLineBoundary = previousSequence !== null &&
+        decoded.sequence === previousSequence + 1 && previousLineComplete;
+      if (download.on && download.reachedCut && (lineComplete || previousLineBoundary)) {
+        // La dernière ligne utile est complète. Le buffer éventuel appartient déjà
+        // à la ligne plus ancienne qui suit la borne et ne doit pas être importé.
         download.buf = '';
         finishDownload(true);
         return;
