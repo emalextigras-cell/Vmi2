@@ -208,12 +208,13 @@ function writeFrame(bytes){return bleWriteQueue.write(bytes)}
 const send=(reg,val)=>writeFrame(frame(reg,val));
 const responseKindForRegister={3:'state',6:'probes',7:'room',24:'state',25:'state',26:'state'};
 async function sendAndWait(reg,val,expectedKind=responseKindForRegister[reg],timeoutMs=5000){
- if(!expectedKind)return send(reg,val);
- let response;
- try{response=bleResponseGate.waitFor(expectedKind,timeoutMs)}catch(error){log(error.message||error);return false}
+ if(!expectedKind)return {written:await send(reg,val),responded:false};
+ if(bleResponseGate.pendingKind){log('Requête BLE ignorée : une réponse est déjà attendue.');return {written:false,responded:false}}
+ const response=bleResponseGate.waitFor(expectedKind,timeoutMs);
  const written=await send(reg,val);
- if(!written){bleResponseGate.cancel(new Error('Écriture BLE non confirmée.'));await response.catch(()=>{});return false}
- try{await response;return true}catch(error){log('Réponse VMI attendue absente : '+(error.message||error));return false}
+ if(!written){bleResponseGate.cancel(new Error('Écriture BLE non confirmée.'));await response.catch(()=>{});return {written:false,responded:false}}
+ try{await response;return {written:true,responded:true}}
+ catch(error){log('Réponse VMI attendue absente : '+(error.message||error));return {written:true,responded:false}}
 }
 async function setClock(){if(!chC){showError('Connecte-toi d’abord à la VMI.');return false}const d=new Date();const ok=await writeFrame(timeFrame(d));$('dlp').textContent=ok?'Heure envoyée : '+d.toLocaleString('fr-FR'):'Heure non envoyée.';return ok}
 
@@ -275,8 +276,8 @@ async function poll(force=false){
  try{
   for(const [r,kind] of [[3,'state'],[6,'probes'],[7,'room']]){
    if(token!==bleConnectionGeneration||!connected()||download.on||manualCommandPending)break;
-   const ok=await sendAndWait(r,0,kind);
-   if(!ok||token!==bleConnectionGeneration)break;
+   const result=await sendAndWait(r,0,kind);
+   if(!result.responded||token!==bleConnectionGeneration)break;
   }
  }finally{
   if(pollingSessionToken===token)pollingSessionToken=null;
@@ -484,14 +485,14 @@ document.querySelectorAll('[data-r]').forEach(b=>b.addEventListener('click',asyn
   const t0=Date.now();
   const sent=await sendAndWait(reg,value,'state');
   if(!commandIsCurrent()){result.textContent='Connexion interrompue : l’état de la commande n’a pas pu être vérifié.';return}
-  if(!sent){result.textContent='La commande n’a pas pu être envoyée (voir le journal Bluetooth).';return}
-  result.textContent='Commande envoyée, vérification de l’état…';
+  if(!sent.written){result.textContent='La commande n’a pas pu être envoyée (voir le journal Bluetooth).';return}
+  result.textContent=sent.responded?'Commande envoyée et réponse reçue, vérification de l’état…':'Commande écrite, mais sans réponse typée : tentative de relecture de l’état…';
   for(let i=0;i<10&&commandIsCurrent()&&!((lastSeen.state||0)>t0);i++)await sleep(200);
   if(!commandIsCurrent()){result.textContent='Connexion interrompue : l’état de la commande n’a pas pu être vérifié.';return}
   if(!((lastSeen.state||0)>t0)){
    const readSent=await sendAndWait(3,0,'state');
    if(!commandIsCurrent()){result.textContent='Connexion interrompue : l’état de la commande n’a pas pu être vérifié.';return}
-   if(readSent)for(let i=0;i<10&&commandIsCurrent()&&!((lastSeen.state||0)>t0);i++)await sleep(200);
+   if(readSent.responded)for(let i=0;i<10&&commandIsCurrent()&&!((lastSeen.state||0)>t0);i++)await sleep(200);
   }
   if(!commandIsCurrent()){result.textContent='Connexion interrompue : l’état de la commande n’a pas pu être vérifié.';return}
   if((lastSeen.state||0)>t0&&cur[key]===expected)result.textContent='✓ Confirmé par la VMI : '+label+'.';
