@@ -2,11 +2,16 @@
 
 ## [Non publié]
 
+### Modularisation des renderers de recommandations
+- Extraction du rendu de fraîcheur de l'historique, des conseils saisonniers et de la recommandation hygrométrique dans `history-advice-renderer.js`.
+- Les fonctions de rendu reçoivent explicitement leurs données, éléments DOM et dépendances métier ; aucun état applicatif n'est stocké dans le nouveau module.
+- Ajout de tests ciblés et incrément du cache du service worker.
+
 ### Fiabilité de la synchronisation historique
 - La tolérance de 30 secondes du téléchargement Bluetooth est désormais appliquée jusqu'à la fusion des relevés ; les imports ordinaires conservent le filtrage strict.
 - L'historique et les métadonnées de fin de synchronisation sont enregistrés dans une transaction IndexedDB unique. Une erreur de stockage empêche la validation de la synchronisation et ne met pas à jour `lastSync`.
 - Ajout de tests couvrant le relevé à +6 s, le rejet à +60 s, le comportement strict par défaut et l'échec de persistance.
-- Cache du service worker incrémenté à `vmi-test-v14-cache-77` et ajout du nouveau module au shell hors ligne.
+- Cache du service worker incrémenté à `vmi-test-v14-cache-78` et ajout du nouveau module au shell hors ligne.
 
 Ce fichier conserve les évolutions fonctionnelles et techniques de **VMI Purevent (dépôt Vmi2)**.
 
