@@ -75,6 +75,35 @@
   <b>Boost :</b><button class="outline" data-r="25" data-v="1">Activer</button><button class="outline" data-r="25" data-v="0">Arrêter</button>
   <b>Vacances :</b><button class="outline" data-r="26" data-v="1">1 jour</button><button class="outline" data-r="26" data-v="7">7 jours</button><button class="outline" data-r="26" data-v="15">15 jours</button><button class="outline" data-r="26" data-v="0">Arrêter</button>
  </div>
+ <div class="card compact">
+  <h3>Réglages avancés Purevent</h3>
+  <p class="note">Chaque action relit l’état juste avant l’écriture et vérifie ensuite la réponse. La consigne de préchauffage démarre le chauffage ; l’arrêt complet peut nécessiter deux écritures vérifiées.</p>
+  <div class="row">
+   <b>Surventilation :</b>
+   <button class="outline" data-advanced="surventilation" data-value="true">Activer</button>
+   <button class="outline" data-advanced="surventilation" data-value="false">Arrêter</button>
+  </div>
+  <div class="row">
+   <label for="summerLimitInput">Limite estivale (22–37 °C) :</label>
+   <select id="summerLimitInput"><option value="22">22 °C</option><option value="23">23 °C</option><option value="24">24 °C</option><option value="25">25 °C</option><option value="26">26 °C</option><option value="27">27 °C</option><option value="28">28 °C</option><option value="29">29 °C</option><option value="30">30 °C</option><option value="31">31 °C</option><option value="32" selected>32 °C</option><option value="33">33 °C</option><option value="34">34 °C</option><option value="35">35 °C</option><option value="36">36 °C</option><option value="37">37 °C</option></select>
+   <button class="outline" id="summerLimitApply">Appliquer</button>
+  </div>
+  <div class="row">
+   <b>Débit fixe :</b>
+   <button class="outline" data-advanced="fixedAirflow" data-value="true">Activer</button>
+   <button class="outline" data-advanced="fixedAirflow" data-value="false">Désactiver</button>
+  </div>
+  <div class="row">
+   <label for="preheatSetpointInput">Consigne préchauffage (12–18 °C) :</label>
+   <select id="preheatSetpointInput"><option value="12">12 °C</option><option value="13">13 °C</option><option value="14">14 °C</option><option value="15" selected>15 °C</option><option value="16">16 °C</option><option value="17">17 °C</option><option value="18">18 °C</option></select>
+   <button class="outline" id="preheatSetpointApply">Régler et démarrer</button>
+  </div>
+  <div class="row">
+   <b>Préchauffage :</b>
+   <button class="outline" data-advanced="preheatPower" data-value="true">Démarrer</button>
+   <button class="outline" data-advanced="preheatPower" data-value="false">Arrêter complètement</button>
+  </div>
+ </div>
  <div id="cmdResult" class="status"></div>
  <div class="row"><button class="outline" id="clk">Synchroniser l'heure VMI</button><button class="outline" id="dlh">Récupérer l'historique VMI</button><span id="dlp" class="note"></span></div>
 </details>
