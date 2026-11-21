@@ -4,6 +4,7 @@
  * de la valeur afin de conserver les zéros valides et de signaler les anciennes sessions.
  */
 
+/** @type {Array<[string,string,(value:any)=>string]>} */
 const VALUE_DEFINITIONS = [
   ['jours', 'Jours de fonctionnement', value => `${value} j`],
   ['filtre', 'Autonomie du filtre', value => `${value} j`],
