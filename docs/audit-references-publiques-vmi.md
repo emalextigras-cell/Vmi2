@@ -212,6 +212,43 @@ Artefacts contrôlés : `00_A0_50_48_B4_A3-2026-11-10-16_55.csv` et `vmi-sauvega
 - Décision : conserver les seuils actuels tant qu'aucune trame courte valide n'a été observée ou spécifiée. Une éventuelle évolution devra décoder seulement les champs réellement présents et ne jamais lire l'octet de somme comme une mesure.
 
 
+### 3.6 Filtrage des mesures, sauts et valeurs de remplacement
+
+**Référence Purevent publique :** `clemvillon/ha-vmi-purevent`, fichiers `protocol.py`, `device.py` et `const.py` :
+- Les bornes physiques publiées sont de -30 à 70 °C et de 0 à 100 % HR.
+- Le filtre `FiltreDeSaut` est indépendant pour chaque mesure. Il utilise un saut maximal de 10 °C pour les températures et de 30 points pour les humidités relatives.
+- Un saut qui dépasse le seuil n'est pas accepté sur le premier échantillon : il devient un candidat. Le relevé suivant doit le confirmer (proche du candidat) ; s'il revient près de la valeur stable, le candidat est abandonné.
+- Au démarrage ou après reconnexion, la première mesure attend elle aussi une confirmation.
+- Une valeur hors plage conserve la dernière valeur stable ; après trois rejets consécutifs, la mesure devient inconnue.
+- Les filtres sont remis à zéro à chaque nouvelle connexion. Les constantes sont `SAUT_MAX_TEMPERATURE_C=10`, `SAUT_MAX_HUMIDITE=30` et `REJETS_MAX=3`.
+
+**Constats dans Vmi2 avant cette évolution :**
+- Le runtime copiait immédiatement les températures et humidités décodées dans l'état live. Les valeurs plausibles mais isolées pouvaient donc être affichées et alimenter les calculs sans confirmation temporelle.
+- La plage de température du contrôle qualité était limitée à 60 °C, alors que la référence Purevent publique admet jusqu'à 70 °C.
+- Le détecteur de pics historiques existait déjà, mais il produisait un signal de contrôle qualité sans écarter systématiquement les pics du diagnostic hygrométrique principal.
+- Les emplacements de sondes marqués `0x08` étaient déjà traités séparément et restent immédiatement indisponibles : ils ne passent pas dans le filtre de saut.
+
+**Constats dans la sauvegarde JSON du 20/11/2026 :**
+- Sept relevés correspondent exactement au motif de remplacement déjà identifié par Vmi2 : salon, sonde résistances et air entrant tous à 20 °C / 50 % HR. C'est un motif suspect de valeur de remplacement ; il ne prouve pas à lui seul une panne ou un défaut physique.
+- Le détecteur actuel (fenêtre maximale de 30 minutes) repère quatre candidats de pics : deux sur l'humidité de l'air entrant (`he`, 97 → 50 → 97 et 89 → 50 → 89) et deux sur l'humidité de la sonde résistances (`h1`, 83 → 51 → 87 et 96 → 50 → 96).
+- Les deux candidats `he` coïncident avec des relevés complets au motif 20/50 ; le candidat `h1` à 50 % du 12/11 coïncide lui aussi avec ce motif. Le candidat `h1` du 07/11 (51 %) est distinct et reste un événement à examiner, pas une preuve de panne.
+- Les valeurs brutes de la sauvegarde ne sont ni réécrites ni supprimées par ce diagnostic.
+
+**Évolutions apportées sur la branche :**
+- Nouveau module `measurement-filter.js` : six filtres indépendants pour les températures et humidités live du salon, de la sonde résistances et de l'air entrant. Les seuils et la confirmation sur deux lectures reprennent la référence Purevent publique.
+- Le filtre ne s'applique qu'aux notifications BLE live. Il ne modifie pas les lignes CSV historiques importées ni le flux de synchronisation.
+- Le runtime conserve les octets décodés dans des champs `*_raw` et utilise la valeur filtrée pour l'affichage, les calculs psychrométriques et les snapshots live. Les snapshots conservent également les champs `stRaw`, `shRaw`, `t1Raw`, `h1Raw`, `teRaw` et `heRaw`.
+- Une reconnexion réinitialise tous les filtres ; un emplacement de sonde vide réinitialise immédiatement le filtre de cet emplacement.
+- Les relevés au motif 20/50 sont exclus des calculs hygrométriques, des tendances, des comparaisons de vitesses, des analyses saisonnières et du bilan hebdomadaire. Ils restent présents dans les données brutes et sont comptés dans la qualité d'entrée.
+- Le diagnostic hygrométrique principal écarte aussi les horodatages signalés comme pics isolés sur les quatre mesures qu'il utilise (`st`, `sh`, `te`, `he`). Les compteurs `placeholderSensorRecordCount` et `transientSpikeRecordCount` rendent ces exclusions visibles.
+- La borne haute de température de plausibilité est alignée sur la référence Purevent à 70 °C.
+
+**Limites et prudence :**
+- Le filtre live retarde l'acceptation initiale d'une mesure jusqu'à sa confirmation suivante ; c'est volontaire et conforme à la référence, mais cela peut laisser une valeur indisponible pendant un cycle de lecture.
+- Les seuils Purevent sont une base documentée, pas une calibration métrologique des sondes de cette installation. Ils devront être réévalués si des mesures fiables montrent des variations légitimes supérieures.
+- Le filtre est logiciel et local à l'application : aucune commande de réglage n'est envoyée à la VMI. Aucun test sur la VMI connectée n'a été réalisé dans cette étape.
+- Les candidats de pics historiques restent des signaux heuristiques. Un saut durable peut être une vraie évolution de l'environnement ; seule une anomalie isolée suivie d'un retour est signalée.
+
 ## 4. Enseignements pour Vmi2
 
 1. **Fraîcheur par session :** remettre à zéro les horodatages de mesures à chaque reconnexion. Distinguer lien BLE ouvert, dernière donnée reçue, donnée fraîche et donnée admissible à un snapshot.
