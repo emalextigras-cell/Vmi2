@@ -4,7 +4,7 @@
 
 /** Analyses statistiques communes (sans effet sur les commandes VMI). */
 import { absoluteHumidity, dewPoint } from './psychrometry.js';
-import { isPlausibleHumidity, isPlausibleTemperature } from './data-quality.js';
+import { detectTransientSensorSpikes, isPlaceholderSensorRecord, isPlausibleHumidity, isPlausibleTemperature } from './data-quality.js';
 
 /** Médiane d'une liste de valeurs numériques finies.
  * @param {number[]} values Valeurs à résumer.
@@ -38,7 +38,7 @@ export function analyzeSpeedLevels(data, minSamples = 10, targetRH = 50) {
   }
 
   const eligibleRows = (Array.isArray(data) ? data : []).filter(r =>
-    Number.isFinite(r?.vmiModeRaw) && [1,2,3].includes(r.vmiModeRaw) &&
+    !isPlaceholderSensorRecord(r) && Number.isFinite(r?.vmiModeRaw) && [1,2,3].includes(r.vmiModeRaw) &&
     Number.isFinite(r.sh) && isPlausibleHumidity(r.sh) &&
     Number.isFinite(r.st) && isPlausibleTemperature(r.st)
   );
@@ -675,7 +675,7 @@ export function analyzeHygrometricPeriods(data, options = {}) {
 }
 
 function validHygroRow(r) {
-  if (!Number.isFinite(r?.t) || !Number.isFinite(r.st) || !isPlausibleTemperature(r.st) ||
+  if (isPlaceholderSensorRecord(r) || !Number.isFinite(r?.t) || !Number.isFinite(r.st) || !isPlausibleTemperature(r.st) ||
       !Number.isFinite(r.sh) || !isPlausibleHumidity(r.sh)) return false;
   const ha = absoluteHumidity(r.st, r.sh);
   return Number.isFinite(ha);
@@ -1022,10 +1022,23 @@ function prepareHygrometricRows(inputRows) {
   let missingTimestampCount = 0;
   let incompleteSensorRecordCount = 0;
   let implausibleSensorRecordCount = 0;
+  let placeholderSensorRecordCount = 0;
+  let transientSpikeRecordCount = 0;
   let duplicateTimestampCount = 0;
+  const transientCoreTimestamps = new Set(detectTransientSensorSpikes(inputRows).candidates
+    .filter(candidate => ['st', 'sh', 'te', 'he'].includes(candidate.key))
+    .map(candidate => candidate.timestamp));
   for (const r of inputRows) {
     if (!Number.isFinite(r?.t) || !Number.isFinite(new Date(r.t).getTime())) {
       missingTimestampCount++;
+      continue;
+    }
+    if (isPlaceholderSensorRecord(r)) {
+      placeholderSensorRecordCount++;
+      continue;
+    }
+    if (transientCoreTimestamps.has(r.t)) {
+      transientSpikeRecordCount++;
       continue;
     }
     const missingSensor = !Number.isFinite(r.st) || !Number.isFinite(r.sh) ||
@@ -1054,6 +1067,8 @@ function prepareHygrometricRows(inputRows) {
     missingTimestampCount,
     incompleteSensorRecordCount,
     implausibleSensorRecordCount,
+    placeholderSensorRecordCount,
+    transientSpikeRecordCount,
     duplicateTimestampCount
   };
 }
@@ -1064,6 +1079,8 @@ function prepareHygrometricRows(inputRows) {
     missingTimestampCount,
     incompleteSensorRecordCount,
     implausibleSensorRecordCount,
+    placeholderSensorRecordCount,
+    transientSpikeRecordCount,
     duplicateTimestampCount
   } = prepareHygrometricRows(inputRows);
   const dayKey=t=>{
