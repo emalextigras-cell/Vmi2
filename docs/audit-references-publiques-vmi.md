@@ -356,3 +356,11 @@ Artefacts contrôlés : `00_A0_50_48_B4_A3-2026-11-10-16_55.csv` et `vmi-sauvega
 - GitHub Actions #996, commit testé `737c2ff00682d2523a09cba9afd542b647c45f78` : **551 tests réussis, 0 échec**.
 - Syntaxe JavaScript, ESLint et vérification des types JSDoc réussis.
 - Le commit suivant `7a3dc2f2ffa924d357a8a0d065333324617dbac6` ne modifie que le journal d'audit ; aucun code n'a changé après le commit testé.
+
+
+**Confrontation avec la sauvegarde utilisateur du 20/11/2026 (848 relevés) :**
+- Température salon : 14 à 29,1 °C ; sonde résistances : 3,4 à 20 °C ; air entrant : 1,3 à 20 °C. Aucun des 848 relevés ne contient une température mesurée négative.
+- Les humidités relatives vont de 36 à 74 % au salon, de 42 à 99 % sur la sonde résistances et de 43 à 100 % sur l'air entrant.
+- Avec les coefficients actuels, le point de rosée calculé de l'air entrant passe sous 0 °C sur 19 relevés (minimum calculé : environ −2,54 °C), alors que la température mesurée de l'air entrant reste au-dessus de 0 °C. Cela concerne la convention de point de rosée/givre, pas une mesure d'air sous zéro.
+- Les valeurs de température effectivement présentes dans cette sauvegarde sont dans la zone courante de l'approximation Magnus eau liquide. Le problème de domaine logiciel plus large reste une limite générale à traiter avant d'utiliser ces fonctions sur des plages extrêmes.
+- Aucun signal de la sauvegarde ne justifie actuellement une branche glace/eau sur les températures mesurées. Conserver le point comme amélioration future si l'installation rencontre des températures d'air négatives ou si une précision de point de givre est requise.
