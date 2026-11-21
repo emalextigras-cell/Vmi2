@@ -263,7 +263,7 @@ Artefacts contrôlés : `00_A0_50_48_B4_A3-2026-11-10-16_55.csv` et `vmi-sauvega
 **Cache du service worker :**
 - Le service worker applique une stratégie réseau d'abord, cache ensuite ; hors connexion, il restitue les ressources précédemment mises en cache et `index.html` pour la navigation.
 - Les fichiers applicatifs de cette PR changent alors que le nom du cache était resté `v14-cache-55`. Sans changement du script du service worker, un appareil déjà installé pouvait conserver son ancien cache jusqu'à ce qu'il recharge individuellement les ressources en étant connecté.
-- Le cache est donc incrémenté en `v14-cache-56`. L'installation du nouveau service worker pré-télécharge à nouveau l'App Shell, puis l'activation supprime l'ancien cache `vmi-test-`. Si le pré-téléchargement échoue, le nouveau service worker ne s'active pas et l'ancien cache actif n'est pas supprimé.
+- Le cache a depuis été incrémenté jusqu'à `v14-cache-59`. Le nouveau module `js/modules/bluetooth-freshness.js` est explicitement ajouté à l'App Shell afin qu'il soit également disponible hors ligne. L'installation du nouveau service worker pré-télécharge à nouveau l'App Shell, puis l'activation supprime l'ancien cache `vmi-test-`. Si le pré-téléchargement échoue, le nouveau service worker ne s'active pas et l'ancien cache actif n'est pas supprimé.
 
 **Identité et fusion des relevés :**
 - Le rapprochement de la borne BLE repose sur `rk|d` ; la fusion de l'historique local et des sauvegardes repose sur l'horodatage corrigé `t`.
