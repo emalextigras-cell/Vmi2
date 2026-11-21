@@ -535,7 +535,7 @@ function finishDownload(completeBoundary,timeout=false,interrupted=false){
  const count=download.rows.length;
  const complete=!timeout&&!interrupted&&!download.integrityGap&&!(download.invalidRows>0)&&completeBoundary;
  const syncObservedAt=Date.now();
- const newestCounterRecord=/** @type {VmiRecord|undefined} */ (download.rows.find(record=>Number.isFinite((/** @type {VmiRecord} */ (record)).d)));
+ const newestCounterRecord=download.rows.find(record=>Number.isFinite(record.d));
  const counterAssessment=complete&&newestCounterRecord
   ? evaluateCounterBaseline({
    baseline:/** @type {{d:number,observedAt:number}|undefined} */ (meta.counterBaseline),
@@ -547,7 +547,7 @@ function finishDownload(completeBoundary,timeout=false,interrupted=false){
   allowPre2020RawDates:true,
   forceCounterReset:counterAssessment?.discontinuity===true,
   counterResetReason:counterAssessment?.reason,
-  counterPreviousDays:counterAssessment?.previousDays ?? meta.counterBaseline?.d
+  counterPreviousDays:counterAssessment?.previousDays ?? (/** @type {{d?:number}|undefined} */ (meta.counterBaseline))?.d
  }):null;
  if(complete){
   meta.lastSync=syncObservedAt;
