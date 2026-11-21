@@ -87,15 +87,19 @@ export function mergeRecordFields(existing, incoming) {
 }
 
 /** Fusionne les imports par horodatage sans perdre les champs déjà renseignés. */
-export function mergeImportedHistory(currentRecords, importedRecords, maxTimestamp = Date.now()) {
+export function mergeImportedHistory(currentRecords, importedRecords, maxTimestamp = Date.now(), options = {}) {
+  const requestedTolerance = Number.isFinite(options.futureToleranceMs)
+    ? Math.max(0, Math.floor(options.futureToleranceMs))
+    : 0;
+  const maxAcceptedTimestamp = maxTimestamp + Math.min(120_000, requestedTolerance);
   const byTimestamp = new Map();
   for (const record of (Array.isArray(currentRecords) ? currentRecords : [])
-    .filter(record => isRawDateEligible(record) && record.t <= maxTimestamp)) {
+    .filter(record => isRawDateEligible(record) && record.t <= maxAcceptedTimestamp)) {
     const existing = byTimestamp.get(record.t);
     byTimestamp.set(record.t, existing ? mergeRecordFields(existing, record) : record);
   }
   (Array.isArray(importedRecords) ? importedRecords : [])
-    .filter(record => isRawDateEligible(record) && record.t <= maxTimestamp)
+    .filter(record => isRawDateEligible(record) && record.t <= maxAcceptedTimestamp)
     .forEach(record => byTimestamp.set(record.t, mergeRecordFields(byTimestamp.get(record.t), record)));
   return [...byTimestamp.values()].sort((a, b) => a.t - b.t);
 }
