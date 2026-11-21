@@ -11,7 +11,7 @@ function makeNotificationHandler(overrides = {}) {
   const cur = {};
   const lastSeen = {};
   const download = {
-    on: false, rows: [], buf: '', totalSequences: 0, historyStream: {},
+    on: false, rows: [], buf: '', historyStream: {},
     integrityGap: false
   };
   let frameCount = 0;
@@ -104,58 +104,16 @@ test('identifie les lignes historiques CSV et attend leurs cinq fragments', () =
   assert.equal(received.payload, payload);
 });
 
-test('notification 0x04 transmet le nombre total de séquences sans l’interpréter comme une taille en octets', () => {
+test('une trame SimpleData inconnue ne certifie pas la fin du téléchargement', () => {
   const h = makeNotificationHandler({
-    decodeVmiNotification: () => ({ kind: 'history-count', totalSequences: 824 })
+    decodeVmiNotification: () => ({ kind: 'unknown', type: 0x04, length: 11 })
   });
+  h.download.on = true;
 
   h.handler({ target: { value: new DataView(new Uint8Array([1, 2]).buffer) } });
 
-  assert.equal(h.download.totalSequences, 824);
-  assert.equal(h.updates, 0);
-});
-
-test('termine une première synchronisation à la dernière séquence et conserve sa ligne sans saut final', () => {
-  let current = null;
-  let parsedTail = null;
-  let finishCalls = 0;
-  const h = makeNotificationHandler({
-    decodeVmiNotification: () => current,
-    acceptHistoryFragment,
-    parseDownloadLine: line => { parsedTail = line; },
-    finishDownload: reachedEnd => { assert.equal(reachedEnd, true); finishCalls++; }
-  });
-  h.download.on = true;
-  h.download.totalSequences = 26;
-  h.download.historyStream = createHistoryStreamState();
-
-  for (let sequence = 0; sequence < 25; sequence++) {
-    acceptHistoryFragment(h.download.historyStream, {
-      sequence, chunkIndex: 0, payload: 'metadata-' + sequence
-    });
-  }
-
-  const fragments = [
-    [0, '12/11/2026 14:31:00;35;337;1;'],
-    [10, 'fragment-1;'],
-    [20, 'fragment-2;'],
-    [30, 'fragment-3;'],
-    [40, 'fin-de-ligne']
-  ];
-  for (const [chunkIndex, payload] of fragments) {
-    current = {
-      kind: 'history',
-      valid: true,
-      payload: new TextEncoder().encode(payload),
-      sequence: 25,
-      chunkIndex
-    };
-    h.handler({ target: { value: new DataView(new Uint8Array([1]).buffer) } });
-  }
-
-  assert.equal(finishCalls, 1);
-  assert.match(parsedTail, /^12\/11\/2026 14:31:00;/);
-  assert.match(parsedTail, /fin-de-ligne$/);
+  assert.equal(h.download.on, true);
+  assert.match(h.logs.join(' '), /04/);
 });
 
 test('notification historique invalide marque le flux incomplet', () => {
