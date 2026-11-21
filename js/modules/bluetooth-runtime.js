@@ -143,7 +143,7 @@ export function createBluetoothNotificationHandler(deps) {
       $('hi').textContent = cur.s1_h;
       $('t2').textContent = cur.s2_t;
       $('h2').textContent = cur.s2_h;
-    }    } else {
+    } else {
       return;
     }
 
