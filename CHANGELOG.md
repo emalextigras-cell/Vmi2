@@ -1,3 +1,11 @@
+## Maintenance — sécurité du chargement et qualité du code
+- SheetJS 0.18.5 reste chargé à la demande depuis cdnjs, mais son chargement dynamique vérifie désormais une empreinte SRI SHA-384 et utilise CORS anonyme ; le CDN de secours non vérifié est retiré.
+- La CSP conserve `default-src 'self'` et n'autorise plus le CDN jsDelivr inutilisé.
+- ESLint contrôle maintenant les variables et imports inutilisés, interdit `var` et les conditions constantes.
+- Suppression de l'adaptateur local `pruneHist`, inutilisé ; la fonction pure `pruneHistory` reste disponible et testée dans son module.
+- Les erreurs de sauvegarde en direct, de préférences de thème et d'enregistrement du service worker ne sont plus avalées silencieusement.
+- Cache du service worker porté à `vmi-test-v14-cache-85`.
+
 ## Nettoyage — suppression du suivi par compteur électrique externe
 - Suppression de la saisie et de l'analyse d'index de compteurs externes, qui ne correspond pas à l'installation VMI.
 - Retrait du stockage dédié, de sa fusion dans les sauvegardes, de l'analyseur, des tests et de son entrée dans le précache.
