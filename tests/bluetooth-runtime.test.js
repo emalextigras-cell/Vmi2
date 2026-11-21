@@ -75,7 +75,7 @@ test('transmet un accusé protocolaire valide au coordinateur', () => {
 
 test('notification état met à jour les valeurs VMI et l’horodatage', () => {
   const decoded = {
-    kind: 'state', filter: 12, days: 34, volume: 210, maxTemperature: 27,
+    kind: 'state', rawFrame: [0xA5, 0xB6, 0x01], filter: 12, days: 34, volume: 210, maxTemperature: 27,
     rawSpeed: 2, boost: true, holiday: false
   };
   const h = makeNotificationHandler({ decodeVmiNotification: () => decoded });
