@@ -54,6 +54,8 @@ export function createBluetoothNotificationHandler(deps) {
       }
 
       const payload = new TextDecoder('latin1').decode(decoded.payload);
+      // Dans la capture Purevent, les lignes CSV datées utilisent cinq fragments (0 à 40).
+      // Les blocs de métadonnées ne suivent pas ce format et ne sont pas soumis à cette règle.
       const integrity = acceptHistoryFragment(download.historyStream, {
         sequence: decoded.sequence,
         chunkIndex: decoded.chunkIndex,
