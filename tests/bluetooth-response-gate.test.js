@@ -1,6 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createBleResponseGate } from '../js/modules/bluetooth-response-gate.js';
+import { createBleResponseGate, BLE_RESPONSE_KIND_BY_REGISTER } from '../js/modules/bluetooth-response-gate.js';
+
+test('associe les registres Purevent aux bons types de réponse', () => {
+  assert.equal(BLE_RESPONSE_KIND_BY_REGISTER[0x03], 'state');
+  assert.equal(BLE_RESPONSE_KIND_BY_REGISTER[0x06], 'room');
+  assert.equal(BLE_RESPONSE_KIND_BY_REGISTER[0x07], 'probes');
+  assert.equal(BLE_RESPONSE_KIND_BY_REGISTER[0x18], 'state');
+  assert.equal(BLE_RESPONSE_KIND_BY_REGISTER[0x19], 'state');
+  assert.equal(BLE_RESPONSE_KIND_BY_REGISTER[0x1A], 'state');
+});
 
 test('ne valide une requête que par une réponse du type attendu', async () => {
   const gate = createBleResponseGate();
