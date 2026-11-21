@@ -671,13 +671,14 @@ Aucune commande envoyée à la VMI ; comparaison documentaire uniquement.
 - `app.js` contenait encore la sélection des périphériques, la reconnexion, la découverte des services/caractéristiques GATT, les écouteurs de notifications, la file d'écriture, la corrélation des réponses, le polling et le watchdog de fraîcheur.
 
 **Correction apportée :**
-- Nouveau module `js/modules/bluetooth-service.js` : propriétaire du cycle de vie Web Bluetooth, de la connexion GATT, des notifications, de la reconnexion, de la session, de la file d'écriture, de la barrière de réponse, du polling et du watchdog de fraîcheur.
+- Nouveau module `js/modules/bluetooth-service.js` : propriétaire du cycle de vie Web Bluetooth, de la connexion GATT, des notifications, de la reconnexion, de la session, de la file d'écriture, de la barrière de réponse, du polling, du watchdog de fraîcheur et de la séquence de registres du téléchargement historique.
+- Nouveau module `js/modules/bluetooth-notification-adapter.js` : composition du décodeur Purevent et du gestionnaire de notifications ; `app.js` ne construit plus la chaîne de décodage ni le traitement des fragments BLE.
 - L'interface appelle désormais une API de service : connexion, déconnexion, écriture, requête avec réponse typée, mise à l'heure, état de session et notification reçue.
 - Le traitement des trames et les mises à jour métier/DOM restent injectés dans le service via des callbacks. Le service n'importe ni ne manipule le DOM.
-- Le transfert historique conserve son orchestrateur métier dans l'application, mais utilise le service pour l'accès BLE ; les fragments, la validation CSV, les règles de coupure et la persistance restent dans leurs modules existants.
+- Le transfert historique conserve son orchestration métier (validation des lignes, fusion, correction des dates et persistance) dans l'application ; les registres BLE de démarrage, l'attente de session et les notifications sont gérés hors de `app.js`.
 - Les tests de session ont été déplacés de vérifications statiques de fonctions internes de `app.js` vers des tests du service : ordre d'installation des écouteurs, corrélation d'une réponse typée et nettoyage de session.
 
 **Limites et validation :**
 - Le navigateur Web Bluetooth et le matériel réel ne sont pas simulés intégralement par les tests Node. Les essais portent sur un périphérique GATT simulé ; aucune VMI physique n'a été connectée et aucune commande matérielle n'a été envoyée.
 - L'extraction ne modifie volontairement ni les registres Purevent, ni les octets de commande, ni les règles de décodage, ni les règles de synchronisation historique.
-- Cache service worker incrémenté à `vmi-test-v14-cache-74`.
+- Cache service worker incrémenté à `vmi-test-v14-cache-75`.
