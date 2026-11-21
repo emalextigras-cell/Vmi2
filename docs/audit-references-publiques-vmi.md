@@ -316,3 +316,37 @@ Artefacts contrôlés : `00_A0_50_48_B4_A3-2026-11-10-16_55.csv` et `vmi-sauvega
 - Les tests couvrent le démarrage du filtre, la confirmation d'un saut, le retour à la valeur stable, les valeurs hors plage, les trois rejets consécutifs, l'indépendance des capteurs, la remise à zéro, la conservation des valeurs brutes et l'exclusion des relevés de remplacement/pics isolés du diagnostic.
 - Cette validation est logicielle. Elle ne constitue pas un essai en liaison Bluetooth avec la VMI.
 
+
+
+### 3.8 Cohérence psychrométrique et ambiguïtés temporelles
+
+**Formules actuellement utilisées — vérifiées dans `js/modules/psychrometry.js` :**
+- Pression de vapeur saturante : `6.112 × exp(17.62 × T / (243.12 + T))`, en hPa, approximation de Magnus (coefficients Sonntag).
+- Pression réelle de vapeur : pression saturante × HR / 100.
+- Densité de vapeur d'eau / humidité absolue : `216.7 × e / (T + 273.15)`, en g/m³, relation issue de l'équation des gaz parfaits.
+- Point de rosée : inversion algébrique de la même approximation de Magnus. Les quatre calculs restent cohérents entre eux dans le domaine d'usage courant.
+- L'humidité absolue (densité de vapeur) ne nécessite pas de pression atmosphérique dans cette approximation idéale. En revanche, le rapport de mélange en kg/kg d'air sec et certaines propriétés psychrométriques ASHRAE nécessitent la pression totale.
+
+**Limites de précision identifiées — aucune extrapolation en diagnostic :**
+- Les coefficients actuels sont ceux de Magnus au-dessus de l'eau liquide ; la référence consultée donne un domaine usuel d'environ −45 à +60 °C. Le code accepte actuellement −80 à +80 °C et la plausibilité des capteurs autorise jusqu'à 70 °C : les limites logicielles sont donc plus larges que le domaine documenté de cette approximation.
+- Sous 0 °C, la pression de saturation sur glace diffère de celle sur eau. Le code ne sépare pas encore point de rosée et point de givre. Ne pas interpréter une valeur sous zéro comme une précision métrologique.
+- Décision : ne pas modifier les coefficients ni introduire une branche glace/eau sans avoir fixé la convention de mesure HR des sondes Purevent et ajouté des vecteurs de référence indépendants. Le point est ouvert et explicitement documenté.
+- Le point de rosée de l'air n'est pas la température d'une paroi. Sans température de surface ou pont thermique mesuré/modélisé, l'application ne doit pas annoncer un risque de condensation. La limite est déjà explicitement renvoyée par le diagnostic.
+- Le différentiel d'humidité absolue salon − air entrant décrit un potentiel hygrométrique, pas le débit réellement renouvelé ni une preuve de baisse de l'humidité intérieure. Le code conserve ces précautions dans ses observations.
+
+**Anomalie corrigée — horodatages contradictoires :**
+- Avant correction, `prepareHygrometricRows()` conservait la dernière ligne valide rencontrée pour un horodatage dupliqué, même si une autre ligne valide au même instant portait des valeurs hygrométriques différentes. L'ordre d'import pouvait donc décider arbitrairement du diagnostic.
+- Désormais, les lignes invalides/incomplètes restent ignorées sans éliminer une ligne valide concurrente. Les doublons valides strictement identiques sont ramenés à une seule observation. Si les quatre mesures utilisées (`st`, `sh`, `te`, `he`) se contredisent au même instant, tout le groupe temporel est exclu.
+- Le diagnostic expose `conflictingTimestampCount` en plus de `duplicateTimestampCount`. Les relevés bruts ne sont ni réécrits ni supprimés.
+- Tests ajoutés : doublon valide contradictoire, doublon valide identique, et doublon invalide face à une ligne valide.
+- Le service worker est passé à `vmi-test-v15-cache-65` afin de recharger le module d'analyse modifié.
+
+**Références externes consultées :**
+- ASHRAE Handbook — Psychrometrics, définitions de la densité de vapeur (absolute humidity), du rapport de mélange et du point de rosée : https://handbook.ashrae.org/Handbooks/F25/SI/F25_Ch01/F25_Ch01_si.aspx
+- Formule de Magnus / coefficients Sonntag au-dessus de l'eau et coefficients distincts sur glace : https://link.springer.com/chapter/10.1007/978-3-032-03884-5_3
+- Formules de vapeur d'eau et de densité absolue documentées dans une référence scientifique : https://digitalarchive.library.bogazici.edu.tr/bitstreams/d677e348-5d14-4b64-979d-de3815e49dfb/download
+
+**État de cette étape :**
+- La sélection de données ambiguës est corrigée et couverte par des tests.
+- Les formules usuelles ont été comparées à des références psychrométriques indépendantes ; aucune modification de formule n'est justifiée sans convention capteur sous zéro.
+- Aucun risque de condensation n'est calculé ; aucun essai de commande ou de réglage VMI n'a été effectué.
