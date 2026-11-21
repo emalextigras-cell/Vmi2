@@ -18,6 +18,24 @@ test('rejoue la notification BLE réelle de la télécommande du salon', () => {
   });
 });
 
+test('rejoue la trame 0x03 réelle : deux sondes filaires avec leur humidité', () => {
+  // Préfixe exact des octets utiles de la notification 0x03 de la capture.
+  // Chaque emplacement de sonde occupe 5 octets : lieu, température, réservé,
+  // humidité, réservé. L'emplacement suivant commence à l'offset 10.
+  const bytes = new Uint8Array([
+    0xA5, 0xB6, 0x03, 0x06, 0x19, 0x00, 0x0D,
+    0x00, 0x60, 0x00, 0x01, 0x0C, 0x00, 0x61
+  ]);
+
+  assert.deepEqual(decodeVmiNotification(bytes), {
+    kind: 'probes',
+    firstTemperature: 13,
+    firstHumidity: 96,
+    secondTemperature: 12,
+    secondHumidity: 97
+  });
+});
+
 test('lit la vraie ligne VMI+ sans confondre Tempext, sondes et télécommande salon', () => {
   // En-tête et ligne copiés de l'export fourni (10/11/2026 16:45:35).
   // La ligne réelle est conservée ici en version minimale : colonnes utiles et
