@@ -38,8 +38,8 @@ export function decodeVmiNotification(input) {
   if (type === 0x01 && bytes.length > 53) {
     return {
       kind: 'state',
-      filter: bytes[28],
-      days: bytes[26],
+      filter: bytes[28] | (bytes[29] << 8),
+      days: bytes[26] | (bytes[27] << 8),
       volume: bytes[22] | (bytes[23] << 8),
       maxTemperature: bytes[38],
       rawSpeed: bytes[34],
