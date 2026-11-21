@@ -730,3 +730,6 @@ Le module `analysis.js` délègue désormais les analyses comparatives des nivea
 
 ### 3.27 — Extraction du moteur d'analyse hygrométrique
 Les analyses de périodes hygrométriques, tendances journalières, profils horaires, variations rapides et diagnostic hygrométrique sont regroupées dans `hygrometric-analysis.js`. Le module utilise les moteurs dédiés de psychrométrie, statistiques et qualité des mesures. Les exports historiques sont maintenus depuis `analysis.js` pour préserver les consommateurs existants. Cette extraction est structurelle : les seuils, critères d'échantillonnage, calculs, règles de tendance et formulations des constats sont conservés. Le nouveau module est ajouté au précache du service worker. Validation CI à confirmer ; aucune commande ni interaction matérielle Bluetooth n'est effectuée.
+
+### Correctif CI — extraction hygrométrique
+L'échec du premier passage CI a révélé deux dépendances oubliées lors du déplacement : les imports de `median`, `isPlaceholderSensorRecord` et `isPlausibleTemperature` encore nécessaires à `summarizeTemperatureLimit` dans `analysis.js`, ainsi que le formateur `fmtHours` utilisé par `buildHygrometricDiagnosis`. Ces dépendances sont rétablies sans changement des règles de calcul. Cache du service worker porté à v82. Nouvelle validation CI requise ; aucun essai matériel Bluetooth.
