@@ -14,7 +14,7 @@ const frame = (type, length, declaredLength = length) => {
 const seal = bytes => {
   const frameLength = bytes[4] + 6;
   let checksum = 0;
-  for (let i = 2; i < frameLength - 1; i++) checksum ^= bytes[i];
+  for (let i = 2; i < frameLength - 2; i++) checksum ^= bytes[i];
   bytes[frameLength - 1] = checksum;
   return bytes;
 };
@@ -43,6 +43,23 @@ test('décode les champs de la trame état après validation XOR', () => {
     kind: 'state', filter: 258, days: 275, volume: 0x1234,
     maxTemperature: 35, rawSpeed: 1, boost: 0, holiday: 1
   });
+});
+
+test('exclut le dernier octet de données du XOR entrant Purevent', () => {
+  const bytes = frame(0x03, 31);
+  bytes[6] = 12;
+  bytes[29] = 0xA7; // dernier octet de données : exclu du XOR Purevent
+  seal(bytes);
+
+  const expected = {
+    kind: 'probes', firstLocation: 0, firstTemperature: 12, firstHumidity: 0,
+    secondLocation: 0, secondTemperature: 0, secondHumidity: 0
+  };
+  assert.deepEqual(decodeVmiNotification(bytes), expected);
+
+  // La modification de cet octet ne change pas la somme attendue.
+  bytes[29] = 0x5A;
+  assert.deepEqual(decodeVmiNotification(bytes), expected);
 });
 
 test('décode les mesures salon et les deux sondes après validation XOR', () => {
