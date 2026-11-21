@@ -66,7 +66,7 @@ test('rejette les notifications connues dont le contrôle XOR est incorrect', ()
   });
 });
 
-test('décode le compteur historique et conserve le champ final non confirmé', () => {
+test('décode le compteur historique sans interpréter l’octet 13 comme marqueur de fin', () => {
   const total = frame(0x04, 11); total[6] = 0x34; total[7] = 0x12;
   assert.deepEqual(decodeVmiNotification(seal(total)), { kind: 'history-total', total: 0x1234 });
 
@@ -78,7 +78,7 @@ test('décode le compteur historique et conserve le champ final non confirmé', 
   assert.equal(decoded.sequence, 263);
   assert.equal(decoded.chunkIndex, 0);
   assert.equal(decoded.received, 263);
-  assert.equal(decoded.final, true);
+  assert.equal('final' in decoded, false);
   assert.deepEqual([...decoded.payload], [65, 66]);
 
   const fragment = frame(0x30, 116);
@@ -87,7 +87,7 @@ test('décode le compteur historique et conserve le champ final non confirmé', 
   const decodedFragment = decodeVmiNotification(seal(fragment));
   assert.equal(decodedFragment.sequence, 25);
   assert.equal(decodedFragment.chunkIndex, 10);
-  assert.equal(decodedFragment.final, false);
+  assert.equal('final' in decodedFragment, false);
 });
 
 test('signale les trames historiques trop courtes ou dont le XOR est invalide', () => {
