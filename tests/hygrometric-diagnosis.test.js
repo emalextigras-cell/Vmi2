@@ -526,7 +526,7 @@ test('durable trend evidence identifies both calendar windows and their medians'
 });
 
 
-test('diagnostic keeps the last valid row for a duplicated timestamp',()=>{
+test('diagnostic écarte deux mesures valides contradictoires au même horodatage',()=>{
  const timestamp=new Date(2026,10,10,8,0,0).getTime();
  const rows=[
   {t:timestamp,st:20,sh:50,te:10,he:40},
@@ -536,10 +536,11 @@ test('diagnostic keeps the last valid row for a duplicated timestamp',()=>{
  const result=buildHygrometricDiagnosis(rows);
 
  assert.equal(result.inputQuality.inputSampleCount,2);
- assert.equal(result.inputQuality.acceptedSampleCount,1);
+ assert.equal(result.inputQuality.acceptedSampleCount,0);
  assert.equal(result.inputQuality.duplicateTimestampCount,1);
- assert.equal(result.sampleCount,1);
- assert.equal(result.medianIndoorRH,70);
+ assert.equal(result.inputQuality.conflictingTimestampCount,1);
+ assert.equal(result.sampleCount,0);
+ assert.equal(result.medianIndoorRH,null);
  assert.equal(JSON.stringify(rows),before);
 });
 
