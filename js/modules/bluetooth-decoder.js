@@ -35,10 +35,9 @@ export function decodeVmiNotification(input) {
   if (!requiredLength) return { kind: 'unknown', type, length: bytes.length };
 
   if (bytes.length < 5) {
-    const invalid = { type, length: bytes.length, requiredLength, reason: 'truncated' };
     return type === 0x30
       ? { kind: 'history', valid: false, length: bytes.length, reason: 'truncated' }
-      : { kind: 'invalid', ...invalid };
+      : { kind: 'invalid', type, length: bytes.length, requiredLength, reason: 'truncated' };
   }
 
   // Sur les trames observées, l'octet 4 contient la longueur utile moins les 6 octets d'en-tête.
