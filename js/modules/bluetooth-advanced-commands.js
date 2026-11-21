@@ -143,7 +143,14 @@ export async function stopPreheating(deps) {
   await deps.writeCommand(0x2F, 0);
   assertConnected(deps.isConnected);
   let after = await deps.getLastCommandState?.();
-  if (after?.preheatOn !== false) after = await deps.readState();
+  if (after?.preheatOn !== false) {
+    try {
+      after = await deps.readState();
+    } catch {
+      // La consigne à zéro reste un repli sûr si la réponse à l'arrêt manque.
+      after = null;
+    }
+  }
   assertConnected(deps.isConnected);
 
   if (after?.preheatOn !== false || after?.preheatSetpoint !== 0) {
