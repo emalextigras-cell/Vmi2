@@ -1,10 +1,18 @@
 # Journal des modifications
 
+## [Non publié]
+
+### Fiabilité de la synchronisation historique
+- La tolérance de 30 secondes du téléchargement Bluetooth est désormais appliquée jusqu'à la fusion des relevés ; les imports ordinaires conservent le filtrage strict.
+- L'historique et les métadonnées de fin de synchronisation sont enregistrés dans une transaction IndexedDB unique. Une erreur de stockage empêche la validation de la synchronisation et ne met pas à jour `lastSync`.
+- Ajout de tests couvrant le relevé à +6 s, le rejet à +60 s, le comportement strict par défaut et l'échec de persistance.
+- Cache du service worker incrémenté à `vmi-test-v14-cache-77` et ajout du nouveau module au shell hors ligne.
+
 Ce fichier conserve les évolutions fonctionnelles et techniques de **VMI Purevent (dépôt Vmi2)**.
 
 Les numéros de version de l'interface et du cache du service worker sont deux identifiants distincts :
 - version affichée dans `index.html` (actuellement **v14**) ;
-- nom du cache dans `sw.js` (actuellement **vmi-test-v14-cache-53**).
+- nom du cache dans `sw.js` (actuellement **vmi-test-v14-cache-77**).
 
 Ils ne sont pas générés automatiquement. La convention de mise à jour est décrite à la fin de ce fichier.
 
