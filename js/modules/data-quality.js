@@ -20,7 +20,7 @@ export const isPlausibleHumidity = value =>
  * @returns {boolean} Résultat de isPlausibleTemperature.
  */
 export const isPlausibleTemperature = value =>
-  !Number.isFinite(value) || (value >= -30 && value <= 60);
+  !Number.isFinite(value) || (value >= -30 && value <= 70);
 
 /**
  * Détecte une trame de remplacement probable : les trois sondes renvoient
