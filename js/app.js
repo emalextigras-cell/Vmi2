@@ -6,10 +6,9 @@ import { createStore, normalizeStoreSnapshot } from './modules/store.js';
 import { fromOldRow } from './modules/legacy-migration.js';
 import { median, analyzeSpeedLevels, analyzeSpeedTimeContext, analyzeHygrometricPeriods, summarizeDailyTrends, analyzeHourlyPatterns, detectRapidChanges, compareOperatingPeriods, buildHygrometricDiagnosis } from './modules/analysis.js';
 import { renderCharts, resetChartViews } from './modules/charts.js';
-import { hex } from './modules/ble.js';
+import { hex } from './modules/bluetooth-protocol.js';
 import { createBluetoothService } from './modules/bluetooth-service.js';
 import { decodeVmiNotification } from './modules/bluetooth-decoder.js';
-import { runBleSessionSequence } from './modules/bluetooth-session.js';
 import { acceptHistoryFragment, createHistoryStreamState, isHistorySyncBaseline, markHistoryRows, markHistoryStreamInvalid } from './modules/bluetooth-history-stream.js';
 import { validateBluetoothHistoryRow } from './modules/bluetooth-history-row.js';
 import { armDownloadTimeout, findNewestCounterRecord, classifyHistoryDownloadRow } from './modules/sync.js';
@@ -186,10 +185,6 @@ function pruneHist(){
 
 
 
-function writeFrame(bytes){return bluetoothService.writeFrame(bytes)}
-const send=(reg,val)=>bluetoothService.send(reg,val);
-function sendAndWait(reg,val,expectedKind,timeoutMs){return bluetoothService.sendAndWait(reg,val,expectedKind,timeoutMs)}
-function writeFrameAndWait(bytes,expectedKind,timeoutMs){return bluetoothService.writeFrameAndWait(bytes,expectedKind,timeoutMs)}
 async function setClock(allowDuringDownload=false){
  if(!connected()){showError('Connecte-toi d’abord à la VMI.');return false}
  if(download.on&&!allowDuringDownload)return false;
@@ -306,13 +301,13 @@ document.querySelectorAll('[data-r]').forEach(b=>b.addEventListener('click',asyn
   if(!commandIsCurrent())return;
   result.textContent='Envoi de la commande à la VMI…';
   const t0=Date.now();
-  const sent=await sendAndWait(reg,value,'state');
+  const sent=await bluetoothService.sendAndWait(reg,value,'state');
   if(!commandIsCurrent()){result.textContent='Connexion interrompue : l’état de la commande n’a pas pu être vérifié.';return}
   if(!sent.written){result.textContent='La commande n’a pas pu être envoyée (voir le journal Bluetooth).';return}
   result.textContent=sent.responded?'Commande envoyée et réponse reçue, vérification de l’état…':'Commande écrite, mais sans réponse typée : tentative de relecture de l’état…';
   if(!commandIsCurrent()){result.textContent='Connexion interrompue : l’état de la commande n’a pas pu être vérifié.';return}
   if(!((lastSeen.state||0)>t0)){
-   const readSent=await sendAndWait(3,0,'state');
+   const readSent=await bluetoothService.sendAndWait(3,0,'state');
    if(!commandIsCurrent()){result.textContent='Connexion interrompue : l’état de la commande n’a pas pu être vérifié.';return}
    if(!readSent.responded)log('La relecture de l’état n’a pas reçu de réponse typée.');
   }
@@ -344,12 +339,12 @@ async function runAdvancedCommand(action,value,label){
  const deps={
   isConnected:commandIsCurrent,
   readState:async()=>{
-   const read=await sendAndWait(0x03,0,'state');
+   const read=await bluetoothService.sendAndWait(0x03,0,'state');
    if(!read.written||!read.responded||!read.response)throw new Error('Lecture d’état Purevent sans réponse valide.');
    return read.response;
   },
   writeCommand:async(register,commandValue)=>{
-   const sent=await sendAndWait(register,commandValue,'state');
+   const sent=await bluetoothService.sendAndWait(register,commandValue,'state');
    if(!sent.written)throw new Error('Écriture Bluetooth non effectuée.');
    lastCommandState=sent.responded?sent.response:null;
    return sent;
@@ -492,11 +487,9 @@ async function startDownload(auto=false){
  // Terminer la requête de lecture déjà en cours avant d'envoyer les registres du flux historique.
  while(bluetoothService.isPolling(sessionToken)&&connected())await sleep(50);
  if(!download.on||sessionToken!==bluetoothService.getSessionToken()){abortDownload();return}
- const sequenceOk=await runBleSessionSequence({
-  token:sessionToken,
-  getToken:()=>bluetoothService.getSessionToken(),
-  isActive:()=>download.on&&connected(),
-  steps:[async()=>{await setClock(true);return true},()=>send(0x2c,0),()=>send(0x20,0),()=>send(0x22,0)]
+ const sequenceOk=await bluetoothService.startHistoryTransfer({
+  beforeCommands:()=>setClock(true),
+  isActive:()=>download.on&&connected()
  });
  if(!sequenceOk){abortDownload();return}
  armTimer();
@@ -1198,5 +1191,5 @@ $('themeBtn').onclick=()=>{
  try{localStorage.setItem('vmi_modulaire_theme',root.dataset.theme)}catch(e){}
 };
 try{const theme=localStorage.getItem('vmi_modulaire_theme');if(theme)document.documentElement.dataset.theme=theme}catch(e){}
-if(!navigator.bluetooth)showError('Web Bluetooth indisponible : ouvre cette page en HTTPS dans Chrome sur Android.');
+if(!bluetoothService.isAvailable())showError('Web Bluetooth indisponible : ouvre cette page en HTTPS dans Chrome sur Android.');
 init().then(()=>bluetoothService.autoConnectAuthorizedDevice()).catch(e=>recordError('Initialisation impossible : '+(e.message||e)));
