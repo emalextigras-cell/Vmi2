@@ -80,13 +80,17 @@ const modeOf = values => {
  * @param {VmiRecord[]} history Paramètre history.
  * @param {number} minValid Timestamp minimal accepté.
  * @param {number} maxTimestamp Timestamp maximal accepté, ou Infinity.
- * @param {{allowPre2020RawDates?: boolean,forceCounterReset?:boolean,counterResetReason?:string,counterPreviousDays?:number}} [options] Autorise les dates brutes anciennes pour un flux Bluetooth identifié.
+ * @param {{allowPre2020RawDates?: boolean,forceCounterReset?:boolean,counterResetReason?:string,counterPreviousDays?:number,futureToleranceMs?:number}} [options] Autorise les dates brutes anciennes pour un flux Bluetooth identifié et une petite tolérance d'horodatage futur.
  * @returns {{fixed:number, future:number, futureDetails:Array<{record:VmiRecord, correctedTimestamp:number}>, kept:VmiRecord[], counterReset:boolean, counterResetDetails:{previousMax:number,current:number,reason:string}|null, referenceCount:number, concordantCount:number, concordanceRate:number|null, referenceSource:'incoming-only'|'history-and-incoming'|'none'}} Résultat de la correction.
  */
-export function fixClock(records, history = [], minValid = MIN_VALID, maxTimestamp = Infinity, { allowPre2020RawDates = false, forceCounterReset = false, counterResetReason = 'counter-discontinuity', counterPreviousDays } = {}) {
+export function fixClock(records, history = [], minValid = MIN_VALID, maxTimestamp = Infinity, { allowPre2020RawDates = false, forceCounterReset = false, counterResetReason = 'counter-discontinuity', counterPreviousDays, futureToleranceMs = 0 } = {}) {
   // Les relevés entrants assez récents doivent rester disponibles pendant cette
   // fonction : leur compteur de jours peut permettre de reconstruire leur date.
   // L'historique déjà stocké, lui, reste filtré pour ne servir que de référence fiable.
+  const safeFutureTolerance = Number.isFinite(futureToleranceMs) && futureToleranceMs > 0
+    ? Math.min(futureToleranceMs, 120_000) : 0;
+  const maxAcceptedTimestamp = Number.isFinite(maxTimestamp)
+    ? maxTimestamp + safeFutureTolerance : maxTimestamp;
   history = filterRawDateHistory(history, minValid).filter(record =>
     !Number.isFinite(maxTimestamp) || record.t <= maxTimestamp
   );
@@ -170,7 +174,7 @@ export function fixClock(records, history = [], minValid = MIN_VALID, maxTimesta
           date.getFullYear(), date.getMonth(), date.getDate() + offset,
           date.getHours(), date.getMinutes(), date.getSeconds()
         ).getTime();
-        if (Number.isFinite(maxTimestamp) && correctedTimestamp > maxTimestamp) {
+        if (Number.isFinite(maxAcceptedTimestamp) && correctedTimestamp > maxAcceptedTimestamp) {
           futureRecords.add(record);
           futureDetails.push({ record, correctedTimestamp });
           continue;
@@ -184,7 +188,7 @@ export function fixClock(records, history = [], minValid = MIN_VALID, maxTimesta
 
   const kept = records.filter(record => {
     if (!isRawDateEligible(record, minValid) || record.t < minValid) return false;
-    if (Number.isFinite(maxTimestamp) && record.t > maxTimestamp) {
+    if (Number.isFinite(maxAcceptedTimestamp) && record.t > maxAcceptedTimestamp) {
       futureRecords.add(record);
       futureDetails.push({ record, correctedTimestamp: record.t });
       return false;

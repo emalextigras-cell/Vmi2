@@ -106,6 +106,33 @@ test('fixClock écarte aussi un relevé déjà daté après la fin de synchronis
   assert.deepEqual(result.kept, []);
 });
 
+test('fixClock conserve un relevé Bluetooth daté quelques secondes après la fin du transfert', () => {
+  const syncFinishedAt = new Date(2026, 10, 21, 20, 35, 37).getTime();
+  const currentRecord = { t: syncFinishedAt + 6_000, d: 197 };
+
+  const result = fixClock([currentRecord], [], MIN_VALID, syncFinishedAt, {
+    allowPre2020RawDates: true,
+    futureToleranceMs: 30_000
+  });
+
+  assert.equal(result.future, 0);
+  assert.deepEqual(result.kept, [currentRecord]);
+  assert.equal(currentRecord.t, syncFinishedAt + 6_000);
+});
+
+test('fixClock rejette toujours une ligne Bluetooth nettement future malgré la tolérance', () => {
+  const syncFinishedAt = new Date(2026, 10, 21, 20, 35, 37).getTime();
+  const futureRecord = { t: syncFinishedAt + 60_000, d: 197 };
+
+  const result = fixClock([futureRecord], [], MIN_VALID, syncFinishedAt, {
+    allowPre2020RawDates: true,
+    futureToleranceMs: 30_000
+  });
+
+  assert.equal(result.future, 1);
+  assert.deepEqual(result.kept, []);
+});
+
 
 test('fixClock exclut un horodatage fini mais hors plage JavaScript', () => {
   const invalidDate = { t: Number.MAX_VALUE, d: 200 };
