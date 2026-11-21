@@ -12,17 +12,37 @@ export const BLE_RESPONSE_KIND_BY_REGISTER = Object.freeze({
 });
 
 /**
- * Associe une réponse typée du protocole VMI à une seule requête en attente.
- * Le protocole observé ne fournit pas d'identifiant de transaction : les échanges
- * doivent donc être sérialisés et une réponse ne valide que le type attendu.
+ * Sérialise les réponses typées sans identifiant de transaction.
+ * Après timeout/annulation, la session est empoisonnée : une notification tardive
+ * ne peut plus satisfaire une nouvelle attente sur cette même connexion.
  */
 export function createBleResponseGate({
   setTimeoutFn = setTimeout,
   clearTimeoutFn = clearTimeout
 } = {}) {
   let pending = null;
+  let invalidated = false;
+  let invalidationReason = null;
+
+  function invalidate(reason = new Error('Session de corrélation Bluetooth invalidée.')) {
+    invalidated = true;
+    invalidationReason = reason;
+    if (pending) pending.reject(reason);
+  }
+
+  function reset() {
+    if (pending) pending.reject(new Error('Nouvelle session Bluetooth.'));
+    pending = null;
+    invalidated = false;
+    invalidationReason = null;
+  }
 
   function waitFor(expectedKind, timeoutMs = 5000) {
+    if (invalidated) {
+      return Promise.reject(new Error(
+        'Session Bluetooth invalide : reconnexion requise avant toute nouvelle attente.'
+      ));
+    }
     if (pending) {
       return Promise.reject(new Error('Une réponse Bluetooth est déjà attendue.'));
     }
@@ -42,21 +62,33 @@ export function createBleResponseGate({
         timer: null
       };
       entry.timer = setTimeoutFn(() => {
-        entry.reject(new Error(`Délai dépassé : aucune réponse VMI de type ${expectedKind} en ${timeoutMs} ms.`));
+        const error = new Error(
+          `Délai dépassé : aucune réponse VMI de type ${expectedKind} en ${timeoutMs} ms. Reconnexion requise pour éviter une réponse tardive ambiguë.`
+        );
+        invalidate(error);
       }, timeoutMs);
       pending = entry;
     });
   }
 
   function notify(kind, value) {
-    if (!pending || pending.expectedKind !== kind) return false;
+    if (invalidated || !pending || pending.expectedKind !== kind) return false;
     pending.resolve(value);
     return true;
   }
 
   function cancel(reason = new Error('Attente de réponse Bluetooth annulée.')) {
-    if (pending) pending.reject(reason);
+    invalidate(reason);
   }
 
-  return { waitFor, notify, cancel, get pendingKind() { return pending?.expectedKind ?? null; } };
+  return {
+    waitFor,
+    notify,
+    cancel,
+    invalidate,
+    reset,
+    get pendingKind() { return pending?.expectedKind ?? null; },
+    get isInvalidated() { return invalidated; },
+    get invalidationReason() { return invalidationReason; }
+  };
 }
