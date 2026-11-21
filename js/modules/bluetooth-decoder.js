@@ -5,7 +5,7 @@
  * les références Purevent et VMI+ divergent et aucune capture utilisateur sous 0 °C ne tranche.
  */
 /**
- * @typedef {{kind:'invalid',type:number,length:number,requiredLength:number,reason:'truncated'|'length'|'checksum'}|{kind:'history',valid:false,length:number,reason:'truncated'|'length'|'checksum'}|{kind:'history',valid:true,payload:Uint8Array,sequence:number,chunkIndex:number,received:number}|{kind:'state',filter:number,days:number,volume:number,maxTemperature:number,rawSpeed:number,boost:number,holiday:number}|{kind:'room',temperature:number,humidity:number}|{kind:'probes',firstLocation:number,firstTemperature:number,firstHumidity:number,secondLocation:number,secondTemperature:number,secondHumidity:number}|{kind:'unknown',type:number,length:number}} VmiNotification
+ * @typedef {{kind:'invalid',type:number,length:number,requiredLength:number,reason:'truncated'|'length'|'checksum'}|{kind:'history',valid:false,length:number,reason:'truncated'|'length'|'checksum'}|{kind:'history',valid:true,payload:Uint8Array,sequence:number,chunkIndex:number,received:number}|{kind:'state',filter:number,days:number,volume:number,maxTemperature:number,rawSpeed:number,boost:number,holiday:number}|{kind:'room',temperature:number,humidity:number}|{kind:'probes',firstLocation:number,firstTemperature:number,firstHumidity:number,secondLocation:number,secondTemperature:number,secondHumidity:number}|{kind:'history-count',totalSequences:number}|{kind:'unknown',type:number,length:number}} VmiNotification
  */
 
 /**
@@ -105,7 +105,8 @@ export function decodeVmiNotification(input) {
     };
   }
 
-  // 0x04 est nommé « SimpleData » dans la référence VMI+, mais son payload
-  // n'est pas caractérisé pour Purevent : ne pas le présenter comme un total historique.
-  return { kind: 'unknown', type, length: frameLength };
+  // 0x04 répond à la demande 0x20 (CsvLength). Sur la capture Purevent,
+  // la valeur correspond à 25 blocs de métadonnées + 799 relevés CSV = 824 séquences.
+  // Cette interprétation est étayée par le CSV associé, mais reste à confirmer sur d'autres firmwares.
+  return { kind: 'history-count', totalSequences: bytes[6] | (bytes[7] << 8) };
 }
