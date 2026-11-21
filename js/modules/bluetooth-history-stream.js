@@ -82,6 +82,7 @@ export function acceptHistoryFragment(state, fragment) {
     if (sequence !== 0 || chunkIndex !== 0) gap = true;
     state.sequence = sequence;
     state.expectedChunk = 0;
+    state.expectedFragments = fragmentCount ?? null;
   } else if (sequence < state.sequence) {
     state.gapCount++;
     return { accepted: false, duplicate: false, gap: true, resetBuffer: false };
