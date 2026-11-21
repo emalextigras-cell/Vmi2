@@ -364,3 +364,25 @@ Artefacts contrôlés : `00_A0_50_48_B4_A3-2026-11-10-16_55.csv` et `vmi-sauvega
 - Avec les coefficients actuels, le point de rosée calculé de l'air entrant passe sous 0 °C sur 19 relevés (minimum calculé : environ −2,54 °C), alors que la température mesurée de l'air entrant reste au-dessus de 0 °C. Cela concerne la convention de point de rosée/givre, pas une mesure d'air sous zéro.
 - Les valeurs de température effectivement présentes dans cette sauvegarde sont dans la zone courante de l'approximation Magnus eau liquide. Le problème de domaine logiciel plus large reste une limite générale à traiter avant d'utiliser ces fonctions sur des plages extrêmes.
 - Aucun signal de la sauvegarde ne justifie actuellement une branche glace/eau sur les températures mesurées. Conserver le point comme amélioration future si l'installation rencontre des températures d'air négatives ou si une précision de point de givre est requise.
+
+
+### 3.9 Longueurs variables des notifications capteurs
+
+**Comparaison des sources :**
+- La référence Purevent actuelle `clemvillon/ha-vmi-purevent` déclare `TELECOMMANDE_LONGUEUR = 14` (type `0x02`) et `SONDES_LONGUEUR = 12` (type `0x03`), puis lit respectivement les offsets 11/13 et 6/8/11.
+- La documentation générique `srThibaultP/ha-vmi-plus` décrit jusqu'à 10 capteurs sans fil de 10 octets chacun pour `0x02`, et jusqu'à 5 sondes filaires de 5 octets pour `0x03`. Elle est principalement vérifiée sur Urban ; elle ne remplace pas les observations Purevent.
+- `srThibaultP/vmi-plus-ble` utilise un registre de classes de réponses typées pour ses lectures (`STATE -> Status`, `PROBES -> Probes`, `SENSORS -> Sensors`) ; cela confirme le principe de séquencement par type, mais sa nomenclature générique ne doit pas être confondue avec la table Purevent.
+
+**Écart trouvé dans Vmi2 :**
+- Le décodeur imposait les longueurs observées dans la capture (128 octets pour `0x02`, 31 pour `0x03`) comme longueurs minimales.
+- Ces valeurs correspondent aux deux notifications capturées, pas à des minima démontrés par le protocole. Cela pouvait rejeter une notification valide plus courte d'un firmware ou d'une configuration avec moins de capteurs.
+- Correction : Vmi2 exige maintenant 15 octets pour ces deux classes. C'est le minimum nécessaire pour lire les champs actuellement utilisés jusqu'à l'offset 13 et conserver l'octet de somme après ces données. Les octets de remplissage au-delà de la longueur déclarée ne sont jamais utilisés comme mesures.
+- Les trames d'état `0x01` (61), données simples `0x04` (11), ACK `0x23` (6) et historique `0x30` (116) conservent leurs contraintes existantes.
+- Tests ajoutés pour les trames courtes `0x02` et `0x03`, avec somme valide, et tests de troncature adaptés.
+
+**Précaution :**
+- La référence Purevent annonce 14 et 12 comme longueurs utiles minimales, mais ces seuils sont inférieurs aux offsets complets que Vmi2 exploite (notamment l'humidité du second slot à l'offset 13). Vmi2 retient donc 15 pour garantir que tous les champs qu'il consomme précèdent bien l'octet de somme.
+- Les captures utilisateur fournies continuent de confirmer les formats 128 et 31. Aucun test n'a été effectué sur la VMI physique avec des notifications raccourcies.
+
+**Validation de cette correction :**
+- Cache service worker : `vmi-test-v14-cache-66`.
