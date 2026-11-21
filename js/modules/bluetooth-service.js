@@ -10,6 +10,7 @@ import { createBleWriteQueue } from './bluetooth-write-queue.js';
 import { createBleResponseGate, BLE_RESPONSE_KIND_BY_REGISTER } from './bluetooth-response-gate.js';
 import { isBleStateStale } from './bluetooth-freshness.js';
 import { chooseAuthorizedDevice } from './bluetooth-autoconnect.js';
+import { runBleSessionSequence } from './bluetooth-session.js';
 
 /**
  * @param {{
@@ -427,6 +428,21 @@ export function createBluetoothService(deps) {
     deps.setStatus('Déconnexion demandée.');
   }
 
+  async function startHistoryTransfer({ beforeCommands, isActive }) {
+    const token = generation;
+    return runBleSessionSequence({
+      token,
+      getToken: () => generation,
+      isActive,
+      steps: [
+        async () => { await beforeCommands(); return true; },
+        () => send(0x2c, 0),
+        () => send(0x20, 0),
+        () => send(0x22, 0)
+      ]
+    });
+  }
+
   function disconnectIntentional() {
     if (!device || !device.gatt || !device.gatt.connected) return false;
     intentionalDisconnect = true;
@@ -446,6 +462,7 @@ export function createBluetoothService(deps) {
     sendAndWait,
     writeFrameAndWait,
     setClock,
+    startHistoryTransfer,
     notifyResponse: (kind, value) => responseGate.notify(kind, value),
     getDevice: () => device,
     getSessionToken: () => generation,
