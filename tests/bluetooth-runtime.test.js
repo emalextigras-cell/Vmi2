@@ -83,6 +83,26 @@ test('notification sondes met à jour les deux températures et humidités', () 
   assert.equal(h.updates, 1);
 });
 
+
+test('identifie les lignes historiques CSV et attend leurs cinq fragments', () => {
+  let received = null;
+  const payload = '\\n12/11/2026 14:31:00;35;337;1;';
+  const h = makeNotificationHandler({
+    decodeVmiNotification: () => ({
+      kind: 'history', valid: true, payload: new TextEncoder().encode(payload),
+      sequence: 25, chunkIndex: 0, final: false
+    }),
+    acceptHistoryFragment: (_state, fragment) => {
+      received = fragment;
+      return { accepted: false, duplicate: false, gap: false, resetBuffer: false };
+    }
+  });
+  h.download.on = true;
+  h.handler({ target: { value: new DataView(new Uint8Array([1]).buffer) } });
+  assert.equal(received.expectedFragments, 5);
+  assert.equal(received.payload, payload);
+});
+
 test('notification historique invalide marque le flux incomplet', () => {
   let invalidated = false;
   const h = makeNotificationHandler({
