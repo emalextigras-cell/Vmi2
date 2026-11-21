@@ -22,15 +22,17 @@ function isConfirmed(state, key, expected) {
 
 /**
  * Lit l'état juste avant l'action, écrit au plus une fois puis relit si besoin.
- * @param {object} deps Dépendances BLE injectées.
- * @param {string} key Champ de l'état attendu.
- * @param {number} register Registre Purevent.
- * @param {number} value Valeur à écrire.
- * @param {unknown} expected Valeur attendue dans l'état.
- * @param {string} label Libellé utilisateur.
+ * @param {any} deps Dépendances BLE injectées.
+ * @param {any} options Réglage et condition de confirmation.
  * @returns {Promise<{changed:boolean,confirmed:true,state:object}>}
  */
-async function setAndConfirm(deps, { key, register, value, expected, label, confirmState = state => isConfirmed(state, key, expected) }) {
+async function setAndConfirm(deps, options) {
+  const key = options.key;
+  const register = options.register;
+  const value = options.value;
+  const expected = options.expected;
+  const label = options.label;
+  const confirmState = options.confirmState || (state => isConfirmed(state, key, expected));
   assertConnected(deps.isConnected);
   const before = await deps.readState();
   assertConnected(deps.isConnected);
@@ -57,7 +59,7 @@ async function setAndConfirm(deps, { key, register, value, expected, label, conf
 
 /**
  * Applique un réglage avancé Purevent avec validation des plages.
- * @param {object} deps Callbacks readState/writeCommand/getLastCommandState/isConnected.
+ * @param {any} deps Callbacks readState/writeCommand/getLastCommandState/isConnected.
  * @param {string} action Nom de réglage.
  * @param {number|boolean} value Valeur souhaitée.
  */
@@ -84,7 +86,7 @@ export async function applyAdvancedCommand(deps, action, value) {
   }
 
   if (action === 'summerLimit') {
-    if (!Number.isInteger(value) || value < 22 || value > 37) {
+    if (typeof value !== 'number' || !Number.isInteger(value) || value < 22 || value > 37) {
       throw new RangeError('La limite estivale doit être comprise entre 22 et 37 °C.');
     }
     return setAndConfirm(deps, {
@@ -101,7 +103,7 @@ export async function applyAdvancedCommand(deps, action, value) {
   }
 
   if (action === 'preheatSetpoint') {
-    if (!Number.isInteger(value) || value < 12 || value > 18) {
+    if (typeof value !== 'number' || !Number.isInteger(value) || value < 12 || value > 18) {
       throw new RangeError('La consigne de préchauffage doit être comprise entre 12 et 18 °C.');
     }
     return setAndConfirm(deps, {
@@ -127,7 +129,7 @@ export async function applyAdvancedCommand(deps, action, value) {
 
 /**
  * Arrêt complet documenté : 0x2F=0, puis si nécessaire 0x1C=0.
- * @param {object} deps Callbacks BLE injectés.
+ * @param {any} deps Callbacks BLE injectés.
  */
 export async function stopPreheating(deps) {
   assertConnected(deps.isConnected);
