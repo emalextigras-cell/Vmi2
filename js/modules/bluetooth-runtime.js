@@ -120,14 +120,12 @@ export function createBluetoothNotificationHandler(deps) {
       cur.s1_t = decoded.firstTemperature;
       cur.s1_h = decoded.firstHumidity;
       cur.s2_t = decoded.secondTemperature;
-      // La trame 0x03 ne fournit pas d’humidité pour la seconde sonde.
-      cur.s2_h = null;
-      cur.filterPercent = decoded.filterPercent;
+      cur.s2_h = decoded.secondHumidity;
       lastSeen.probes = timestamp;
       $('ti').textContent = cur.s1_t;
       $('hi').textContent = cur.s1_h;
       $('t2').textContent = cur.s2_t;
-      $('filterPct').textContent = cur.filterPercent;
+      $('h2').textContent = cur.s2_h;
     } else if (decoded.kind === 'history-total') {
       download.total = decoded.total;
       return;
