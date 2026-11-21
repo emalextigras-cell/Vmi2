@@ -4,7 +4,7 @@
  * de référence lorsqu’il identifie leur rôle. Les octets non identifiés restent bruts.
  */
 /**
- * @typedef {{kind:'history',valid:false,length:number}|{kind:'history',valid:true,payload:Uint8Array,sequence:number,chunkIndex:number,received:number,final:boolean}|{kind:'state',filter:number,days:number,volume:number,maxTemperature:number,rawSpeed:number,boost:number,holiday:number}|{kind:'room',temperature:number,humidity:number}|{kind:'probes',firstTemperature:number,firstHumidity:number,secondTemperature:number,filterPercent:number}|{kind:'history-total',total:number}|{kind:'unknown',type:number,length:number}} VmiNotification
+ * @typedef {{kind:'history',valid:false,length:number}|{kind:'history',valid:true,payload:Uint8Array,sequence:number,chunkIndex:number,received:number,final:boolean}|{kind:'state',filter:number,days:number,volume:number,maxTemperature:number,rawSpeed:number,boost:number,holiday:number}|{kind:'room',temperature:number,humidity:number}|{kind:'probes',firstTemperature:number,firstHumidity:number,secondTemperature:number,secondHumidity:number}|{kind:'history-total',total:number}|{kind:'unknown',type:number,length:number}} VmiNotification
  */
 /**
  * decodeVmiNotification — contrat discriminé d'entrée/sortie pour l'analyse statique.
@@ -58,9 +58,7 @@ export function decodeVmiNotification(input) {
       firstTemperature: bytes[6],
       firstHumidity: bytes[8],
       secondTemperature: bytes[11],
-      // Le protocole de référence identifie l’octet 13 comme pourcentage filtre,
-      // pas comme une humidité de seconde sonde.
-      filterPercent: bytes[13]
+      secondHumidity: bytes[13]
     };
   }
 
