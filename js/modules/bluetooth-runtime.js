@@ -57,6 +57,7 @@ export function createBluetoothNotificationHandler(deps) {
       const integrity = acceptHistoryFragment(download.historyStream, {
         sequence: decoded.sequence,
         chunkIndex: decoded.chunkIndex,
+        fragmentCount: decoded.fragmentCount,
         payload
       });
       if (integrity.duplicate) return;
