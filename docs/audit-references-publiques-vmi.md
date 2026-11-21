@@ -386,3 +386,5 @@ Artefacts contrôlés : `00_A0_50_48_B4_A3-2026-11-10-16_55.csv` et `vmi-sauvega
 
 **Validation de cette correction :**
 - Cache service worker : `vmi-test-v14-cache-66`.
+
+- GitHub Actions #1002, commit `864d2f60dced69767fba8355805254a378e9382f` : **553 tests réussis, 0 échec** ; syntaxe JavaScript, ESLint et types JSDoc réussis. Le commit de documentation suivant ne modifie pas le code.
