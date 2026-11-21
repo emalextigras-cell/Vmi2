@@ -190,7 +190,7 @@ test('attend les cinq fragments de la ligne de coupure avant de terminer la sync
     [0, '12/11/2026 14:31:00;ligne connue;'],
     [10, 'suite-1;'],
     [20, 'suite-2;'],
-    [30, '\\n'],
+    [30, '\n'],
     [40, '']
   ];
   fragments.forEach(([chunkIndex, payload]) => {
