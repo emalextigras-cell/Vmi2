@@ -71,7 +71,7 @@ let cur={},lastSeen={};
 /** @type {EnergyReading[]} */ let energyReadings=[];
 let source='hist',selectedDate=null,daysSetting=30;
 let logLines=[],dlFrames=0;
-let download={on:false,rows:[],buf:'',total:0,sigs:new Set(),got:false,lastPacket:0,timeout:null,historyStream:createHistoryStreamState(),integrityGap:false,dataStarted:false};
+let download={on:false,rows:[],buf:'',sigs:new Set(),got:false,lastPacket:0,timeout:null,historyStream:createHistoryStreamState(),integrityGap:false,dataStarted:false};
 const DB='VMI_PUREVENT_DB_TEST',STORE='data';
 const { get: dbGet, set: dbSet, setMany: dbSetMany } = createStore({ databaseName: DB, storeName: STORE, onError: message => log(message) });
 const connected=()=>!!(chC&&dev&&dev.gatt&&dev.gatt.connected);
@@ -563,7 +563,7 @@ async function startDownload(auto=false){
   if(download.on)finishDownload(false,true,true);
  };
  showError('');dlFrames=0;
- download={on:true,rows:[],buf:'',total:0,sigs:new Set(hist.filter(r=>isHistorySyncBaseline(r)&&r.rk&&Number.isFinite(r.d)).map(sigOf)),got:false,lastPacket:Date.now(),timeout:null,historyStream:createHistoryStreamState(),integrityGap:false,dataStarted:false};
+ download={on:true,rows:[],buf:'',sigs:new Set(hist.filter(r=>isHistorySyncBaseline(r)&&r.rk&&Number.isFinite(r.d)).map(sigOf)),got:false,lastPacket:Date.now(),timeout:null,historyStream:createHistoryStreamState(),integrityGap:false,dataStarted:false};
  $('dlh').disabled=true;setCommandsDisabled(true);
  $('dlp').textContent=auto?'Téléchargement automatique de l’historique…':'Démarrage du téléchargement…';
  const sequenceOk=await runBleSessionSequence({
