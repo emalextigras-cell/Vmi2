@@ -323,6 +323,7 @@ test('diagnostic reports empty input quality without inventing excluded rows',()
   placeholderSensorRecordCount:0,
   transientSpikeRecordCount:0,
   duplicateTimestampCount:0,
+  conflictingTimestampCount:0,
   excludedSampleCount:0
  });
 });
