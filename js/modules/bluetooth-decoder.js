@@ -32,7 +32,7 @@ export function decodeVmiNotification(input) {
   if (bytes.length < 3 || bytes[0] !== 0xA5 || bytes[1] !== 0xB6) return null;
 
   const type = bytes[2];
-  const requiredLengths = { 0x01: 61, 0x02: 128, 0x03: 31, 0x04: 11, 0x30: 116 };
+  const requiredLengths = { 0x01: 61, 0x02: 128, 0x03: 31, 0x04: 11, 0x23: 6, 0x30: 116 };
   const requiredLength = requiredLengths[type];
   if (!requiredLength) return { kind: 'unknown', type, length: bytes.length };
 
@@ -116,6 +116,11 @@ export function decodeVmiNotification(input) {
   if (type === 0x04 && bytes[5] === 0x02) {
     return { kind: 'history-count', count: bytes[6] | (bytes[7] << 8), length: frameLength };
   }
+  if (type === 0x23) {
+    // ACK observé après l'écriture de l'horloge : trame courte de six octets.
+    return { kind: 'ack', length: frameLength };
+  }
+
   // Autres variantes SimpleData non caractérisées : rester conservateur.
   return { kind: 'unknown', type, length: frameLength };
 }
