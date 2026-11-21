@@ -388,3 +388,25 @@ Artefacts contrôlés : `00_A0_50_48_B4_A3-2026-11-10-16_55.csv` et `vmi-sauvega
 - Cache service worker : `vmi-test-v14-cache-66`.
 
 - GitHub Actions #1002, commit `864d2f60dced69767fba8355805254a378e9382f` : **553 tests réussis, 0 échec** ; syntaxe JavaScript, ESLint et types JSDoc réussis. Le commit de documentation suivant ne modifie pas le code.
+
+
+### 3.10 Sémantique du mode vacances (registre 0x1A)
+
+**Référence Purevent actuelle :**
+- Le registre `0x1A` est `REG_VACANCES` et sa valeur est un nombre de jours ; `0` arrête le mode.
+- L'octet 43 de la trame `0x01` est `ETAT_VACANCES`, défini comme le nombre de jours restants. Le code Purevent lit cet octet comme un entier, pas comme un booléen.
+- La référence Purevent fixe un plafond prudent de 15 jours pour ses propres commandes, en précisant que des durées plus longues configurées ailleurs peuvent être lues telles quelles.
+
+**Écart trouvé dans Vmi2 :**
+- Le décodeur exposait directement l'octet 43 dans `holiday`, et le runtime l'utilisait comme un booléen. La comparaison de confirmation attendait strictement 0 ou 1.
+- Une activation avec plusieurs jours pouvait donc être affichée comme active grâce à la vérité numérique, mais être déclarée non confirmée car la valeur reçue était par exemple 7 ou 15.
+- La commande « Activer » envoyait seulement la valeur 1, donc une journée, sans que l'interface ne le dise.
+
+**Correction apportée :**
+- Le décodeur expose maintenant `vacationDays` (valeur brute 0–255) et `holiday` (booléen dérivé de `vacationDays > 0`).
+- Le runtime conserve les deux informations : `cur.hol` reste un booléen compatible avec les historiques et les vérifications de commande ; `cur.holidayDays` conserve le nombre de jours restants.
+- L'état affiché indique le nombre de jours restants.
+- Les commandes proposent explicitement 1, 7 ou 15 jours, ainsi que l'arrêt (0). Le seuil de 15 suit le plafond prudent du dépôt Purevent, sans prétendre que le firmware interdit une durée supérieure.
+- Aucun ordre n'a été envoyé à la VMI. Les tests vérifient notamment une trame à 7 jours et une trame à 0 jour.
+
+**Cache service worker :** `vmi-test-v14-cache-67`.
