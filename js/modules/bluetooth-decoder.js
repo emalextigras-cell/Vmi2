@@ -33,6 +33,7 @@ export function decodeVmiNotification(input) {
       kind: 'history',
       valid: true,
       payload: bytes.slice(14, end),
+      fragmentCount: bytes[11],
       sequence: bytes[9] | (bytes[10] << 8),
       chunkIndex: bytes[12],
       received: bytes[9] | (bytes[10] << 8),
