@@ -69,7 +69,7 @@ export function createBluetoothNotificationHandler(deps) {
       const integrity = acceptHistoryFragment(download.historyStream, {
         sequence: decoded.sequence,
         chunkIndex: decoded.chunkIndex,
-        expectedFragments: /^\\s*\\d{1,2}\\/\\d{1,2}\\/\\d{4} \\d{1,2}:\\d{2}:\\d{2};/.test(payload) ? 5 : undefined,
+        expectedFragments: /^\s*\d{1,2}\/\d{1,2}\/\d{4} \d{1,2}:\d{2}:\d{2};/.test(payload) ? 5 : undefined,
         payload
       });
       if (integrity.duplicate) return;
@@ -85,7 +85,7 @@ export function createBluetoothNotificationHandler(deps) {
       download.got = true;
       download.lastPacket = timestamp;
       download.buf += payload;
-      const lines = download.buf.split(/\\r\\n|\\n|\\r(?!$)/);
+      const lines = download.buf.split(/\r\n|\n|\r(?!$)/);
       download.buf = lines.pop();
       lines.forEach(parseDownloadLine);
 
@@ -94,7 +94,7 @@ export function createBluetoothNotificationHandler(deps) {
         armTimer();
         if (decoded.final) {
           if (download.buf.trim()) {
-            const tail = download.buf.split(/\\r\\n|\\n|\\r/);
+            const tail = download.buf.split(/\r\n|\n|\r/);
             download.buf = '';
             tail.filter(line => line.trim()).forEach(parseDownloadLine);
           }
