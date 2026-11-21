@@ -91,14 +91,21 @@ export function createBluetoothNotificationHandler(deps) {
 
       // Une ligne déjà connue marque la borne de coupure, mais on attend tous
       // les fragments observés de cette ligne avant de certifier la synchronisation.
-      if (download.on && download.reachedCut && download.historyStream.expectedFragments !== null &&
-          download.historyStream.expectedChunk === download.historyStream.expectedFragments * 10) {
+      const lineComplete = download.historyStream.expectedFragments !== null &&
+        download.historyStream.expectedChunk === download.historyStream.expectedFragments * 10;
+      const reachedLastSequence = Number.isSafeInteger(download.totalSequences) &&
+        download.totalSequences > 0 && decoded.sequence + 1 >= download.totalSequences;
+      if (download.on && lineComplete && (download.reachedCut || reachedLastSequence)) {
+        // La dernière ligne peut ne pas se terminer par un séparateur CSV.
+        // La traiter avant de certifier la fin évite de perdre ce dernier relevé.
+        if (download.buf && download.buf.trim()) parseDownloadLine(download.buf);
+        download.buf = '';
         finishDownload(true);
         return;
       }
 
       if (download.on) {
-        $('dlp').textContent = `${download.rows.length} nouvelles lignes (index historique ${decoded.sequence + 1})`;
+        $('dlp').textContent = `${download.rows.length} nouvelles lignes (index historique ${decoded.sequence + 1} / ${download.totalSequences || '?'})`;
         armTimer();
         // L’octet 13 n’est pas interprété comme marqueur de fin : sa sémantique
         // n’est pas démontrée par la capture Purevent disponible.
