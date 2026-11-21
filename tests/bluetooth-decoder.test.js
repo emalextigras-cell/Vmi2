@@ -73,6 +73,19 @@ test('décode les mesures salon et les deux sondes après validation XOR', () =>
   });
 });
 
+
+test('reconnaît les trois emplacements vides de la trame de sondes Purevent capturée', () => {
+  const bytes = Uint8Array.from(
+    'a5b6030619000d006000010c00610008000000000800000000080000000015'
+      .match(/../g).map(byte => Number.parseInt(byte, 16))
+  );
+  assert.deepEqual(decodeVmiNotification(bytes), {
+    kind: 'probes',
+    firstLocation: 0, firstTemperature: 13, firstHumidity: 96,
+    secondLocation: 1, secondTemperature: 12, secondHumidity: 97
+  });
+});
+
 test('ne décode pas un capteur non identifié comme télécommande en mesure salon', () => {
   const bytes = frame(0x02, 128);
   bytes[10] = 0x01; // type CO2 selon la table VMI+ générique
