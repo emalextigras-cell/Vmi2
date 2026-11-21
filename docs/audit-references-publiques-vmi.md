@@ -1,0 +1,146 @@
+# Journal d'audit — références publiques VMI / Purevent
+
+> **Document de continuité pour les prochaines sessions de travail.**  
+> Dernière mise à jour : 21 novembre 2026.  
+> Périmètre de ce document : dépôts publics externes transmis par l'utilisateur. Ce document ne remplace pas l'audit des dépôts personnels et ne constitue pas une autorisation de modifier ou piloter la VMI.
+
+## 1. Dépôts publics de référence
+
+| Dépôt | Rôle | Pertinence pour la Purevent |
+|---|---|---|
+| [clemvillon/ha-vmi-purevent](https://github.com/clemvillon/ha-vmi-purevent) | Intégration Home Assistant dédiée à la Purevent | **Référence prioritaire** : son protocole indique des vérifications sur Purevent logiciel 6.4.002 et une capture du 04/10/2026. |
+| [srThibaultP/ha-vmi-plus](https://github.com/srThibaultP/ha-vmi-plus) | Documentation et intégration VMI+ générique | Référence utile pour les fonctions et registres génériques ; documentation annoncée comme testée sur Urban, donc transposition à la Purevent à confirmer. |
+| [srThibaultP/vmi-plus-ble](https://github.com/srThibaultP/vmi-plus-ble) | Bibliothèque Python de protocole et client BLE | Référence utile pour le décodage générique, les capteurs, le bypass, les programmes horaires et le client asynchrone. |
+
+## 2. Constats techniques vérifiés dans les sources
+
+### 2.1 Protocole Purevent — `ha-vmi-purevent`
+
+Fichier principal : [protocol.py](https://github.com/clemvillon/ha-vmi-purevent/blob/main/custom_components/vmi_plus/protocol.py)  
+Cycle BLE : [device.py](https://github.com/clemvillon/ha-vmi-purevent/blob/main/custom_components/vmi_plus/device.py)  
+Constantes : [const.py](https://github.com/clemvillon/ha-vmi-purevent/blob/main/custom_components/vmi_plus/const.py)
+
+- L'en-tête de trame est `A5 B6`. Le format documenté est `A5 B6 | type | 06 | longueur | données | somme`.
+- Types reçus explicitement traités : état `0x01`, télécommande `0x02`, sondes filaires `0x03`, accusé `0x23`.
+- Registres de lecture : `0x03` état, `0x06` télécommande, `0x07` sondes.
+- Commandes documentées dans le module : surventilation `0x0B`, limite été `0x17`, vitesse `0x18`, boost `0x19`, vacances `0x1A`, débit fixe `0x1B`, consigne préchauffage `0x1C`, marche préchauffage `0x2F`.
+- Les offsets de l'état incluent notamment : volume à 22 (2 octets LE), jours de fonctionnement à 26, jours filtre à 28, surventilation à 33 (logique inversée), vitesse à 34, consigne préchauffage à 35, limite été à 38, vacances à 43, boost à 44, débit fixe à 45, renouvellement à 47 (2 octets LE), préchauffage actif à 53.
+- Les sondes filaires sont décodées à partir des positions 6 (température 1), 8 (humidité 1) et 11 (température 2). La télécommande utilise les positions 11 (température) et 13 (humidité).
+- Le débit théorique est calculé à partir du renouvellement et du volume de la maison ; ce n'est pas une mesure directe de débit d'air.
+
+**Contrôle d'intégrité : divergence à ne pas gommer.**
+- Le code Purevent calcule les trames sortantes par XOR simple de tout le corps après l'en-tête.
+- Pour les trames reçues, `somme_recue()` calcule le XOR du type jusqu'à l'avant-dernier octet annoncé : le dernier octet des données annoncées n'entre pas dans le calcul.
+- L'auteur explique que cette règle entrante a été identifiée après des trames d'état que l'ancienne plage de calcul rejetait. Les notifications sont remplies de zéros au-delà de la trame utile.
+- Le décodeur Purevent vérifie l'en-tête, la longueur annoncée et la somme avant de traiter une notification.
+
+**Températures négatives : non résolu.**
+- Purevent utilise `octet - 256` pour les octets signés.
+- Le commentaire du code précise que cette interprétation sous 0 °C est une hypothèse, jamais observée par l'auteur.
+- Ne pas considérer ce point comme validé.
+
+### 2.2 Connexion, fraîcheur et commandes — Purevent
+
+Dans `device.py` :
+- Les échanges sont sérialisés par un verrou.
+- Une requête attend une notification du type prévu.
+- Les attentes en cours sont abandonnées si la liaison tombe.
+- Après chaque nouvelle connexion, les filtres sont remis à zéro et les horodatages de réception `_recu_le` sont effacés : une donnée n'est donc pas considérée fraîche sur la nouvelle session avant réception d'une trame.
+- La fraîcheur de connexion dépend d'une trame d'état récente, pas uniquement de l'état GATT.
+- Le code traite le cache GATT périmé : en cas de caractéristique introuvable, il efface le cache et ferme la liaison pour permettre une nouvelle tentative.
+- Une commande de réglage n'est considérée réussie que lorsque la trame d'état confirme la valeur demandée. Pour les commandes à bascule, le code peut relire l'état avant d'envoyer afin d'éviter une inversion involontaire.
+- L'horloge est synchronisée après connexion et lors d'un changement de décalage horaire ; l'échec de cette synchronisation n'interrompt pas le relevé.
+
+Constantes Purevent observées dans `const.py` :
+- Relevé : 10 s ; attente de réponse : 5 s ; connexion : 30 s ; fraîcheur : 35 s ; fermeture : 10 s.
+- Filtre de saut : seuil de 10 °C et 30 points d'humidité ; trois mesures hors plage successives avant de rendre la valeur inconnue.
+
+### 2.3 Filtre anti-sauts — Purevent
+
+Le `FiltreDeSaut` :
+- conserve une valeur précédente ;
+- met en attente un candidat qui s'écarte trop ;
+- n'accepte ce candidat que si la mesure suivante le confirme ;
+- au démarrage ou après reconnexion, demande aussi confirmation de la première valeur ;
+- conserve temporairement la valeur précédente lors d'une mesure hors plage, puis la rend inconnue après le nombre maximal de rejets.
+
+Le dépôt donne comme exemple une lecture isolée à 0 °C entre deux relevés à 25 °C. C'est un exemple de défaut ponctuel, pas une preuve que les seuils proposés conviennent à tous les capteurs.
+
+### 2.4 Protocole générique — `ha-vmi-plus`
+
+Documentation : [PROTOCOL.md](https://github.com/srThibaultP/ha-vmi-plus/blob/main/PROTOCOL.md)  
+README : [README.md](https://github.com/srThibaultP/ha-vmi-plus/blob/main/README.md)
+
+- La documentation décrit le protocole VMI+/VMCI et précise que les vérifications matérielles principales ont été faites sur une unité Urban. Les éléments non marqués comme vérifiés proviennent du code de l'application.
+- La VMI accepte un seul central BLE simultanément ; pendant une connexion, l'unité cesse d'annoncer sa présence.
+- La documentation décrit un CRC-8 : polynôme 0x01, initialisation 0, XOR final 0x13, calculé sur les octets avant le CRC.
+- Les commandes sont des trames de classe `0x10`, avec le registre et la valeur dans le payload.
+- Le protocole générique décrit davantage de fonctions que l'intégration Purevent : bypass, programmation hebdomadaire, paramètres GTC/Modbus, capteurs sans fil, période de mesure des capteurs, etc.
+- Les capacités décrites dans ce dépôt ne doivent pas être présumées disponibles sur la Purevent sans confirmation par trame ou essai encadré.
+
+### 2.5 Bibliothèque générique — `vmi-plus-ble`
+
+Protocole : [protocol.py](https://github.com/srThibaultP/vmi-plus-ble/blob/main/src/vmi_plus_ble/protocol.py)  
+Client BLE : [client.py](https://github.com/srThibaultP/vmi-plus-ble/blob/main/src/vmi_plus_ble/client.py)
+
+- Le module de protocole définit le CRC-8 générique et les classes de trames.
+- Il décode les états, sondes, capteurs sans fil, programmes horaires, bypass et GTC/Modbus.
+- Le décodeur générique interprète les températures signées avec `value - 0xFF` à partir de 0x80. C'est différent de Purevent (`value - 256`) ; les deux dépôts signalent donc une divergence.
+- L'état générique expose notamment le statut d'auto-test et quatre octets de détails (positions 10 à 14), version logicielle, type de préchauffage, bypass, volume, jours de fonctionnement, filtre, vitesse, consigne, débit et autres états.
+- Le client BLE utilise un verrou, des waiters par classe de réponse, et résout les requêtes de lecture à réception de la classe attendue.
+- Les écritures de réglage simples passent par `write_gatt_char(..., response=True)` ; dans le client, cela confirme la réponse GATT, mais ne réalise pas à lui seul une relecture de l'état métier après chaque écriture.
+- Le chemin `parse_frame()` visible dans le code vérifie l'en-tête et les longueurs minimales par type, mais n'appelle pas de vérification du CRC dans ce parseur. À garder en tête lors de la comparaison avec la validation stricte de Purevent.
+
+## 3. Comparaison avec les observations Bluetooth de l'utilisateur
+
+Fichier analysé : `btsnoop_hci.log` fourni dans la conversation.
+
+Constats déjà relevés lors de l'analyse de cette capture :
+- 1 892 notifications ATT, dont 1 880 notifications d'historique `0x30`.
+- 43 écritures ATT observées sur la caractéristique de commande.
+- Les commandes de lecture `0x03`, `0x06`, `0x07`, la mise à l'heure `0x1A` et les commandes d'historique `0x2C`, `0x20`, `0x22` sont présentes.
+- Une notification `0x23` a été observée dans cette capture ; cela ne suffit pas à démontrer que toutes les commandes reçoivent ou doivent attendre un ACK dans ce scénario.
+- Les notifications sont remplies/paddées au niveau ATT ; les octets après la trame utile ne doivent pas être décodés comme des données métier.
+- L'analyse antérieure a relevé des fragments d'historique manquants et des fragments dont le XOR ne passe pas. L'historique incomplet ne doit pas être présenté comme une synchronisation intégrale certifiée.
+- Aucun échantillon de température négative n'a été identifié dans les données utilisateur analysées jusqu'ici ; la divergence -255 / -256 reste donc ouverte.
+
+**À ne pas confondre :** les statistiques ci-dessus proviennent de la capture de l'utilisateur, tandis que les détails des registres génériques proviennent des dépôts publics. Les uns ne valident pas automatiquement les autres.
+
+## 4. Enseignements pour Vmi2
+
+1. **Fraîcheur par session :** remettre à zéro les horodatages de mesures à chaque reconnexion. Distinguer lien BLE ouvert, dernière donnée reçue, donnée fraîche et donnée admissible à un snapshot.
+2. **Commandes :** distinguer trois niveaux : écriture GATT acceptée, ACK protocolaire reçu, état métier relu et conforme. Ne pas afficher « commande réussie » sur le seul succès GATT si une confirmation d'état est disponible.
+3. **Intégrité :** garder des fonctions de checksum séparées selon modèle et sens de transmission. Documenter précisément les octets inclus dans le calcul.
+4. **Qualité des mesures :** étudier le filtre anti-sauts Purevent, mais conserver la mesure brute, la valeur filtrée, le motif de rejet et l'horodatage. Les seuils doivent être calibrés avant activation.
+5. **Diagnostic matériel :** le statut d'auto-test et ses octets de détail sont une piste issue du protocole générique. Vérifier leur signification sur Purevent avant de les transformer en alertes.
+6. **Fonctions avancées :** bypass, programmation horaire, capteurs CO₂/VOC et GTC sont des pistes génériques ; ne pas les présenter comme compatibles Purevent sans preuve.
+7. **Températures négatives :** ne pas trancher la conversion signée avant une capture réelle sous zéro ou une spécification firmware fiable.
+
+## 5. Points restant à vérifier
+
+- Comparer les 43 écritures de la capture aux deux algorithmes de checksum sortant, octet par octet.
+- Rejouer la validation XOR entrante sur toutes les notifications utiles, en respectant la longueur annoncée et le padding ATT.
+- Vérifier exactement la signification et la réponse attendue du type `0x23` selon le registre et le modèle.
+- Vérifier les tests unitaires des trois dépôts et réutiliser uniquement les vecteurs adaptés à la Purevent.
+- Comparer les champs d'état génériques et Purevent octet par octet ; relever les offsets qui diffèrent.
+- Examiner si les octets d'auto-test génériques sont présents et stables sur les trames Purevent de l'utilisateur.
+- Confirmer sur la Purevent les fonctions bypass, programme hebdomadaire, capteurs avancés et GTC avant de les exposer dans Vmi2.
+- Poursuivre l'audit Vmi2 de l'historique, de la persistance, des sauvegardes/restaurations, de la gestion offline et du service worker.
+
+## 6. Règles de prudence pour les prochaines sessions
+
+- Ne pas envoyer de commandes de réglage, de calibration, de reset usine ou de mise à jour à la VMI sans autorisation explicite.
+- Ne pas modifier `main`. Travailler sur une branche dédiée et proposer une PR.
+- Ne pas fusionner une PR sans accord explicite de l'utilisateur.
+- Ne pas déclarer l'audit terminé tant que les points de la section 5 et l'audit des dépôts personnels prévus ne sont pas traités.
+- Dans les rapports, étiqueter chaque conclusion : **vérifié dans le code**, **observé dans la capture**, **hypothèse**, ou **à confirmer sur Purevent**.
+
+## 7. Sources primaires
+
+- https://github.com/clemvillon/ha-vmi-purevent/blob/main/custom_components/vmi_plus/protocol.py
+- https://github.com/clemvillon/ha-vmi-purevent/blob/main/custom_components/vmi_plus/device.py
+- https://github.com/clemvillon/ha-vmi-purevent/blob/main/custom_components/vmi_plus/const.py
+- https://github.com/srThibaultP/ha-vmi-plus/blob/main/PROTOCOL.md
+- https://github.com/srThibaultP/ha-vmi-plus/blob/main/README.md
+- https://github.com/srThibaultP/vmi-plus-ble/blob/main/src/vmi_plus_ble/protocol.py
+- https://github.com/srThibaultP/vmi-plus-ble/blob/main/src/vmi_plus_ble/client.py
