@@ -1,3 +1,10 @@
+## Refactor — extraction du moteur hygrométrique
+- Extraction des analyses de périodes, tendances journalières, profils horaires, variations rapides et diagnostic hygrométrique vers `hygrometric-analysis.js`.
+- Conservation des exports historiques depuis `analysis.js` pour préserver les imports existants.
+- Les calculs psychrométriques, contrôles de qualité et statistiques restent délégués à leurs modules dédiés.
+- Ajout de tests de compatibilité des exports et de non-mutation des relevés sources.
+- Module ajouté au précache du service worker ; cache porté à `vmi-test-v14-cache-81`.
+
 ## Refactor — moteur d'analyse des modes et périodes
 - Extraction des comparaisons de vitesses manuelles, du contexte horaire et des comparaisons de périodes dans `operating-analysis.js`.
 - Extraction de la médiane commune dans `statistics.js`.
