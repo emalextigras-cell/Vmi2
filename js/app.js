@@ -533,7 +533,7 @@ function finishDownload(completeBoundary,timeout=false,interrupted=false){
   allowPre2020RawDates:true,
   forceCounterReset:counterAssessment?.discontinuity===true,
   counterResetReason:counterAssessment?.reason,
-  counterPreviousDays:counterAssessment?.previousDays
+  counterPreviousDays:counterAssessment?.previousDays ?? meta.counterBaseline?.d
  }):null;
  if(complete){
   meta.lastSync=syncObservedAt;
