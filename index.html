@@ -20,7 +20,7 @@
  <div class="row"><span class="pill" id="ver">v14</span><button class="outline" id="themeBtn" title="Changer le thème">Thème</button></div>
 </header>
 
-<nav class="main-nav" aria-label="Navigation principale"><a href="#accueil">Accueil</a><a href="#analyses">Analyses</a><a href="#historique">Historique</a><a href="#reglages">Connexion Bluetooth</a></nav>
+<nav class="main-nav" aria-label="Navigation principale"><a href="#accueil">Accueil</a><a href="#analyses">Analyses</a><a href="#technicalDiagnostic">Diagnostic technique</a><a href="#historique">Historique</a><a href="#reglages">Connexion Bluetooth</a></nav>
 <section class="card dashboard-intro" id="accueil"><h2>Vue d'ensemble</h2><p class="sub">Pas besoin de Bluetooth pour consulter les analyses : elles utilisent l'historique VMI+.</p><div class="dashboard-status"><div><b>Connexion VMI</b><p id="dashboardConnectionStatus">Recherche d’une VMI déjà autorisée…</p></div><div><b>Données disponibles</b><p id="dashboardDataStatus">Chargement de l'historique…</p></div><div><b>Analyse</b><p id="dashboardAnalysisStatus">Préparation du diagnostic…</p></div></div></section>
 <div id="errBanner" class="advice warn" style="display:none"></div>
 
@@ -108,7 +108,13 @@
  <div class="row"><button class="outline" id="clk">Synchroniser l'heure VMI</button><button class="outline" id="dlh">Récupérer l'historique VMI</button><span id="dlp" class="note"></span></div>
 </details>
 
-<section class="card" id="analyses">
+<section class="card technical-diagnostic" id="technicalDiagnostic" aria-labelledby="technicalDiagnosticTitle">
+ <div class="technical-diagnostic-heading"><div><h2 id="technicalDiagnosticTitle">Diagnostic technique VMI</h2><p class="note">État Purevent issu de la dernière trame Bluetooth valide. Les valeurs sont informatives : aucune commande ni correction automatique n’est déclenchée.</p></div><span class="pill" id="technicalDiagnosticStatus">En attente</span></div>
+ <p class="status" id="technicalDiagnosticFreshness" aria-live="polite">Aucune trame d’état reçue depuis cette session.</p>
+ <dl class="technical-diagnostic-grid" id="technicalDiagnosticValues"></dl>
+ <details class="assistant-details"><summary>Comment lire ce diagnostic ?</summary><p>« À jour » signifie qu’une trame d’état valide a été reçue depuis moins de 35 secondes pendant une connexion active. « Périmée » signifie que la donnée ne peut plus être considérée comme actuelle. Une donnée absente n’est pas assimilée à zéro. Le débit en m³/h est une estimation calculée à partir du volume et du taux de renouvellement, pas une mesure directe.</p></details>
+</section>
+\n<section class="card" id="analyses">
  <h2>Analyses et diagnostic</h2>
  <section class="assistant-card" id="assistantVmi" aria-labelledby="assistantTitle">
   <div class="assistant-heading"><div><h3 id="assistantTitle">Assistant intelligent VMI</h3><p class="note">Synthèse pédagogique de l’historique et des calculs de l’application. Analyse locale, sans envoi de données.</p></div><span class="pill">Conseils expliqués</span></div>

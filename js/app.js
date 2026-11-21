@@ -33,6 +33,7 @@ import { analyzeSeasonalVentilation } from './modules/seasonal-advice.js';
 import { renderVmiAssistant } from './modules/assistant-renderer.js';
 import { renderEnergyReadiness } from './modules/energy-readiness-renderer.js';
 import { selectDataRange } from './modules/history-selection.js';
+import { renderTechnicalDiagnostic } from './modules/technical-diagnostic.js';
 
 /** @typedef {import('./types/vmi-types.js').VmiRecord} VmiRecord */
 /** @typedef {import('./types/vmi-types.js').UnknownRecord} UnknownRecord */
@@ -266,6 +267,11 @@ const handleNotification = createBluetoothNotificationHandler({
 });
 function onNotification(ev){
  try{handleNotification(ev)}catch(e){log('Erreur de décodage d’une trame : '+(e.message||e));recordError('Décodage d’une trame : '+(e.message||e))}
+}
+function refreshTechnicalDiagnostic(){
+ renderTechnicalDiagnostic($('technicalDiagnostic'),{
+  cur,lastSeen,connected:connected(),now:Date.now(),maxAgeMs:35000
+ });
 }
 function updateLiveMetrics(){
  $('sampleAge').textContent=buildLiveFreshnessText(lastSeen);
@@ -1402,7 +1408,8 @@ function render(){
 }
 $('targetRH').onchange=render;$('minSamples').onchange=render;
 
-setInterval(()=>{if(cur.sal_t!==undefined)updateLiveMetrics();else $('sampleAge').textContent=buildLiveFreshnessText(lastSeen)},5000);
+setInterval(()=>{if(cur.sal_t!==undefined)updateLiveMetrics();else $('sampleAge').textContent=buildLiveFreshnessText(lastSeen);refreshTechnicalDiagnostic()},5000);
+refreshTechnicalDiagnostic();
 $('copyLog').onclick=()=>navigator.clipboard.writeText(logLines.join('\n')).then(()=>showError('Journal copié.'),showError);
 $('clearLog').onclick=()=>{logLines=[];$('log').textContent=''};
 $('themeBtn').onclick=()=>{

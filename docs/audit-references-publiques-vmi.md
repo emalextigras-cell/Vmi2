@@ -650,3 +650,15 @@ Ces fonctions sont des pistes de comparaison, pas des capacités Purevent établ
 4. Ne pas implémenter les registres installateur, SAV, reset ou firmware update ; le README Urban les exclut délibérément et leur risque est disproportionné.
 
 Aucune commande envoyée à la VMI ; comparaison documentaire uniquement.
+
+
+## 3.20 — Diagnostic technique de l'état Purevent (21/11/2026)
+
+- Ajout d'un panneau distinct des analyses hygrométriques, alimenté exclusivement par la dernière trame d'état Purevent `0x01`.
+- Valeurs affichées lorsqu'elles ont été effectivement décodées : jours de fonctionnement, autonomie filtre, volume, vitesse brute convertie, boost, vacances et jours restants, surventilation, consigne et état du préchauffage, limite estivale, débit fixe, renouvellement et débit théorique calculé.
+- La date de réception de la trame d'état sert de référence de fraîcheur. Une réception de moins de 35 secondes est indiquée « à jour » uniquement si la liaison est active. Au-delà, ou hors connexion, les données sont marquées périmées. Si aucune trame n'a été reçue dans la session, l'interface ne prétend pas que les anciennes valeurs sont actuelles.
+- Les valeurs numériques égales à zéro restent des valeurs explicites lorsqu'elles sont valides ; une propriété absente ou non finie est indiquée « Non disponible ».
+- Le débit en m³/h reste qualifié d'estimation calculée depuis le volume et le renouvellement, jamais de mesure directe.
+- Le panneau ne déclenche aucune commande, ne propose pas de réglage automatique et ne déduit pas de panne matérielle à partir d'une donnée manquante.
+- Validation logicielle uniquement ; aucun essai sur la VMI physique et aucune commande BLE envoyée.
+- Cache service worker incrémenté à `vmi-test-v14-cache-73`.
