@@ -278,6 +278,8 @@ test('diagnostic quantifies missing, implausible and duplicate input rows',()=>{
   missingTimestampCount:1,
   incompleteSensorRecordCount:1,
   implausibleSensorRecordCount:1,
+  placeholderSensorRecordCount:0,
+  transientSpikeRecordCount:0,
   duplicateTimestampCount:1,
   excludedSampleCount:4
  });
@@ -293,6 +295,8 @@ test('diagnostic reports empty input quality without inventing excluded rows',()
   missingTimestampCount:0,
   incompleteSensorRecordCount:0,
   implausibleSensorRecordCount:0,
+  placeholderSensorRecordCount:0,
+  transientSpikeRecordCount:0,
   duplicateTimestampCount:0,
   excludedSampleCount:0
  });
