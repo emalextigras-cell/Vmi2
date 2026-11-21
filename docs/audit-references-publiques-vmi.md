@@ -705,3 +705,12 @@ Aucune commande envoyée à la VMI ; comparaison documentaire uniquement.
 - Tests ajoutés : conservation à +6 secondes, rejet à +60 secondes, filtrage strict sans option, écriture conjointe des métadonnées et rejet de la promesse en cas d'échec de stockage.
 - Cache du service worker incrémenté à `vmi-test-v14-cache-77`, avec le nouveau module ajouté à `APP_SHELL`.
 - Validation matérielle non réalisée : aucun périphérique BLE n'a été connecté et aucune commande n'a été envoyée.
+
+
+## 3.24 — Modularisation des renderers de recommandations (PR #68)
+- Extraction de trois fonctions de présentation jusque-là définies dans `js/app.js` : fraîcheur de l'historique, conseil saisonnier et recommandation hygrométrique.
+- Nouveau module `js/modules/history-advice-renderer.js` sans état global applicatif ; les conteneurs DOM et dépendances métier sont injectés depuis l'orchestrateur.
+- Les calculs métier existants restent inchangés et sont fournis au renderer.
+- Ajout de tests unitaires sur les états sans historique, les conseils saisonniers et les cas d'humidité.
+- Cache de service worker : `vmi-test-v14-cache-78`.
+- Validation matérielle non réalisée ; aucun périphérique BLE n'a été connecté et aucune commande n'a été envoyée.

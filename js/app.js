@@ -29,6 +29,7 @@ import { renderVmiAssistant } from './modules/assistant-renderer.js';
 import { renderEnergyReadiness } from './modules/energy-readiness-renderer.js';
 import { selectDataRange } from './modules/history-selection.js';
 import { renderTechnicalDiagnostic } from './modules/technical-diagnostic.js';
+import { renderHistoryFreshness, renderRecommendation, renderSeasonalAdvice } from './modules/history-advice-renderer.js';
 
 /** @typedef {import('./types/vmi-types.js').VmiRecord} VmiRecord */
 /** @typedef {import('./types/vmi-types.js').UnknownRecord} UnknownRecord */
@@ -659,20 +660,7 @@ $('restoreFile').onchange=async e=>{
 /* La VMI ne garde que ~800 relevés : on estime sa capacité en jours d'après le rythme réel des relevés
    et on prévient avant que des relevés non téléchargés soient écrasés. */
 function renderFreshness(){
- const box=$('fresh');
- const rows=hist.filter(r=>r.t>=MIN_VALID&&r.t<=Date.now());
- if(!rows.length){box.className='advice';box.textContent='Aucun historique mémorisé. Connecte la VMI pour le télécharger : elle ne garde que ses 800 derniers relevés (environ 4 semaines).';return}
- const newest=rows[rows.length-1].t,age=(Date.now()-newest)/DAY;
- const spanDays=Math.max(1,Math.min(14,(newest-rows[0].t)/DAY));
- const perDay=rows.filter(r=>r.t>=newest-14*DAY).length/spanDays;
- const cap=perDay>0?Math.min(60,Math.max(7,800/perDay)):28;
- const left=cap-age;
- let cls='advice good';
- let msg=`Historique à jour jusqu’au ${fmtShort(newest)} (il y a ${age<1?Math.max(0,Math.round(age*24))+' h':age.toFixed(1)+' j'}). La VMI garde environ ${Math.round(cap)} jours de relevés : télécharge avant le ${fmtShort(newest+cap*DAY)}.`;
- if(left<=1){cls='advice warn';msg+=' ⚠ Des relevés ont peut-être déjà été écrasés : connecte-toi maintenant.'}
- else if(age>=14||left<7){cls='advice warn';msg+=' Pense à te connecter bientôt.'}
- if(meta.lastSync)msg+=` Dernière synchronisation : ${fmtShort(meta.lastSync)}.`;
- box.className=cls;box.textContent=msg;
+ renderHistoryFreshness({container:$('fresh'),history:hist,metadata:meta,dayMs:DAY,minValid:MIN_VALID,formatShort:fmtShort});
 }
 setInterval(renderFreshness,60000);
 
@@ -1140,48 +1128,8 @@ function renderWeeklyDiagnostic(data){
  box.innerHTML=html;
 }
 
-function renderSeasonalAdvice(data){
- const box=$('seasonalAdvice');
- if(!box)return;
- const result=analyzeSeasonalVentilation(data);
- box.className='advice';
- if(result.status!=='available'){
-  box.textContent=result.advice;
-  return;
- }
- const seasonLabel=result.currentSeason||'non déterminée';
- let html='<p><strong>Saison actuelle de l’historique : '+seasonLabel+'</strong>';
- if(result.latestAt)html+=' · dernier relevé : '+fmtShort(result.latestAt);
- html+='</p><p>'+result.advice+'</p>';
- html+='<div class="table-wrap"><table><thead><tr><th>Saison calendrier</th><th>Relevés / jours</th><th>Écart extérieur − intérieur</th><th>Écart HA intérieur − entrant</th><th>Jours avec conditions favorables</th><th>Codes Saison CSV (bruts)</th></tr></thead><tbody>';
- for(const item of result.seasons){
-  const codes=Object.entries(item.codeCounts).map(([code,count])=>code+' ('+count+')').join(', ')||'non renseigné';
-  const margin=item.medianOutdoorMinusIndoor==null?'–':(item.medianOutdoorMinusIndoor>0?'+':'')+fmt(item.medianOutdoorMinusIndoor)+' °C';
-  const humidity=item.medianHumidityDelta==null?'–':(item.medianHumidityDelta>0?'+':'')+fmt(item.medianHumidityDelta)+' g/m³';
-  html+='<tr><td>'+item.season+'</td><td>'+item.sampleCount+' / '+item.dayCount+'</td><td>'+margin+'</td><td>'+humidity+'</td><td>'+item.opportunityDayCount+'</td><td>'+codes+'</td></tr>';
- }
- html+='</tbody></table></div><details><summary>Comment interpréter ces conseils ?</summary><ul>'+result.limits.map(item=>'<li>'+item+'</li>').join('')+'</ul></details>';
- box.innerHTML=html;
-}
-function renderRecommendation(data){
- const box=$('recommendation');
- const valid=data.filter(r=>Number.isFinite(r.st)&&isPlausibleTemperature(r.st)&&Number.isFinite(r.sh)&&isPlausibleHumidity(r.sh)&&Number.isFinite(r.te)&&isPlausibleTemperature(r.te)&&Number.isFinite(r.he)&&isPlausibleHumidity(r.he));
- box.className='advice';
- if(!valid.length){box.textContent='Pas assez de données historiques valides. Importe un export VMI+ ou télécharge l’historique depuis la VMI. Le Bluetooth en direct ne sert pas à produire ce diagnostic.';return}
- const recent=valid.slice(-Math.min(24,valid.length));
- const rh=median(recent.map(r=>r.sh)),ha=median(recent.map(r=>absoluteHumidity(r.st,r.sh))),haIn=median(recent.map(r=>absoluteHumidity(r.te,r.he)));
- const target=Number($('targetRH').value),delta=ha-haIn;
- let msg=`Sur les ${recent.length} derniers relevés exploitables : humidité relative médiane du salon ${fmt(rh)} %, humidité absolue du salon ${fmt(ha)} g/m³. `;
- if(rh>target+5)msg+=`L'humidité est au-dessus de ton objectif de ${target} %. Vérifie d'abord les sources de vapeur d'eau, les entrées d'air, les bouches d'extraction et l'état du filtre. `;
- else if(rh<target-5)msg+=`L'humidité est sous ton objectif de ${target} %. Il n'y a pas d'indice hygrométrique justifiant à lui seul d'augmenter la ventilation. `;
- else msg+=`L'humidité est proche de ton objectif de ${target} %. `;
- if(Number.isFinite(delta)){
-  if(delta>1)msg+=`L'air entrant est actuellement plus sec en humidité absolue d'environ ${fmt(delta)} g/m³ : le renouvellement d'air a un potentiel d'assèchement.`;
-  else if(delta< -1)msg+=`L'air entrant est actuellement plus humide en valeur absolue d'environ ${fmt(Math.abs(delta))} g/m³ : augmenter la vitesse ne garantit pas d'assécher le logement.`;
-  else msg+="L'air entrant et l'air intérieur ont des humidités absolues proches.";
- }
- box.textContent=msg;
-}
+
+
 
 function render(){
  const data=selectedData();
@@ -1218,7 +1166,7 @@ function render(){
  qualityBox.className=quality.hasAnomalies||quality.transientSpikes.count?'advice warn':'advice';
  qualityBox.textContent='Contrôle qualité de l’historique analysé : '+coverageText+missingText+invalidText+spikeText+' Les données manquantes réduisent la couverture ; elles ne sont pas considérées comme des anomalies.';
  renderCharts(data,selectedDate,$);
- renderRecommendation(analysisData);renderSeasonalAdvice(analysisData);renderHygrometricPeriods(analysisData);renderIntelligentDiagnosis(dashboardDiagnosis);
+ renderRecommendation(analysisData,{container:$('recommendation'),targetRH:Number($('targetRH').value),median,absoluteHumidity,isPlausibleTemperature,isPlausibleHumidity,format:fmt});renderSeasonalAdvice(analysisData,{container:$('seasonalAdvice'),analyzeSeasonalVentilation,format:fmt,formatShort:fmtShort});renderHygrometricPeriods(analysisData);renderIntelligentDiagnosis(dashboardDiagnosis);
  renderTemporalAnalysis(analysisData);analyzeSpeeds(analysisData);renderEnergyReadiness(analysisData);renderFanEnergyEstimate(analysisData);renderDailyEnergyClimateContext(analysisData);renderWeeklyDiagnostic(analysisData);renderFreshness();
 }
 $('targetRH').onchange=render;$('minSamples').onchange=render;
