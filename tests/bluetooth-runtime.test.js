@@ -47,7 +47,7 @@ function makeNotificationHandler(overrides = {}) {
 
 test('transmet au coordinateur la réponse de protocole validée', () => {
   const decoded = {
-    kind: 'state', filter: 12, days: 34, volume: 210, maxTemperature: 27,
+    kind: 'state', rawFrame: [0xA5, 0xB6, 0x01], filter: 12, days: 34, volume: 210, maxTemperature: 27,
     rawSpeed: 2, boost: true, holiday: false
   };
   let received = null;
@@ -83,6 +83,7 @@ test('notification état met à jour les valeurs VMI et l’horodatage', () => {
   h.handler({ target: { value: new DataView(new Uint8Array([1, 2]).buffer) } });
 
   assert.equal(h.cur.vit, 3);
+  assert.deepEqual(h.cur.stateFrame, [0xA5, 0xB6, 0x01]);
   assert.equal(h.cur.filtre, 12);
   assert.equal(h.cur.boost, true);
   assert.equal(h.cur.hol, false);

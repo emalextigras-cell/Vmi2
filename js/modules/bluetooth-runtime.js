@@ -139,6 +139,7 @@ export function createBluetoothNotificationHandler(deps) {
     const lastSeen = getLastSeen();
 
     if (decoded.kind === 'state') {
+      cur.stateFrame = decoded.rawFrame;
       cur.filtre = decoded.filter;
       cur.jours = decoded.days;
       cur.vol = decoded.volume;

@@ -53,7 +53,11 @@ export function buildTechnicalDiagnosticSnapshot({
       ageLabel: valid ? ageLabel : 'Aucune valeur reçue'
     };
   });
+  const rawFrame = Array.isArray(cur.stateFrame) && cur.stateFrame.every(byte => Number.isInteger(byte) && byte >= 0 && byte <= 255)
+    ? cur.stateFrame.map(byte => byte.toString(16).padStart(2, '0').toUpperCase()).join(' ')
+    : '';
   return {
+    rawFrame,
     status,
     statusLabel: status === 'fresh' ? 'À jour' : status === 'stale' ? 'Périmé' : 'Non disponible',
     freshness,
@@ -73,8 +77,10 @@ export function renderTechnicalDiagnostic(container, input = {}) {
   const status = container.querySelector('#technicalDiagnosticStatus');
   const freshness = container.querySelector('#technicalDiagnosticFreshness');
   const values = container.querySelector('#technicalDiagnosticValues');
+  const rawFrame = container.querySelector('#technicalDiagnosticRawFrame');
   container.dataset.freshness = snapshot.status;
   if (status) status.textContent = snapshot.statusLabel;
+  if (rawFrame) rawFrame.textContent = snapshot.rawFrame || 'Aucune trame d’état brute disponible.';
   if (freshness) freshness.textContent = snapshot.freshness;
   if (!values) return;
   values.replaceChildren();

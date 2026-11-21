@@ -656,6 +656,7 @@ Aucune commande envoyée à la VMI ; comparaison documentaire uniquement.
 
 - Ajout d'un panneau distinct des analyses hygrométriques, alimenté exclusivement par la dernière trame d'état Purevent `0x01`.
 - Valeurs affichées lorsqu'elles ont été effectivement décodées : jours de fonctionnement, autonomie filtre, volume, vitesse brute convertie, boost, vacances et jours restants, surventilation, consigne et état du préchauffage, limite estivale, débit fixe, renouvellement et débit théorique calculé.
+- La trame d'état brute (octets exacts de la trame utile après validation XOR, sans padding ATT) est conservée et consultable dans un volet replié. Elle permet de joindre un élément vérifiable au diagnostic sans refaire une capture.
 - La date de réception de la trame d'état sert de référence de fraîcheur. Une réception de moins de 35 secondes est indiquée « à jour » uniquement si la liaison est active. Au-delà, ou hors connexion, les données sont marquées périmées. Si aucune trame n'a été reçue dans la session, l'interface ne prétend pas que les anciennes valeurs sont actuelles.
 - Les valeurs numériques égales à zéro restent des valeurs explicites lorsqu'elles sont valides ; une propriété absente ou non finie est indiquée « Non disponible ».
 - Le débit en m³/h reste qualifié d'estimation calculée depuis le volume et le renouvellement, jamais de mesure directe.

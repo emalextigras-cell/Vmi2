@@ -45,3 +45,11 @@ test('champ absent ou non fini reste non disponible', () => {
   assert.equal(result.items.find(item => item.key === 'vol').value, 'Non disponible');
   assert.equal(result.items.find(item => item.key === 'boost').value, 'Arrêté');
 });
+
+test('conserve la trame brute validée pour la joindre au diagnostic', () => {
+  const result = buildTechnicalDiagnosticSnapshot({
+    cur: { jours: 4, stateFrame: [0xA5, 0xB6, 0x01, 0x0A] },
+    lastSeen: { state: 99000 }, connected: true, now: 100000
+  });
+  assert.equal(result.rawFrame, 'A5 B6 01 0A');
+});
