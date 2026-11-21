@@ -83,9 +83,9 @@ test('rejette les notifications connues dont le contrôle XOR est incorrect', ()
   });
 });
 
-test('décode le nombre de séquences historiques annoncé par 0x04', () => {
+test('valide la structure de 0x04 sans supposer la signification de sa charge utile', () => {
   const total = frame(0x04, 11); total[6] = 0x34; total[7] = 0x12;
-  assert.deepEqual(decodeVmiNotification(seal(total)), { kind: 'history-count', totalSequences: 0x1234 });
+  assert.deepEqual(decodeVmiNotification(seal(total)), { kind: 'unknown', type: 0x04, length: 11 });
 
   const history = frame(0x30, 116);
   history[9] = 7; history[10] = 1; history[13] = 1;
