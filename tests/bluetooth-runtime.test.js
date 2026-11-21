@@ -45,6 +45,22 @@ function makeNotificationHandler(overrides = {}) {
   };
 }
 
+test('transmet au coordinateur la réponse de protocole validée', () => {
+  const decoded = {
+    kind: 'state', filter: 12, days: 34, volume: 210, maxTemperature: 27,
+    rawSpeed: 2, boost: true, holiday: false
+  };
+  let received = null;
+  const h = makeNotificationHandler({
+    decodeVmiNotification: () => decoded,
+    onDecodedFrame: (kind, frame) => { received = { kind, frame }; }
+  });
+
+  h.handler({ target: { value: new DataView(new Uint8Array([1, 2]).buffer) } });
+
+  assert.deepEqual(received, { kind: 'state', frame: decoded });
+});
+
 test('notification état met à jour les valeurs VMI et l’horodatage', () => {
   const decoded = {
     kind: 'state', filter: 12, days: 34, volume: 210, maxTemperature: 27,
