@@ -12,7 +12,7 @@ import { createBleWriteQueue } from './modules/bluetooth-write-queue.js';
 import { runBleSessionSequence } from './modules/bluetooth-session.js';
 import { acceptHistoryFragment, createHistoryStreamState, isHistorySyncBaseline, markHistoryRows, markHistoryStreamInvalid } from './modules/bluetooth-history-stream.js';
 import { validateBluetoothHistoryRow } from './modules/bluetooth-history-row.js';
-import { armDownloadTimeout } from './modules/sync.js';
+import { armDownloadTimeout, findNewestCounterRecord } from './modules/sync.js';
 import { parseCell, recFrom, getColumnMapping, findVmiHeaderRowIndex, parseCsvRows, isCsvFile } from './modules/dataio.js';
 import { fixClock, evaluateCounterBaseline } from './modules/clock-correction.js';
 import { absoluteHumidity, psychro, validTemp } from './modules/psychrometry.js';
@@ -638,7 +638,7 @@ function finishDownload(completeBoundary,timeout=false,interrupted=false){
  const count=download.rows.length;
  const complete=!timeout&&!interrupted&&!download.integrityGap&&!(download.invalidRows>0)&&completeBoundary;
  const syncObservedAt=Date.now();
- const newestCounterRecord=download.rows.find(record=>Number.isFinite(record.d));
+ const newestCounterRecord=findNewestCounterRecord(download.rows);
  const counterAssessment=complete&&newestCounterRecord
   ? evaluateCounterBaseline({
    baseline:/** @type {{d:number,observedAt:number}|undefined} */ (meta.counterBaseline),
