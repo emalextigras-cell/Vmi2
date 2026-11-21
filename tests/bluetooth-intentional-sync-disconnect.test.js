@@ -28,7 +28,7 @@ test('une reconnexion ne réinitialise pas la synchronisation automatique', () =
 
 test('un nouveau clic utilisateur autorise une nouvelle synchronisation initiale', () => {
   const connect = service.slice(service.indexOf('async function connectBLE('), service.indexOf('async function autoConnectAuthorizedDevice('));
-  assert.match(connect, /autoHistoryDone=false/);
+  assert.match(connect, /autoHistoryDone\s*=\s*false/);
 });
 
 test('une ligne historique rejetée empêche de certifier le transfert comme complet', () => {
