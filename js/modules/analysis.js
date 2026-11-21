@@ -3,6 +3,8 @@
 /** @typedef {import('../types/vmi-types.js').AnalysisOptions} AnalysisOptions */
 
 /** Analyses statistiques communes (sans effet sur les commandes VMI). */
+import { median } from './statistics.js';
+import { isPlaceholderSensorRecord, isPlausibleTemperature } from './data-quality.js';
 export { median } from './statistics.js';
 export { analyzeSpeedLevels, analyzeSpeedTimeContext, compareOperatingPeriods, summarizeOperatingReference, summarizeRawVmiMode, summarizeRawVmiSpeed } from './operating-analysis.js';
 export { analyzeHygrometricPeriods, summarizeDailyTrends, analyzeHourlyPatterns, detectRapidChanges, buildHygrometricDiagnosis } from './hygrometric-analysis.js';
