@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { decodeVmiNotification } from '../js/modules/bluetooth-decoder.js';
 import { parseCsvRows, findVmiHeaderRowIndex, getColumnMapping, recFrom } from '../js/modules/dataio.js';
 
-const hexBytes = value => Uint8Array.from(value.trim().split(/\\s+/), byte => parseInt(byte, 16));
+const hexBytes = value => Uint8Array.from(value.trim().split(/\s+/), byte => parseInt(byte, 16));
 
 test('rejoue la notification BLE réelle de la télécommande du salon', () => {
   // Trame complète extraite de la capture : longueur déclarée 128, XOR inclus.
@@ -67,7 +67,7 @@ test('lit la vraie ligne VMI+ sans confondre Tempext, sondes et télécommande s
       [9, 39, 40, 42, 43, 45, 116, 117, 118].includes(index) && value !== ''
         ? '"' + value + '"'
         : value
-    ).join(',')].join('\\n')
+    ).join(',')].join('\n')
   );
   const headerIndex = findVmiHeaderRowIndex(rows);
   assert.equal(headerIndex, 0);
