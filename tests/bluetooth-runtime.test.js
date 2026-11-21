@@ -202,9 +202,12 @@ test('attend les cinq fragments de la ligne de coupure avant de terminer la sync
       chunkIndex
     };
     h.handler({ target: { value: new DataView(new Uint8Array([1]).buffer) } });
+    if (chunkIndex === 0) assert.equal(h.download.historyStream.expectedFragments, 5);
+    if (chunkIndex === 30) assert.equal(h.download.reachedCut, true);
     if (chunkIndex !== 40) assert.equal(finishCalls, 0);
   });
 
+  assert.equal(h.download.historyStream.expectedChunk, 50);
   assert.equal(finishCalls, 1);
   assert.equal(h.download.historyStream.expectedChunk, 50);
 });
