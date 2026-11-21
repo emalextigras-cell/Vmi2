@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vmi-test-v15-cache-65';
+const CACHE_NAME = 'vmi-test-v14-cache-65';
 const CACHE_PREFIX = 'vmi-test-';
 const APP_SHELL = [
   './',
