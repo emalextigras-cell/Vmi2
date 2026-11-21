@@ -27,7 +27,7 @@ test('la tolérance Bluetooth ne conserve pas une ligne située à +60 s', async
 
   const result = await commitHistorySync({
     currentRecords: [],
-    importedRecords: [{ t: syncFinishedAt + 60_000, d: 197 }],
+    importedRecords: [{ t: syncFinishedAt + 60_000, d: 197, st: 20, sh: 50 }],
     maxTimestamp: syncFinishedAt,
     futureToleranceMs: 30_000,
     metadata: { lastSync: syncFinishedAt },
@@ -42,7 +42,7 @@ test('la limite future reste stricte sans tolérance explicite', async () => {
   const now = 1_800_000_000_000;
   const result = await commitHistorySync({
     currentRecords: [],
-    importedRecords: [{ t: now + 1, d: 1 }],
+    importedRecords: [{ t: now + 1, d: 1, st: 20, sh: 50 }],
     maxTimestamp: now,
     persistMany: async () => {}
   });
@@ -67,7 +67,7 @@ test('un échec IndexedDB fait échouer le commit et ne retourne aucun succès',
     /IndexedDB indisponible/
   );
   assert.deepEqual(attemptedEntries, [
-    ['hist', [{ t: now - 1, d: 196 }, { t: now + 6_000, d: 197 }]],
+    ['hist', [{ t: now - 1, d: 196, st: 19, sh: 48 }, { t: now + 6_000, d: 197, st: 20, sh: 50 }]],
     ['meta', { lastSync: now }]
   ]);
 });
