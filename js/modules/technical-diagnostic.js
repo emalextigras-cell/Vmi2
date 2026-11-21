@@ -24,7 +24,7 @@ const VALUE_DEFINITIONS = [
 /**
  * Produit un instantané d'affichage sans mutation des mesures.
  * @param {{cur?:Object,lastSeen?:Object,connected?:boolean,now?:number,maxAgeMs?:number}} input
- * @returns {{status:string,statusLabel:string,freshness:string,items:Array<{key:string,label:string,value:string,status:string,ageLabel:string}>}}
+ * @returns {{rawFrame:string,status:string,statusLabel:string,freshness:string,items:Array<{key:string,label:string,value:string,status:string,ageLabel:string}>}}
  */
 export function buildTechnicalDiagnosticSnapshot({
   cur = {}, lastSeen = {}, connected = false, now = Date.now(), maxAgeMs = 35000
