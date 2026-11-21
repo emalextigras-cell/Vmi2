@@ -210,21 +210,30 @@ function pruneHist(){
 function writeFrame(bytes){return bleWriteQueue.write(bytes)}
 const send=(reg,val)=>writeFrame(frame(reg,val));
 const responseKindForRegister=BLE_RESPONSE_KIND_BY_REGISTER;
+function disconnectAfterBleCorrelationLoss(){
+ if(!bleResponseGate.isInvalidated||!connected())return;
+ log('Corrélation des réponses BLE invalidée : fermeture de cette connexion avant toute nouvelle requête.');
+ // Sans identifiant de transaction, aucune lecture ne peut être fiable après ce point.
+ // La reconnexion crée une nouvelle session de notifications et réinitialise la barrière.
+ dev.gatt.disconnect();
+}
 async function sendAndWait(reg,val,expectedKind=responseKindForRegister[reg],timeoutMs=5000){
  if(!expectedKind)return {written:await send(reg,val),responded:false};
+ if(bleResponseGate.isInvalidated){disconnectAfterBleCorrelationLoss();return {written:false,responded:false}}
  if(bleResponseGate.pendingKind){log('Requête BLE ignorée : une réponse est déjà attendue.');return {written:false,responded:false}}
  const response=bleResponseGate.waitFor(expectedKind,timeoutMs);
  const written=await send(reg,val);
- if(!written){bleResponseGate.cancel(new Error('Écriture BLE non confirmée.'));await response.catch(()=>{});return {written:false,responded:false}}
+ if(!written){bleResponseGate.cancel(new Error('Écriture BLE non confirmée.'));await response.catch(()=>{});disconnectAfterBleCorrelationLoss();return {written:false,responded:false}}
  try{const value=await response;return {written:true,responded:true,response:value}}
- catch(error){log('Réponse VMI attendue absente : '+(error.message||error));return {written:true,responded:false,response:null}}
+ catch(error){log('Réponse VMI attendue absente : '+(error.message||error));disconnectAfterBleCorrelationLoss();return {written:true,responded:false,response:null}}
 }
 async function writeFrameAndWait(bytes,expectedKind,timeoutMs=5000){
+ if(bleResponseGate.isInvalidated){disconnectAfterBleCorrelationLoss();return false}
  if(bleResponseGate.pendingKind){log('Écriture différée : une réponse Bluetooth est déjà attendue.');return false}
  const response=bleResponseGate.waitFor(expectedKind,timeoutMs);
  const written=await writeFrame(bytes);
- if(!written){bleResponseGate.cancel(new Error('Écriture BLE non confirmée.'));await response.catch(()=>{});return false}
- try{await response;return true}catch(error){log('Accusé VMI absent : '+(error.message||error));return false}
+ if(!written){bleResponseGate.cancel(new Error('Écriture BLE non confirmée.'));await response.catch(()=>{});disconnectAfterBleCorrelationLoss();return false}
+ try{await response;return true}catch(error){log('Accusé VMI absent : '+(error.message||error));disconnectAfterBleCorrelationLoss();return false}
 }
 async function setClock(allowDuringDownload=false){
  if(!chC){showError('Connecte-toi d’abord à la VMI.');return false}
@@ -413,6 +422,7 @@ async function connectDevice(device,intent=connectionIntentGeneration){
   const characteristicsReady=await connectCharacteristics(server,token,device);
   if(!characteristicsReady||!connectionIsCurrent()){if(sessionIsCurrent(token,device))cleanupConnection();return false}
   liveMeasurementFilters.resetAll();
+  bleResponseGate.reset();
   lastSeen={};
   bleConnectedAt=Date.now();staleDisconnectRequested=false;
   setStatus('Connecté à '+(dev.name||'la VMI')+'. Synchronisation des données…',true);
