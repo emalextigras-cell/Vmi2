@@ -528,3 +528,28 @@ Artefacts contrôlés : `00_A0_50_48_B4_A3-2026-11-10-16_55.csv` et `vmi-sauvega
 - Capturer une synchronisation complète jusqu'à sa terminaison naturelle et rapprocher le nombre de lignes CSV reçues, le dernier index de séquence, le compteur 0x04/0x02 et les éventuels messages terminaux.
 - Vérifier si 0x04/0x02 représente le nombre total de lignes stockées, le nombre de lignes transférables ou une autre grandeur. Les valeurs 800 (CSV), 824 (capture HCI) et 848 (sauvegarde JSON) ne suffisent pas à établir seules cette sémantique, car les exports ne sont pas strictement identiques.
 - Tant que cette preuve manque, ne pas transformer le compteur annoncé en condition de fin et ne pas envoyer StopCSV.
+
+### 3.16 Reprise progressive du bootstrap historique
+
+**Défaut confirmé dans le code précédent :**
+- Une synchronisation depuis une base vide ne disposait d'aucune borne complète ; les lignes reçues étaient donc conservées avec `syncPartial=true`.
+- À la tentative suivante, `startDownload()` ne construisait ses signatures qu'à partir des relevés complets. Les lignes partielles précédemment sauvegardées n'étaient pas reconnues comme doublons pendant le flux.
+- Comme le parseur ne pouvait pas s'arrêter sur ces lignes, il pouvait les réimporter à chaque tentative. La fusion par horodatage limitait les doublons physiques, mais la synchronisation ne disposait d'aucun mécanisme explicite pour dépasser le préfixe déjà reçu.
+
+**Correction apportée dans Vmi2 :**
+- Séparer trois ensembles : les signatures de borne complète, les signatures de toutes les lignes déjà persistées, et les signatures nouvelles déjà rencontrées dans la session.
+- En mode bootstrap (aucune borne complète), ignorer toute ligne déjà persistée et continuer à lire le flux ; chaque ligne inconnue et valide est ajoutée, même si elle apparaît après les anciennes lignes partielles.
+- Une même ligne inconnue retransmise dans la session est ajoutée une seule fois.
+- Dès qu'une borne complète existe, les lignes partielles connues sont simplement ignorées et seule la rencontre de la borne complète arrête le flux.
+- Les nouvelles lignes d'un bootstrap restent annotées `syncPartial=true`. Le délai d'inactivité de 20 secondes, le compteur annoncé 824 et les octets de fin non interprétés ne deviennent pas des preuves de complétude.
+
+**Éléments de preuve et limites :**
+- Le CSV fourni est ordonné du plus récent au plus ancien. Dans la capture HCI, la séquence 398 porte 01/05/2018 02:34:35 et la séquence 399 commence par une ligne plus ancienne (01/05/2018 01:34:36). Cela soutient l'hypothèse d'un flux décroissant pour cette capture, sans prouver que tous les firmwares/configurations se comportent toujours ainsi.
+- La logique de bootstrap ne dépend pas d'un ordre précis pour dédupliquer : elle collecte toutes les signatures inconnues rencontrées et ne coupe pas le flux sur une ligne partielle connue.
+- La sémantique du compteur 824 reste non certifiée. Les nombres 800 (CSV), 824 (notification HCI) et 848 (sauvegarde JSON) proviennent de snapshots différents ; ils ne permettent pas de fixer une borne de fin.
+- Sans marqueur terminal vérifié, un bootstrap peut enrichir progressivement l'historique, mais il reste explicitement non certifié complet. Aucun relevé partiel n'est promu automatiquement en borne complète.
+
+**Tests logiciels :**
+- Signatures de test issues du CSV fourni : lignes du 01/05/2018 avec compteurs 178 et du 12/04/2018 avec compteur 159.
+- Vérification du saut des lignes partielles déjà connues, de la collecte des lignes inconnues plus anciennes, de la déduplication au sein d'une session et de l'arrêt uniquement sur une borne complète.
+- Tests simulés uniquement ; aucun ordre BLE ni essai matériel.
