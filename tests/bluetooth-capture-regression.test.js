@@ -42,7 +42,7 @@ test('lit la vraie ligne VMI+ sans confondre Tempext, sondes et télécommande s
 
   const rows = parseCsvRows(
     [header.join(','), row.map((value, index) =>
-      [9, 39, 42, 45, 116, 117, 118].includes(index) && value !== ''
+      [9, 39, 40, 42, 43, 45, 116, 117, 118].includes(index) && value !== ''
         ? '"' + value + '"'
         : value
     ).join(',')].join('\n')
