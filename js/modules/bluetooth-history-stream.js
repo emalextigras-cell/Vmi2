@@ -3,11 +3,12 @@
 
 /**
  * Contrôle l'ordre des fragments d'historique observés dans les notifications VMI.
- * La capture confirme l'index de ligne (octets 9-10), le nombre de fragments
- * (octet 11 : 1 pour les métadonnées, 5 pour les lignes) et l'index de fragment
- * (octet 12, par pas de 10). Le parseur historique interprète l'octet 13
- * comme indicateur de fin, mais la capture fournie n'observe aucune valeur 1.
- * Cette garde détecte uniquement les répétitions, trous et désordres observés.
+ * La capture confirme l'index de ligne (octets 9-10) et l'index de fragment
+ * (octet 12, par pas de 10). L'octet 11 vaut généralement 1 pour les métadonnées
+ * et 5 pour les lignes, mais la première ligne de données contredit cette règle :
+ * le nombre attendu est donc déterminé à partir du début CSV daté, pas de cet octet.
+ * L'octet 13 vaut toujours zéro dans la capture et n'est pas utilisé comme preuve
+ * de fin de transfert. Cette garde détecte les répétitions, trous et désordres observés.
  */
 /**
  * createHistoryStreamState — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
