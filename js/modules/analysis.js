@@ -460,7 +460,7 @@ export function summarizeTemperatureLimit(data, {
   const untimedEligible = [];
   const uniqueTimedEligible = new Map();
   for (const row of rows) {
-    if ((row?.t != null && (!Number.isFinite(row.t) || !Number.isFinite(new Date(row.t).getTime()))) ||
+    if (isPlaceholderSensorRecord(row) || (row?.t != null && (!Number.isFinite(row.t) || !Number.isFinite(new Date(row.t).getTime()))) ||
         !Number.isFinite(row?.consTmaxRaw) || !isPlausibleTemperature(row.consTmaxRaw) ||
         !Number.isFinite(row?.tExt) || !isPlausibleTemperature(row.tExt)) continue;
     if (row.t == null) {
@@ -565,7 +565,7 @@ export function summarizeTemperatureLimit(data, {
     inputSampleCount: rows.length,
     eligibleSampleCount: eligible.length,
     missingOutdoorTemperatureCount: rows.filter(row =>
-      Number.isFinite(row?.consTmaxRaw) && isPlausibleTemperature(row.consTmaxRaw) &&
+      !isPlaceholderSensorRecord(row) && Number.isFinite(row?.consTmaxRaw) && isPlausibleTemperature(row.consTmaxRaw) &&
       (!Number.isFinite(row?.tExt) || !isPlausibleTemperature(row.tExt))
     ).length,
     thresholds,
