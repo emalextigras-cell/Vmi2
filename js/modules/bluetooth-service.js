@@ -37,7 +37,6 @@ export function createBluetoothService(deps) {
 
   let device = null;
   let characteristicCommand = null;
-  let characteristicTelemetry = null;
   let generation = 0;
   let connectionIntent = 0;
   let connectionRequestPending = false;
