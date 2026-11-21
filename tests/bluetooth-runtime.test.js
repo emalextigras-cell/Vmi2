@@ -61,6 +61,18 @@ test('transmet au coordinateur la réponse de protocole validée', () => {
   assert.deepEqual(received, { kind: 'state', frame: decoded });
 });
 
+test('transmet un accusé protocolaire valide au coordinateur', () => {
+  let received = null;
+  const h = makeNotificationHandler({
+    decodeVmiNotification: () => ({ kind: 'ack', length: 6 }),
+    onDecodedFrame: (kind, frame) => { received = { kind, frame }; }
+  });
+
+  h.handler({ target: { value: new DataView(new Uint8Array([1, 2]).buffer) } });
+
+  assert.deepEqual(received, { kind: 'ack', frame: { kind: 'ack', length: 6 } });
+});
+
 test('notification état met à jour les valeurs VMI et l’horodatage', () => {
   const decoded = {
     kind: 'state', filter: 12, days: 34, volume: 210, maxTemperature: 27,
