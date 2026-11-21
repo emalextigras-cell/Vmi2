@@ -24,7 +24,7 @@ import { summarizeWeeklyDiagnostic } from './modules/weekly-diagnostic.js';
 import { chooseAuthorizedDevice } from './modules/bluetooth-autoconnect.js';
 import { createBluetoothNotificationHandler, createReconnectHandler } from './modules/bluetooth-runtime.js';
 import { isBleStateStale } from './modules/bluetooth-freshness.js';
-import { createBleResponseGate } from './modules/bluetooth-response-gate.js';
+import { createBleResponseGate, BLE_RESPONSE_KIND_BY_REGISTER } from './modules/bluetooth-response-gate.js';
 import { buildLiveFreshnessText } from './modules/live-freshness.js';
 import { formatDiagnosisConfidence } from './modules/diagnostic-confidence.js';
 import { analyzeSeasonalVentilation } from './modules/seasonal-advice.js';
@@ -206,7 +206,7 @@ function pruneHist(){
 
 function writeFrame(bytes){return bleWriteQueue.write(bytes)}
 const send=(reg,val)=>writeFrame(frame(reg,val));
-const responseKindForRegister={3:'state',6:'probes',7:'room',24:'state',25:'state',26:'state'};
+const responseKindForRegister=BLE_RESPONSE_KIND_BY_REGISTER;
 async function sendAndWait(reg,val,expectedKind=responseKindForRegister[reg],timeoutMs=5000){
  if(!expectedKind)return {written:await send(reg,val),responded:false};
  if(bleResponseGate.pendingKind){log('Requête BLE ignorée : une réponse est déjà attendue.');return {written:false,responded:false}}
@@ -274,7 +274,7 @@ async function poll(force=false){
  if(pollingSessionToken===token||!connected()||download.on||(manualCommandPending&&!force))return;
  pollingSessionToken=token;
  try{
-  for(const [r,kind] of [[3,'state'],[6,'probes'],[7,'room']]){
+  for(const [r,kind] of [[3,'state'],[6,'room'],[7,'probes']]){
    if(token!==bleConnectionGeneration||!connected()||download.on||manualCommandPending)break;
    const result=await sendAndWait(r,0,kind);
    if(!result.responded||token!==bleConnectionGeneration)break;
