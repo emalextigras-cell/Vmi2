@@ -83,9 +83,9 @@ test('rejette les notifications connues dont le contrôle XOR est incorrect', ()
   });
 });
 
-test('décode le compteur historique sans interpréter l’octet 13 comme marqueur de fin', () => {
+test('laisse le payload 0x04 non interprété et ne le confond pas avec un total historique', () => {
   const total = frame(0x04, 11); total[6] = 0x34; total[7] = 0x12;
-  assert.deepEqual(decodeVmiNotification(seal(total)), { kind: 'history-total', total: 0x1234 });
+  assert.deepEqual(decodeVmiNotification(seal(total)), { kind: 'unknown', type: 0x04, length: 11 });
 
   const history = frame(0x30, 116);
   history[9] = 7; history[10] = 1; history[13] = 1;
