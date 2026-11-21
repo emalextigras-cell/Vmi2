@@ -5,6 +5,12 @@ import { absoluteHumidity, dewPoint } from './psychrometry.js';
 import { median } from './statistics.js';
 import { detectTransientSensorSpikes, isPlaceholderSensorRecord, isPlausibleHumidity, isPlausibleTemperature } from './data-quality.js';
 
+function fmtHours(hours) {
+  if (!Number.isFinite(hours)) return '0 h';
+  if (hours < 1) return `${Math.round(hours * 60)} min`;
+  return `${hours.toFixed(1)} h`;
+}
+
 /**
  * Analyse la différence d'humidité absolue salon - air entrant dans le temps.
  * Les durées sont estimées entre deux mesures successives par interpolation
