@@ -445,3 +445,26 @@ Artefacts contrôlés : `00_A0_50_48_B4_A3-2026-11-10-16_55.csv` et `vmi-sauvega
 **Cache service worker :** `vmi-test-v14-cache-68`.
 
 - GitHub Actions #1020, commit `b7670c3e03d632d24e2a84efba23f2a67cdc8f5c` : **554 tests réussis, 0 échec** ; syntaxe JavaScript, ESLint et types JSDoc réussis.
+
+
+### 3.12 Orchestration des commandes avancées Purevent
+
+**Référence protocolaire vérifiée dans `clemvillon/ha-vmi-purevent` :**
+- `0x0B` est une bascule de surventilation : l'état doit être relu avant l'envoi, et l'ordre ne doit jamais être répété si la confirmation manque.
+- `0x17` règle la limite estivale (22–37 °C).
+- `0x1B` active/désactive le débit fixe.
+- `0x1C` règle la consigne de préchauffage (12–18 °C) et démarre le chauffage ; la valeur 0 supprime la consigne.
+- `0x2F` commande la marche du préchauffage. Pour l'arrêt complet, Purevent envoie `0x2F=0`, puis `0x1C=0` si la marche ou la consigne ne sont pas toutes deux confirmées à zéro.
+
+**Implémentation Vmi2 :**
+- Nouveau module pur `bluetooth-advanced-commands.js`, séparé du transport BLE et testable sans matériel.
+- Chaque commande commence par une lecture d'état fraîche. Si l'état est déjà celui demandé, aucune écriture n'est envoyée.
+- Après une écriture, Vmi2 utilise l'état reçu ; si la réponse ne confirme pas le réglage, elle effectue une lecture explicite. Une commande non confirmée n'est jamais renvoyée.
+- La surventilation n'envoie qu'une bascule `0x0B=0` après comparaison de l'état lu.
+- L'arrêt du préchauffage utilise au plus deux écritures, `0x2F=0` puis, si nécessaire, `0x1C=0`. Les deux conditions finales (marche arrêtée et consigne nulle) sont vérifiées.
+- L'interface présente les plages documentées et avertit qu'une consigne de préchauffage démarre le chauffage ; une confirmation explicite est demandée pour le démarrage et le réglage de consigne.
+- Le service worker passe à `vmi-test-v14-cache-69` et inclut le nouveau module.
+
+**Limite conservée :** les trames ne contiennent pas d'identifiant de transaction. La sérialisation des requêtes et la lecture préalable réduisent le risque d'associer une notification tardive, sans l'éliminer mathématiquement.
+
+**Tests logiciels :** les tests dédiés couvrent l'état déjà conforme, la bascule unique, l'absence de renvoi après non-confirmation, les plages numériques, l'activation/désactivation du débit fixe, la séquence d'arrêt du préchauffage et l'absence d'écriture si la liaison est coupée. Ils utilisent des callbacks simulés ; aucun ordre n'est envoyé à une VMI physique.
