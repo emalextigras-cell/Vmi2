@@ -1,6 +1,6 @@
 /** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
 import { absoluteHumidity } from './psychrometry.js';
-import { isPlausibleHumidity, isPlausibleTemperature } from './data-quality.js';
+import { isPlaceholderSensorRecord, isPlausibleHumidity, isPlausibleTemperature } from './data-quality.js';
 import { summarizeDailyEnergyClimateContext } from './energy-climate.js';
 
 const assertPositiveInteger = (name,value) => {
@@ -62,7 +62,7 @@ export function summarizeWeeklyDiagnostic(history,{
     throw new RangeError('minEnergyDays ne peut pas dépasser windowDays.');
   }
   const rows=(Array.isArray(history)?history:[])
-    .filter(row=>Number.isFinite(row?.t)&&Number.isFinite(new Date(row.t).getTime()))
+    .filter(row=>!isPlaceholderSensorRecord(row)&&Number.isFinite(row?.t)&&Number.isFinite(new Date(row.t).getTime()))
     .sort((a,b)=>a.t-b.t);
   // Un même horodatage ne doit jamais être arbitrairement représenté par
   // la dernière ligne rencontrée : en cas de valeurs contradictoires,
