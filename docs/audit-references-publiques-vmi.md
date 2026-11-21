@@ -217,3 +217,21 @@ Artefacts contrôlés : `00_A0_50_48_B4_A3-2026-11-10-16_55.csv` et `vmi-sauvega
 - https://github.com/srThibaultP/ha-vmi-plus/blob/main/README.md
 - https://github.com/srThibaultP/vmi-plus-ble/blob/main/src/vmi_plus_ble/protocol.py
 - https://github.com/srThibaultP/vmi-plus-ble/blob/main/src/vmi_plus_ble/client.py
+
+
+### 3.4 Robustesse après remise à zéro du compteur et cache hors ligne
+
+**Correction de la référence du compteur :**
+- `fixClock` comparait le premier compteur entrant au maximum `d` de tout l'historique. Après une remise à zéro réelle, l'ancien maximum reste présent dans les archives : il pouvait donc provoquer une détection de recul à chaque synchronisation ultérieure, même lorsque le compteur progressait normalement depuis la nouvelle référence.
+- La fonction donne désormais la priorité à `counterPreviousDays`, référence issue des métadonnées persistées. Le maximum historique reste un repli pour les installations anciennes qui ne possèdent pas encore cette référence.
+- L'application transmet la référence persistée même si le transfert courant est partiel ; elle ne met à jour la référence qu'après une synchronisation certifiée.
+- Un test couvre le scénario : ancien historique à `d=194`, compteur remis à zéro puis référence courante `d=4`, nouvelle synchronisation à `d=5`. Le cas ne doit plus être interprété comme un nouveau recul.
+
+**Cache du service worker :**
+- Le service worker applique une stratégie réseau d'abord, cache ensuite ; hors connexion, il restitue les ressources précédemment mises en cache et `index.html` pour la navigation.
+- Les fichiers applicatifs de cette PR changent alors que le nom du cache était resté `v14-cache-55`. Sans changement du script du service worker, un appareil déjà installé pouvait conserver son ancien cache jusqu'à ce qu'il recharge individuellement les ressources en étant connecté.
+- Le cache est donc incrémenté en `v14-cache-56`. L'installation du nouveau service worker pré-télécharge à nouveau l'App Shell, puis l'activation supprime l'ancien cache `vmi-test-`. Si le pré-téléchargement échoue, le nouveau service worker ne s'active pas et l'ancien cache actif n'est pas supprimé.
+
+**Identité et fusion des relevés :**
+- Le rapprochement de la borne BLE repose sur `rk|d` ; la fusion de l'historique local et des sauvegardes repose sur l'horodatage corrigé `t`.
+- Aucun doublon de `t` ni de couple `rk|d` n'a été trouvé dans la sauvegarde JSON fournie. Le risque de deux relevés distincts fusionnés à tort parce qu'ils partageraient le même `t` reste donc théorique dans les données disponibles ; il est conservé comme point de vigilance, sans modifier la clé de fusion sans preuve.
