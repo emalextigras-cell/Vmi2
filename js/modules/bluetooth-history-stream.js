@@ -36,11 +36,11 @@ export function acceptHistoryFragment(state, fragment) {
   const sequence = data.sequence;
   const chunkIndex = data.chunkIndex;
   const payload = String(data.payload ?? '');
-  const fragmentCount = data.fragmentCount;
+  const expectedFragments = data.expectedFragments;
   if (typeof sequence !== 'number' || !Number.isSafeInteger(sequence) || sequence < 0 ||
       typeof chunkIndex !== 'number' || !Number.isSafeInteger(chunkIndex) ||
       chunkIndex < 0 || chunkIndex % 10 !== 0 ||
-      (fragmentCount !== undefined && (!Number.isSafeInteger(fragmentCount) || fragmentCount < 1 || chunkIndex >= fragmentCount * 10))) {
+      (expectedFragments !== undefined && (!Number.isSafeInteger(expectedFragments) || expectedFragments < 1 || chunkIndex >= expectedFragments * 10))) {
     state.gapCount++;
     // Si l'index de ligne reste lisible, condamner cette ligne et ignorer
     // tous ses fragments suivants jusqu'à la ligne suivante.
@@ -82,7 +82,7 @@ export function acceptHistoryFragment(state, fragment) {
     if (sequence !== 0 || chunkIndex !== 0) gap = true;
     state.sequence = sequence;
     state.expectedChunk = 0;
-    state.expectedFragments = fragmentCount ?? null;
+    state.expectedFragments = expectedFragments ?? null;
   } else if (sequence < state.sequence) {
     state.gapCount++;
     return { accepted: false, duplicate: false, gap: true, resetBuffer: false };
@@ -95,17 +95,17 @@ export function acceptHistoryFragment(state, fragment) {
     state.fragments.clear();
     state.sequence = sequence;
     state.expectedChunk = 0;
-    state.expectedFragments = fragmentCount ?? null;
+    state.expectedFragments = expectedFragments ?? null;
     state.skippedSequence = null;
     resetBuffer = gap;
-  } else if (fragmentCount !== undefined && state.expectedFragments !== null &&
-      fragmentCount !== state.expectedFragments) {
+  } else if (expectedFragments !== undefined && state.expectedFragments !== null &&
+      expectedFragments !== state.expectedFragments) {
     state.gapCount++;
     state.fragments.clear();
     state.skippedSequence = sequence;
     return { accepted: false, duplicate: false, gap: true, resetBuffer: true };
-  } else if (fragmentCount !== undefined && state.expectedFragments === null) {
-    state.expectedFragments = fragmentCount;
+  } else if (expectedFragments !== undefined && state.expectedFragments === null) {
+    state.expectedFragments = expectedFragments;
   }
 
   if (gap) {
