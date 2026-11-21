@@ -545,6 +545,7 @@ Artefacts contrôlés : `00_A0_50_48_B4_A3-2026-11-10-16_55.csv` et `vmi-sauvega
 
 **Éléments de preuve et limites :**
 - Le CSV fourni est ordonné du plus récent au plus ancien. Dans la capture HCI, la séquence 398 porte 01/05/2018 02:34:35 et la séquence 399 commence par une ligne plus ancienne (01/05/2018 01:34:36). Cela soutient l'hypothèse d'un flux décroissant pour cette capture, sans prouver que tous les firmwares/configurations se comportent toujours ainsi.
+- La capture BTSnoop s'étend du 12/11/2026 13:30:35.090 UTC au 13:33:13.356 UTC, soit 2 min 38,266 s. Elle contient 374 séquences de données complètes (25 à 398) puis seulement le fragment 0 de la séquence 399. Elle ne couvre donc pas une fin de transfert ; si 824 représente bien un nombre total de lignes, moins de la moitié serait visible dans ce fichier, mais cette interprétation du compteur reste à confirmer.
 - La logique de bootstrap ne dépend pas d'un ordre précis pour dédupliquer : elle collecte toutes les signatures inconnues rencontrées et ne coupe pas le flux sur une ligne partielle connue.
 - La sémantique du compteur 824 reste non certifiée. Les nombres 800 (CSV), 824 (notification HCI) et 848 (sauvegarde JSON) proviennent de snapshots différents ; ils ne permettent pas de fixer une borne de fin.
 - Sans marqueur terminal vérifié, un bootstrap peut enrichir progressivement l'historique, mais il reste explicitement non certifié complet. Aucun relevé partiel n'est promu automatiquement en borne complète.
