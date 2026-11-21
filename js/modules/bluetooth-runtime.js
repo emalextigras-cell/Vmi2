@@ -39,7 +39,12 @@ export function createBluetoothNotificationHandler(deps) {
     const download = getDownload();
 
     if (decoded.kind === 'invalid') {
-      log(`Notification VMI tronquée (type 0x${decoded.type.toString(16).padStart(2, '0')}) : ${decoded.length}/${decoded.requiredLength} octets, ignorée.`);
+      const detail = decoded.reason === 'checksum'
+        ? 'contrôle XOR invalide'
+        : decoded.reason === 'length'
+          ? 'longueur déclarée incohérente'
+          : `notification tronquée : ${decoded.length}/${decoded.requiredLength} octets`;
+      log(`Notification VMI invalide (type 0x${decoded.type.toString(16).padStart(2, '0')}) : ${detail}, ignorée.`);
       return;
     }
 
@@ -49,7 +54,12 @@ export function createBluetoothNotificationHandler(deps) {
         markHistoryStreamInvalid(download.historyStream);
         download.integrityGap = true;
         download.buf = '';
-        log('Trame d’historique trop courte : transfert marqué incomplet, synchronisation à relancer.');
+        const detail = decoded.reason === 'checksum'
+          ? 'contrôle XOR invalide'
+          : decoded.reason === 'length'
+            ? 'longueur déclarée incohérente'
+            : 'trame tronquée';
+        log(`Trame d’historique invalide (${detail}) : transfert marqué incomplet, synchronisation à relancer.`);
         return;
       }
 
@@ -59,7 +69,7 @@ export function createBluetoothNotificationHandler(deps) {
       const integrity = acceptHistoryFragment(download.historyStream, {
         sequence: decoded.sequence,
         chunkIndex: decoded.chunkIndex,
-        expectedFragments: /^\s*\d{1,2}\/\d{1,2}\/\d{4} \d{1,2}:\d{2}:\d{2};/.test(payload) ? 5 : undefined,
+        expectedFragments: /^\\s*\\d{1,2}\\/\\d{1,2}\\/\\d{4} \\d{1,2}:\\d{2}:\\d{2};/.test(payload) ? 5 : undefined,
         payload
       });
       if (integrity.duplicate) return;
@@ -75,7 +85,7 @@ export function createBluetoothNotificationHandler(deps) {
       download.got = true;
       download.lastPacket = timestamp;
       download.buf += payload;
-      const lines = download.buf.split(/\r\n|\n|\r(?!$)/);
+      const lines = download.buf.split(/\\r\\n|\\n|\\r(?!$)/);
       download.buf = lines.pop();
       lines.forEach(parseDownloadLine);
 
@@ -84,7 +94,7 @@ export function createBluetoothNotificationHandler(deps) {
         armTimer();
         if (decoded.final) {
           if (download.buf.trim()) {
-            const tail = download.buf.split(/\r\n|\n|\r/);
+            const tail = download.buf.split(/\\r\\n|\\n|\\r/);
             download.buf = '';
             tail.filter(line => line.trim()).forEach(parseDownloadLine);
           }
