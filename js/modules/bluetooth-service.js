@@ -37,7 +37,6 @@ export function createBluetoothService(deps) {
 
   let device = null;
   let characteristicCommand = null;
-  let characteristicTelemetry = null;
   let generation = 0;
   let connectionIntent = 0;
   let connectionRequestPending = false;
@@ -181,7 +180,6 @@ export function createBluetoothService(deps) {
     deps.onSessionCleanup();
     detachListeners();
     characteristicCommand = null;
-    characteristicTelemetry = null;
   }
 
   async function poll(force = false) {
@@ -268,7 +266,6 @@ export function createBluetoothService(deps) {
     }
     if (!sessionIsCurrent(token, targetDevice)) return false;
     characteristicCommand = command;
-    characteristicTelemetry = telemetry;
     return true;
   }
 
@@ -293,7 +290,6 @@ export function createBluetoothService(deps) {
     clearTimeoutFn(reconnectTimer);
     detachListeners();
     characteristicCommand = null;
-    characteristicTelemetry = null;
     device = targetDevice;
     manualDisconnect = false;
     disconnectHandler = () => {

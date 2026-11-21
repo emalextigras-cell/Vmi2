@@ -39,7 +39,7 @@ import { renderFanEnergyEstimate, renderDailyEnergyClimateContext, renderWeeklyD
 /** @typedef {import('./types/vmi-types.js').UnknownRecord} UnknownRecord */
 
 
-if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{})}
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(error=>recordError('Enregistrement du service worker impossible : '+(error?.message||error)))}
 
 /* Le protocole et le transport Bluetooth sont encapsulés dans bluetooth-service.js. */
 
@@ -166,11 +166,6 @@ async function init(){
  }
  $('liveCount').textContent=String(live.length);render();
 }
-function pruneHist(){
- const result=pruneHistory(hist,HIST_MAX);
- hist=result.records;
- if(result.removed)log(`Historique limité à ${HIST_MAX} relevés (les plus anciens supprimés).`);
-}
 
 /* Psychrométrie : approximation de Magnus */
 
@@ -279,7 +274,7 @@ function takeSnapshot(){
  if(!Number.isFinite(row.st)&&!Number.isFinite(row.sh))return;
  live.push(row);
  if(live.length>10000)live.splice(0,live.length-10000);
- void persist('live',live,'Sauvegarde des relevés en direct').catch(()=>{});$('liveCount').textContent=String(live.length);
+ void persist('live',live,'Sauvegarde des relevés en direct').catch(error=>{$('sampleAge').textContent='Échec de sauvegarde du relevé en direct : '+(error?.message||error)});$('liveCount').textContent=String(live.length);
  if(source==='live')render();
 }
 
@@ -551,12 +546,12 @@ function autoHistory(){
 }
 
 /* Import tableur */
-const XLSX_URLS=['https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js','https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'];
-function loadScript(url,ms=15000){
+const XLSX_SOURCES=[{url:'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',integrity:'sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw'}];
+function loadScript(url,integrity,ms=15000){
  return new Promise((res,rej)=>{
   const sc=document.createElement('script');
   const t=setTimeout(()=>{sc.remove();rej(new Error('délai dépassé'))},ms);
-  sc.src=url;sc.onload=()=>{clearTimeout(t);res()};sc.onerror=()=>{clearTimeout(t);sc.remove();rej(new Error('échec du chargement'))};
+  sc.src=url;sc.integrity=integrity;sc.crossOrigin='anonymous';sc.onload=()=>{clearTimeout(t);res()};sc.onerror=()=>{clearTimeout(t);sc.remove();rej(new Error('échec du chargement ou vérification SRI refusée'))};
   document.head.appendChild(sc);
  });
 }
@@ -564,7 +559,7 @@ let xlsxPromise=null;
 function loadXLSX(){
  if(window.XLSX)return Promise.resolve();
  if(!xlsxPromise)xlsxPromise=(async()=>{
-  for(const u of XLSX_URLS){try{await loadScript(u);if(window.XLSX)return}catch(e){log('SheetJS : '+e.message+' ('+u+')')}}
+  for(const source of XLSX_SOURCES){try{await loadScript(source.url,source.integrity);if(window.XLSX)return}catch(e){log('SheetJS : '+e.message+' ('+source.url+')')}}
   throw new Error('Impossible de charger la bibliothèque de lecture : l’import CSV/Excel demande une connexion internet (une seule fois). Le téléchargement par Bluetooth n’en a pas besoin.');
  })().catch(e=>{xlsxPromise=null;throw e});
  return xlsxPromise;
@@ -1063,8 +1058,8 @@ $('themeBtn').onclick=()=>{
  const root=document.documentElement;
  const dark=root.dataset.theme?root.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;
  root.dataset.theme=dark?'light':'dark';
- try{localStorage.setItem('vmi_modulaire_theme',root.dataset.theme)}catch(e){}
+ try{localStorage.setItem('vmi_modulaire_theme',root.dataset.theme)}catch(error){log('Préférence de thème non enregistrée : '+(error?.message||error))}
 };
-try{const theme=localStorage.getItem('vmi_modulaire_theme');if(theme)document.documentElement.dataset.theme=theme}catch(e){}
+try{const theme=localStorage.getItem('vmi_modulaire_theme');if(theme)document.documentElement.dataset.theme=theme}catch(error){log('Préférence de thème non récupérée : '+(error?.message||error))}
 if(!bluetoothService.isAvailable())showError('Web Bluetooth indisponible : ouvre cette page en HTTPS dans Chrome sur Android.');
 init().then(()=>bluetoothService.autoConnectAuthorizedDevice()).catch(e=>recordError('Initialisation impossible : '+(e.message||e)));

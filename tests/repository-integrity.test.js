@@ -90,3 +90,23 @@ test('les imports JavaScript locaux existent et sont présents dans le cache hor
 
   assert.deepEqual(missing, [], 'Chaque dépendance JavaScript locale doit exister et être mise en cache');
 });
+
+
+test('la CSP définit une politique par défaut et SheetJS est protégé par SRI', async () => {
+  const html = await readFile(resolve(root, 'index.html'), 'utf8');
+  const app = await readFile(resolve(root, 'js/app.js'), 'utf8');
+  const csp = html.match(/http-equiv="Content-Security-Policy"[^>]*content="([^"]+)"/i)?.[1] || '';
+
+  assert.match(csp, /(?:^|;\s*)default-src 'self'(?:;|$)/);
+  assert.match(csp, /object-src 'none'/);
+  assert.match(app, /sc\.integrity\s*=\s*integrity/);
+  assert.match(app, /sc\.crossOrigin\s*=\s*'anonymous'/);
+  assert.match(app, /xlsx\/0\.18\.5\/xlsx\.full\.min\.js/);
+  assert.match(app, /sha384-[A-Za-z0-9+/=]{64}/);
+});
+
+test('app.js ne contient pas de gestionnaire catch vide connu', async () => {
+  const app = await readFile(resolve(root, 'js/app.js'), 'utf8');
+  assert.equal(app.includes('catch(()=>{})'), false);
+  assert.equal(app.includes('.catch(()=>{})'), false);
+});
