@@ -98,7 +98,7 @@ export function createBluetoothNotificationHandler(deps) {
       }
 
       if (download.on) {
-        $('dlp').textContent = `${download.rows.length} nouvelles lignes (index historique ${decoded.sequence + 1} / ${download.total || '?'})`;
+        $('dlp').textContent = `${download.rows.length} nouvelles lignes (index historique ${decoded.sequence + 1})`;
         armTimer();
         // L’octet 13 n’est pas interprété comme marqueur de fin : sa sémantique
         // n’est pas démontrée par la capture Purevent disponible.
@@ -143,10 +143,7 @@ export function createBluetoothNotificationHandler(deps) {
       $('hi').textContent = cur.s1_h;
       $('t2').textContent = cur.s2_t;
       $('h2').textContent = cur.s2_h;
-    } else if (decoded.kind === 'history-total') {
-      download.total = decoded.total;
-      return;
-    } else {
+    }    } else {
       return;
     }
 
