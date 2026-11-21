@@ -5,7 +5,7 @@
  * les références Purevent et VMI+ divergent et aucune capture utilisateur sous 0 °C ne tranche.
  */
 /**
- * @typedef {{kind:'invalid',type:number,length:number,requiredLength:number,reason:'truncated'|'length'|'checksum'}|{kind:'history',valid:false,length:number,reason:'truncated'|'length'|'checksum'}|{kind:'history',valid:true,payload:Uint8Array,sequence:number,chunkIndex:number,received:number}|{kind:'history-count',count:number,length:number}|{kind:'ack',length:number}|{kind:'state',filter:number,days:number,volume:number,maxTemperature:number,rawSpeed:number,boost:number,holiday:boolean,vacationDays:number}|{kind:'room',temperature:number,humidity:number}|{kind:'probes',firstLocation:number,firstTemperature:number,firstHumidity:number,secondLocation:number,secondTemperature:number,secondHumidity:number}|{kind:'unknown',type:number,length:number}} VmiNotification
+ * @typedef {{kind:'invalid',type:number,length:number,requiredLength:number,reason:'truncated'|'length'|'checksum'}|{kind:'history',valid:false,length:number,reason:'truncated'|'length'|'checksum'}|{kind:'history',valid:true,payload:Uint8Array,sequence:number,chunkIndex:number,received:number}|{kind:'history-count',count:number,length:number}|{kind:'ack',length:number}|{kind:'state',filter:number,days:number,volume:number,maxTemperature:number,rawSpeed:number,boost:number,holiday:boolean,vacationDays:number,surventilation:boolean,preheatSetpoint:number,summerLimit:number,fixedAirflow:boolean,renewal:number,airChangesPerHour:number,airflowM3h:number,preheatOn:boolean}|{kind:'room',temperature:number,humidity:number}|{kind:'probes',firstLocation:number,firstTemperature:number,firstHumidity:number,secondLocation:number,secondTemperature:number,secondHumidity:number}|{kind:'unknown',type:number,length:number}} VmiNotification
  */
 
 /**
@@ -86,9 +86,18 @@ export function decodeVmiNotification(input) {
       volume: bytes[22] | (bytes[23] << 8),
       maxTemperature: bytes[38],
       rawSpeed: bytes[34],
-      boost: bytes[44],
+      boost: bytes[44] === 1,
       holiday: bytes[43] > 0,
-      vacationDays: bytes[43]
+      vacationDays: bytes[43],
+      // Purevent 6.4.002 : 0 à l'octet 33 signifie surventilation active.
+      surventilation: bytes[33] === 0,
+      preheatSetpoint: bytes[35],
+      summerLimit: bytes[38],
+      fixedAirflow: bytes[45] === 1,
+      renewal: bytes[47] | (bytes[48] << 8),
+      airChangesPerHour: (bytes[47] | (bytes[48] << 8)) / 1000,
+      airflowM3h: Math.round(((bytes[47] | (bytes[48] << 8)) * (bytes[22] | (bytes[23] << 8))) / 1000),
+      preheatOn: bytes[53] === 1
     };
   }
 
