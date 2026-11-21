@@ -108,6 +108,25 @@ Constats déjà relevés lors de l'analyse de cette capture :
 - Les notifications sont remplies/paddées au niveau ATT ; les octets après la trame utile ne doivent pas être décodés comme des données métier.
 - Aucun échantillon de température négative n'a été identifié dans les données utilisateur analysées jusqu'ici ; la divergence de conversion `-255` / `-256` reste donc ouverte.
 
+### 3.1 Comparaison détaillée des trames et de la séquence d'historique
+
+| Élément | Référence Purevent | Référence VMI+ générique | Capture utilisateur / décision Vmi2 |
+|---|---|---|---|
+| GATT | UUID service/commande et service/télémétrie | Mêmes UUID | Les quatre UUID et les handles 0x000C–0x0015 concordent. |
+| Trame sortante | XOR du type au dernier octet de données | CRC-8 poly 0x01, init 0, XOR final 0x13 | Les 39 trames applicatives écrites concordent avec les deux formules, algébriquement équivalentes ici. |
+| Trame entrante | XOR du type jusqu'à l'avant-dernier octet de données | Le parseur générique ne valide pas le CRC dans son chemin de décodage | Vmi2 applique la plage Purevent et dispose d'un test synthétique avec dernier octet non nul. La capture utilisateur ne distingue pas les plages : cet octet est nul sur les 1 880 trames d'historique. |
+| `0x01` état | Positions Purevent : volume 22, jours 26, filtre 28, surventilation 33, vitesse 34, consigne 35, limite été 38, vacances 43, boost 44, débit fixe 45, renouvellement 47, préchauffage 53 | Plusieurs positions concordent ; la doc générique attribue notamment une signification à l'octet 36 | Vmi2 lit les champs observés ; l'octet 36 reste volontairement ignoré, car Purevent ne le caractérise pas. |
+| `0x02` | La référence Purevent l'appelle télécommande et lit température 11 / humidité 13 | La référence générique décrit une liste de capteurs ; le type de slot 0x03 correspond à la télécommande | La trame capturée fait 128 octets utiles ; son premier slot a le type 0x03 et les valeurs 24 °C / 57 %. Vmi2 vérifie désormais ce type avant d'exposer les valeurs comme mesures du salon. |
+| `0x03` | Sondes filaires, offsets 6, 8 et 11 | Jusqu'à cinq sondes de cinq octets | La capture contient une trame de 31 octets utiles ; les deux premiers emplacements sont 0 et 1, avec 13 °C / 96 % et 12 °C / 97 %. Vmi2 décode ces deux emplacements, pas les autres. |
+| `0x04` | Non documenté dans le module Purevent public | Classe `SimpleData` | La capture reçoit `02 38 03 00 00` après le registre 0x20 et avant 0x22. Le payload 824 reste non interprété ; il ne borne plus le téléchargement. |
+| `0x23` | Classe d'accusé | `AckData`, documentée comme réponse aux écritures | Un seul ACK est observé, environ 429 ms après la mise à l'heure 0x1A ; la capture ne confirme pas un ACK après chacune des 39 écritures. |
+| `0x30` | Historique non documenté dans le module Purevent public | Classe `Csv` | 1 880 trames historiques observées ; 400 séquences 0–399. La capture s'arrête avant la fin. |
+| `0x50` | Non documenté | Non décrit comme classe de notification dans les sources consultées | Une notification apparaît environ 284 ms après l'écriture 0x2C. Corrélation temporelle, rôle inconnu. |
+
+**Séquence d'export observée :** la Vmi2 écrit 0x2C, puis 0x20, reçoit 0x04 environ 218 ms après 0x20, puis écrit 0x22. La documentation générique associe 0x20 à `CsvLength` et 0x22 à `StartCsvV2`, mais la charge utile 0x04 n'est pas spécifiée. Le lien de réponse est fortement suggéré par l'ordre temporel, pas formellement spécifié pour Purevent.
+
+**Comptage CSV corrigé :** le fichier CSV fourni comporte 804 lignes au total : quatre lignes de métadonnées/en-tête et 800 lignes datées. Les séquences 0–24 de la capture sont 25 blocs de métadonnées ; les séquences 25–399 sont 375 relevés. Le nombre 824 pourrait être un index final (0–824), un nombre de lignes, ou une autre unité ; aucune de ces interprétations n'est prouvée. Le code garde donc 0x04 non interprété et ne l'utilise pas pour déclarer un transfert complet.
+
 **À ne pas confondre :** les statistiques ci-dessus proviennent de la capture de l'utilisateur, tandis que les détails des registres génériques proviennent des dépôts publics. Les uns ne valident pas automatiquement les autres.
 
 ## 4. Enseignements pour Vmi2
@@ -122,11 +141,11 @@ Constats déjà relevés lors de l'analyse de cette capture :
 
 ## 5. Points restant à vérifier
 
-- Comparer les 43 écritures de la capture aux deux algorithmes de checksum sortant, octet par octet.
-- Conserver un test synthétique où le dernier octet de données entrant est non nul : la somme Purevent doit l'exclure, même si la capture fournie ne permet pas de distinguer cette plage (octet toujours nul).
+- Comparaison octet par octet des 39 trames applicatives sortantes et distinction des 4 écritures CCCD : effectuée. Les deux formules de somme sortante sont équivalentes dans ce protocole.
+- Test synthétique du XOR entrant avec dernier octet non nul : ajouté et exécuté dans la suite de Vmi2.
 - Vérifier exactement la signification et la réponse attendue du type `0x23` selon le registre et le modèle.
 - Vérifier les tests unitaires des trois dépôts et réutiliser uniquement les vecteurs adaptés à la Purevent.
-- Comparer les champs d'état génériques et Purevent octet par octet ; relever les offsets qui diffèrent.
+- Comparaison des champs d'état 0x01, des sondes 0x03 et de la télécommande 0x02 : réalisée pour les champs actuellement exploités par Vmi2. Les autres offsets restent à étudier.
 - Examiner si les octets d'auto-test génériques sont présents et stables sur les trames Purevent de l'utilisateur.
 - Confirmer sur la Purevent les fonctions bypass, programme hebdomadaire, capteurs avancés et GTC avant de les exposer dans Vmi2.
 - Poursuivre l'audit Vmi2 de l'historique, de la persistance, des sauvegardes/restaurations, de la gestion offline et du service worker.
