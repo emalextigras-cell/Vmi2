@@ -27,7 +27,9 @@ export function createBluetoothNotificationHandler(deps) {
     hex,
     $,
     now = Date.now,
-    onDecodedFrame = () => {}
+    onDecodedFrame = () => {},
+    filterMeasurement = (_key, value) => ({ value, status: 'accepted' }),
+    resetMeasurementFilter = () => {}
   } = deps;
 
   return function handleNotification(ev) {
@@ -145,18 +147,38 @@ export function createBluetoothNotificationHandler(deps) {
       $('bo').textContent = cur.boost ? 'Actif' : 'Arrêté';
       $('ho').textContent = cur.hol ? 'Actif' : 'Arrêté';
     } else if (decoded.kind === 'room') {
-      cur.sal_t = decoded.temperature;
-      cur.sal_h = decoded.humidity;
+      cur.sal_t_raw = decoded.temperature;
+      cur.sal_h_raw = decoded.humidity;
+      cur.sal_t = filterMeasurement('sal_t', decoded.temperature).value;
+      cur.sal_h = filterMeasurement('sal_h', decoded.humidity).value;
       lastSeen.salon = timestamp;
       $('tp').textContent = cur.sal_t;
       $('hp').textContent = cur.sal_h;
     } else if (decoded.kind === 'probes') {
       // Le protocole VMI+ utilise la localisation 0x08 pour un emplacement vide.
       // La capture Purevent confirme ce marqueur sur les trois derniers slots.
-      cur.s1_t = decoded.firstLocation === 0x08 ? null : decoded.firstTemperature;
-      cur.s1_h = decoded.firstLocation === 0x08 ? null : decoded.firstHumidity;
-      cur.s2_t = decoded.secondLocation === 0x08 ? null : decoded.secondTemperature;
-      cur.s2_h = decoded.secondLocation === 0x08 ? null : decoded.secondHumidity;
+      cur.s1_t_raw = decoded.firstTemperature;
+      cur.s1_h_raw = decoded.firstHumidity;
+      cur.s2_t_raw = decoded.secondTemperature;
+      cur.s2_h_raw = decoded.secondHumidity;
+      if (decoded.firstLocation === 0x08) {
+        resetMeasurementFilter('s1_t');
+        resetMeasurementFilter('s1_h');
+        cur.s1_t = null;
+        cur.s1_h = null;
+      } else {
+        cur.s1_t = filterMeasurement('s1_t', decoded.firstTemperature).value;
+        cur.s1_h = filterMeasurement('s1_h', decoded.firstHumidity).value;
+      }
+      if (decoded.secondLocation === 0x08) {
+        resetMeasurementFilter('s2_t');
+        resetMeasurementFilter('s2_h');
+        cur.s2_t = null;
+        cur.s2_h = null;
+      } else {
+        cur.s2_t = filterMeasurement('s2_t', decoded.secondTemperature).value;
+        cur.s2_h = filterMeasurement('s2_h', decoded.secondHumidity).value;
+      }
       lastSeen.probes = timestamp;
       $('ti').textContent = cur.s1_t ?? '–';
       $('hi').textContent = cur.s1_h ?? '–';
