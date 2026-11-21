@@ -1,16 +1,13 @@
-
-
 import { filterRawDateHistory } from './history.js';
 
 /** Normalise les conteneurs du snapshot persistant sans valider ni transformer les relevés bruts.
- * @param {{history?:unknown,live?:unknown,energyReadings?:unknown,meta?:unknown}} [values] Valeurs lues depuis IndexedDB.
+ * @param {{history?:unknown,live?:unknown,meta?:unknown}} [values] Valeurs lues depuis IndexedDB.
  * @returns {import('../types/vmi-types.js').StoreSnapshot} Snapshot avec des conteneurs de premier niveau sûrs.
  */
-export function normalizeStoreSnapshot({ history, live, energyReadings, meta } = {}) {
+export function normalizeStoreSnapshot({ history, live, meta } = {}) {
   return {
     history: Array.isArray(history) ? history : [],
     live: Array.isArray(live) ? live : [],
-    energyReadings: Array.isArray(energyReadings) ? energyReadings : [],
     meta: meta && typeof meta === 'object' && !Array.isArray(meta) ? /** @type {import('../types/vmi-types.js').UnknownRecord} */ (meta) : {}
   };
 }
@@ -64,10 +61,7 @@ export function createStore({ databaseName, storeName, onError = () => {} }) {
       throw error;
     }
   }
-  /**
-   * Écrit plusieurs clés dans une seule transaction : soit toutes sont validées,
-   * soit IndexedDB annule l'ensemble. Utilisé pour les restaurations de sauvegarde.
-   */
+  /** Écrit plusieurs clés dans une seule transaction IndexedDB. */
   async function setMany(entries) {
     if (!Array.isArray(entries) || entries.some(entry => !Array.isArray(entry) || entry.length !== 2)) {
       throw new TypeError('Écritures IndexedDB invalides.');

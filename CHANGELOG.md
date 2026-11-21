@@ -1,3 +1,10 @@
+## Nettoyage — suppression du suivi par compteur électrique externe
+- Suppression de la saisie et de l'analyse d'index de compteurs externes, qui ne correspond pas à l'installation VMI.
+- Retrait du stockage dédié, de sa fusion dans les sauvegardes, de l'analyseur, des tests et de son entrée dans le précache.
+- Les sauvegardes anciennes contenant `energyReadings` restent importables : ce champ obsolète est simplement ignoré.
+- Conservation de l'estimation énergétique du ventilateur à partir du débit VMI+ et de la courbe constructeur, ainsi que du rapprochement descriptif avec les données hygrométriques.
+- Cache du service worker porté à `vmi-test-v14-cache-84`.
+
 ## Sécurité — commandes avancées non validées
 - Désactivation visible et verrouillage à l’exécution de toutes les écritures des réglages avancés Purevent (surventilation, limite estivale, débit fixe, consigne et marche du préchauffage).
 - Les commandes manuelles classiques (vitesse, Boost, vacances), la lecture d’état et les analyses restent disponibles.

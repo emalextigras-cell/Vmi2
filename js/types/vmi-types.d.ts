@@ -59,7 +59,6 @@ export interface DisplayVmiRecord extends VmiRecord {
 export interface StoreSnapshot {
   history: unknown[];
   live: unknown[];
-  energyReadings: unknown[];
   meta: UnknownRecord;
 }
 
@@ -108,15 +107,6 @@ export interface AnalysisOptions {
   threshold?: number;
 }
 
-export type EnergyMeterType = 'ventilation' | 'preheating' | 'total';
-export interface EnergyReading {
-  id: string;
-  meterType: EnergyMeterType;
-  t: number;
-  kwh: number;
-  note?: string;
-}
-
 export interface PsychrometricResult {
   haIn: NullableNumber;
   haOut: NullableNumber;
@@ -145,44 +135,6 @@ export interface SeasonalVentilationSummary {
   minDays: number;
   temperatureMargin: number;
   limits: string[];
-}
-
-export interface EnergySummary {
-  readingCount: number;
-  meters: Array<{
-    meterType: EnergyMeterType;
-    label: string;
-    readingCount: number;
-    firstAt: number | null;
-    lastAt: number | null;
-    measuredIntervalCount: number;
-    totalKwh: number;
-    intervals: Array<{
-      from: number;
-      to: number;
-      elapsedHours: number;
-      previousKwh: number;
-      currentKwh: number;
-      deltaKwh: NullableNumber;
-      averagePowerW: NullableNumber;
-      status: 'measured' | 'counter-decreased';
-    }>;
-  }>;
-  limits: string[];
-}
-
-export interface MonthlyEnergySummary {
-  meterType: EnergyMeterType;
-  label: string;
-  months: Array<{
-    month: string;
-    energyKwh: number;
-    intervalCount: number;
-    firstAt: number;
-    lastAt: number;
-  }>;
-  crossMonthIntervalCount: number;
-  crossMonthKwh: number;
 }
 
 export interface TransientSpikeSummary {
@@ -332,17 +284,4 @@ export interface WeeklyDiagnosticResult {
   findings?:Array<{type:string;title:string;text:string}>;
   windowDays:number;minSamplesPerDay:number;minDaysPerWindow:number;minEnergyDays?:number;
   maxGapHours?:number;changeThreshold?:number;duplicateTimestampCount:number;conflictingTimestampCount:number;limits?:string[];
-}
-export interface EnergyClimateMeterContextResult {
-  meters:Array<{meterType:EnergyMeterType;label:string;intervals:Array<{
-    from:number;to:number;elapsedHours:number;previousKwh:number;currentKwh:number;
-    deltaKwh:number|null;averagePowerW:number|null;status:'measured'|'counter-decreased';context:{
-      indoorTemp?:number|null;outdoorTemp?:number|null;indoorRH?:number|null;incomingTemp?:number|null;
-      incomingRH?:number|null;indoorAbsHumidity?:number|null;incomingAbsHumidity?:number|null;
-      deltaAbsHumidity?:number|null;coverageHours:number;coveragePercent:number;coveredMs:number;
-      ready:boolean;metricCoverageHours:Record<string,number>
-    }
-  }>}>;
-  historySampleCount:number;maxGapHours:number;minCoveredHours:number;minCoveragePercent:number;
-  matchedIntervalCount:number;measuredIntervalCount:number;limits:string[];
 }

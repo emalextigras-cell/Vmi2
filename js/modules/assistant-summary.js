@@ -1,5 +1,4 @@
 /** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
-/** @typedef {import('../types/vmi-types.js').EnergyReading} EnergyReading */
 /** @typedef {import('../types/vmi-types.js').UnknownRecord} UnknownRecord */
 
 /**
@@ -30,11 +29,6 @@ import {
 } from './energy-estimate.js';
 import { summarizeDailyEnergyClimateContext } from './energy-climate.js';
 import { summarizeWeeklyDiagnostic } from './weekly-diagnostic.js';
-import {
-  summarizeEnergyReadings,
-  summarizeMonthlyEnergyReadings,
-  summarizeEnergyClimateContext
-} from './energy-meter.js';
 import { formatDiagnosisConfidence } from './diagnostic-confidence.js';
 
 const fmt = (value, digits = 1) => Number.isFinite(value)
@@ -66,7 +60,7 @@ const recommendation = (priority, title, text, reason) => ({
 /**
  * buildVmiAssistantSummary — contrat d'entrée/sortie documenté pour l'analyse statique de l'IDE.
  * @param {VmiRecord[]} data Paramètre data.
- * @param {{targetRH?: number, minSamples?: number, energyReadings?: EnergyReading[], meterHistory?: VmiRecord[]}} [options] Paramètres de la synthèse.
+ * @param {{targetRH?: number, minSamples?: number}} [options] Paramètres de la synthèse.
  * @returns {import('../types/vmi-types.js').AssistantViewModel} Modèle d'affichage pédagogique structuré.
  */
 export function buildVmiAssistantSummary(data, options = {}) {
@@ -75,8 +69,6 @@ export function buildVmiAssistantSummary(data, options = {}) {
     ? options.targetRH : 50;
   const minSamples = Number.isSafeInteger(options.minSamples) && options.minSamples > 0
     ? options.minSamples : 10;
-  const meterReadings = Array.isArray(options.energyReadings) ? options.energyReadings : [];
-  const meterHistory = Array.isArray(options.meterHistory) ? options.meterHistory : rows;
 
   if (!rows.length) {
     return {
@@ -114,9 +106,6 @@ export function buildVmiAssistantSummary(data, options = {}) {
   const rawModes = summarizeRawVmiMode(rows);
   const rawSpeeds = summarizeRawVmiSpeed(rows);
   const temperatureLimit = summarizeTemperatureLimit(rows);
-  const measuredEnergy = summarizeEnergyReadings(meterReadings);
-  const measuredEnergyClimate = summarizeEnergyClimateContext(meterReadings, meterHistory);
-  const monthlyMeasuredEnergy = summarizeMonthlyEnergyReadings(meterReadings);
 
   const accepted = diagnosis.sampleCount || 0;
   const level = diagnosis.coverageLevel || 'indéterminée';
@@ -395,45 +384,11 @@ export function buildVmiAssistantSummary(data, options = {}) {
     energyDetails.push('Le bilan comparatif des deux fenêtres de sept jours reste indisponible : chacune doit contenir au moins ' +
       weekly.minDaysPerWindow + ' journées suffisamment documentées.');
   }
-  if (measuredEnergy.meters.length) {
-    energyDetails.push('Compteurs externes : ' + measuredEnergy.meters.map(meter =>
-      meter.label + ' — ' + meter.readingCount + ' index, ' +
-      (meter.measuredIntervalCount
-        ? meter.measuredIntervalCount + ' intervalle(s) mesuré(s), ' + fmt(meter.totalKwh, 3) + ' kWh cumulés sur les intervalles valides.'
-        : 'aucun intervalle valide : consommation non calculable avec un seul index ou des index non exploitables.')
-    ).join(' ; ') + '.');
-    for (const meter of measuredEnergy.meters) {
-      const latest = [...meter.intervals].reverse().find(interval => interval.status === 'measured');
-      if (latest) energyDetails.push('Dernier intervalle mesuré — ' + meter.label + ' : ' +
-        fmt(latest.deltaKwh, 3) + ' kWh sur ' + duration(latest.elapsedHours) +
-        ', puissance moyenne ' + fmt(latest.averagePowerW) + ' W (' +
-        dateLabel(latest.from) + ' au ' + dateLabel(latest.to) + ').');
-      const monthly = monthlyMeasuredEnergy.find(item => item.meterType === meter.meterType);
-      if (monthly?.months.length) {
-        energyDetails.push('Bilans mensuels mesurés — ' + meter.label + ' : ' + monthly.months.map(month =>
-          month.month + ' : ' + fmt(month.energyKwh, 3) + ' kWh sur ' + month.intervalCount + ' intervalle(s)'
-        ).join(' ; ') + '. Les intervalles traversant un changement de mois ne sont pas répartis artificiellement.');
-      }
-      if (monthly?.crossMonthIntervalCount) energyDetails.push(monthly.crossMonthIntervalCount +
-        ' intervalle(s) de ' + meter.label + ' traversent une limite de mois (' +
-        fmt(monthly.crossMonthKwh, 3) + ' kWh) et restent exclus des totaux mensuels.');
-    }
-  } else {
-    energyDetails.push('Aucun index électrique externe enregistré : aucune consommation mesurée en kWh n’est disponible.');
-  }
-  energyDetails.push(measuredEnergyClimate.matchedIntervalCount +
-    ' intervalle(s) de compteur externe disposent d’un rapprochement climatique avec une couverture suffisante.');
-  for (const meter of measuredEnergyClimate.meters) {
-    energyDetails.push('Contexte climatique du compteur ' + meter.label + ' : ' +
-      meter.intervals.filter(interval => interval.context.ready).length + ' intervalle(s) suffisamment couverts sur ' +
-      meter.intervals.length + ' ; seuil de couverture ' + measuredEnergyClimate.minCoveredHours +
-      ' h et ' + percent(measuredEnergyClimate.minCoveragePercent) + '.');
-  }
   sections.push(section(
-    'energy', 'Énergie et consommation',
-    fan.status === 'estimated' || measuredEnergy.meters.length ? 'available' : 'limited',
+    'energy', 'Énergie estimée du ventilateur',
+    fan.status === 'estimated' ? 'available' : 'limited',
     fan.status === 'estimated'
-      ? 'Une estimation du ventilateur existe, mais elle ne remplace pas un compteur électrique.'
+      ? 'Estimation de la consommation du ventilateur PUREVENT à partir du débit historique et de la courbe constructeur.'
       : readiness.message,
     energyDetails
   ));
@@ -583,7 +538,7 @@ export function buildVmiAssistantSummary(data, options = {}) {
       'Les conseils s’appuient sur les analyses déjà calculées par l’application ; ils ne constituent pas une mesure directe de l’efficacité de la VMI.',
       'Les modes 1/2/3 sont des niveaux manuels confirmés uniquement lorsque le champ Mode est présent. Le champ Vitesse VMI+ reste brut.',
       'Le débit Debit est exprimé en m³/h. Le renouvellement débit / volume est théorique et ne décrit pas la distribution de l’air dans chaque pièce.',
-      'L’énergie issue de la courbe constructeur est une estimation du ventilateur seulement. Une consommation mesurée exige des index d’un compteur électrique externe.',
+      'L’énergie issue de la courbe constructeur est une estimation du ventilateur uniquement ; elle ne mesure ni la consommation électrique réelle, ni le préchauffage, ni la consommation totale de l’installation.',
       'Les comparaisons ne prouvent pas de causalité et ne désignent aucune vitesse optimale.',
       'Aucun diagnostic de panne physique n’est posé. Une déconnexion Bluetooth, un pic isolé ou une valeur inhabituelle ne prouvent pas une panne.',
       'Aucune commande de vitesse, Boost, Vacances ou surventilation n’est envoyée automatiquement. Les réglages restent manuels.'

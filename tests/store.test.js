@@ -114,29 +114,21 @@ test('get propage une erreur de lecture au lieu de la transformer en valeur abse
 });
 
 
-test('le contrat StoreSnapshot normalise les quatre collections et préserve les relevés bruts', () => {
+test('le contrat StoreSnapshot ne conserve que l’historique, les relevés directs et les métadonnées', () => {
   const { normalizeStoreSnapshot } = storeModule;
-  assert.equal(typeof normalizeStoreSnapshot, 'function');
   const history = [{ sh: 52 }, { t: 1760000000000, sh: 48 }];
   const live = [{ sh: 53 }];
-  const energyReadings = [{ id:'e1', meterType:'ventilation', t:1760000000000, kwh:1.2 }];
   const meta = { lastSync:'2026-11-18T12:00:00.000Z' };
-  const snapshot = normalizeStoreSnapshot({ history, live, energyReadings, meta });
-
-  assert.deepEqual(snapshot, { history, live, energyReadings, meta });
+  const snapshot = normalizeStoreSnapshot({ history, live, meta, energyReadings:[{ id:'obsolete-meter-reading' }] });
+  assert.deepEqual(snapshot, { history, live, meta });
   assert.strictEqual(snapshot.history, history);
   assert.strictEqual(snapshot.live, live);
-  assert.strictEqual(snapshot.energyReadings, energyReadings);
   assert.strictEqual(snapshot.meta, meta);
 });
 
-test('le contrat StoreSnapshot remplace les conteneurs de premier niveau mal formés par des valeurs sûres', () => {
+test('le contrat StoreSnapshot remplace les conteneurs mal formés par des valeurs sûres', () => {
   const snapshot = storeModule.normalizeStoreSnapshot({
-    history:{ t:1760000000000 },
-    live:null,
-    energyReadings:'invalid',
-    meta:['lastSync', '2026-11-18T12:00:00.000Z']
+    history:{ t:1760000000000 }, live:null, meta:['lastSync', '2026-11-18T12:00:00.000Z']
   });
-
-  assert.deepEqual(snapshot, { history:[], live:[], energyReadings:[], meta:{} });
+  assert.deepEqual(snapshot, { history:[], live:[], meta:{} });
 });

@@ -48,7 +48,7 @@ test('synthétise les analyses existantes sans inventer de consommation mesurée
 
   const energy = result.sections.find(item => item.id === 'energy');
   assert.ok(energy.details.some(line => /kWh estimés/.test(line)));
-  assert.ok(energy.details.some(line => /Aucun index électrique externe enregistré/.test(line)));
+  assert.ok(energy.details.some(line => /Cette énergie est estimée depuis le débit et la courbe constructeur/.test(line)));
   assert.ok(energy.details.some(line => /préchauffage et la consommation totale ne sont pas estimés/.test(line)));
   assert.ok(result.limits.some(line => /Aucune commande/.test(line)));
   assert.ok(result.recommendations.some(item => /Examiner les comparaisons de vitesses/.test(item.title)));
@@ -67,23 +67,20 @@ test('ne confond pas le code brut Vitesse avec les modes manuels 1/2/3', () => {
   assert.ok(!result.recommendations.some(item => /vitesses/i.test(item.title)));
 });
 
-test('distingue les index externes mesurés de l’estimation du ventilateur', () => {
+test('ignore les anciens index de compteur et conserve uniquement l’estimation VMI', () => {
   const rows = makeHistory();
-  const start = rows[0].t;
-  const end = rows[rows.length - 1].t;
   const result = buildVmiAssistantSummary(rows, {
     energyReadings: [
-      { id: 'meter-1', meterType: 'ventilation', t: start, kwh: 100 },
-      { id: 'meter-2', meterType: 'ventilation', t: end, kwh: 102 }
+      { id: 'legacy-meter-1', meterType: 'ventilation', t: rows[0].t, kwh: 100 },
+      { id: 'legacy-meter-2', meterType: 'ventilation', t: rows.at(-1).t, kwh: 102 }
     ]
   });
   const energy = result.sections.find(item => item.id === 'energy');
 
-  assert.ok(energy.details.some(line => /2 kWh cumulés/.test(line)));
   assert.ok(energy.details.some(line => /kWh estimés/.test(line)));
-  assert.ok(energy.details.some(line => /ne représente pas une mesure électrique/.test(line)));
+  assert.ok(!energy.details.some(line => /index|compteur|consommation mesurée/i.test(line)));
+  assert.match(energy.title, /ventilateur/);
 });
-
 
 test('ne transforme pas un pic isolé plausible en conseil d’alerte', () => {
   const rows = makeHistory();
