@@ -51,20 +51,22 @@ test('décode le compteur historique et conserve l’interprétation historique 
   const total = frame(0x04, 8); total[6] = 0x34; total[7] = 0x12;
   assert.deepEqual(decodeVmiNotification(total), { kind: 'history-total', total: 0x1234 });
   const history = frame(0x30, 18);
-  history[9] = 7; history[10] = 1; history[13] = 1;
+  history[9] = 7; history[10] = 1; history[11] = 5; history[13] = 1;
   history.set([65, 66, 0], 14);
   const decoded = decodeVmiNotification(history);
   assert.equal(decoded.kind, 'history');
   assert.equal(decoded.sequence, 263);
   assert.equal(decoded.chunkIndex, 0);
+  assert.equal(decoded.fragmentCount, 5);
   assert.equal(decoded.received, 263);
   assert.equal(decoded.final, true);
   assert.deepEqual([...decoded.payload], [65, 66]);
-  const fragment = frame(0x30, 18); fragment[9] = 25; fragment[12] = 10;
+  const fragment = frame(0x30, 18); fragment[9] = 25; fragment[11] = 5; fragment[12] = 10;
   fragment.set([65, 66, 0], 14);
   const decodedFragment = decodeVmiNotification(fragment);
   assert.equal(decodedFragment.sequence, 25);
   assert.equal(decodedFragment.chunkIndex, 10);
+  assert.equal(decodedFragment.fragmentCount, 5);
   assert.equal(decodedFragment.final, false);
 });
 
