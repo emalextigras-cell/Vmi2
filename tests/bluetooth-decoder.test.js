@@ -49,10 +49,12 @@ test('décode les champs de la trame état après validation XOR', () => {
   const bytes = frame(0x01, 61);
   bytes[22] = 0x34; bytes[23] = 0x12;
   bytes[26] = 19; bytes[27] = 1; bytes[28] = 2; bytes[29] = 1; bytes[34] = 1;
-  bytes[38] = 35; bytes[43] = 1; bytes[44] = 0;
+  bytes[33] = 1; bytes[35] = 16; bytes[38] = 35; bytes[43] = 1; bytes[44] = 0; bytes[45] = 1; bytes[47] = 0xE8; bytes[48] = 0x03; bytes[53] = 1;
   assert.deepEqual(decodeVmiNotification(seal(bytes)), {
     kind: 'state', filter: 258, days: 275, volume: 0x1234,
-    maxTemperature: 35, rawSpeed: 1, boost: 0, holiday: true, vacationDays: 1
+    maxTemperature: 35, rawSpeed: 1, boost: false, holiday: true, vacationDays: 1,
+    surventilation: false, preheatSetpoint: 16, summerLimit: 35, fixedAirflow: true,
+    renewal: 1000, airChangesPerHour: 1, airflowM3h: 4660, preheatOn: true
   });
 });
 
