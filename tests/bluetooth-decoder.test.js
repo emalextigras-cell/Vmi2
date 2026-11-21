@@ -52,7 +52,7 @@ test('décode les champs de la trame état après validation XOR', () => {
   bytes[38] = 35; bytes[43] = 1; bytes[44] = 0;
   assert.deepEqual(decodeVmiNotification(seal(bytes)), {
     kind: 'state', filter: 258, days: 275, volume: 0x1234,
-    maxTemperature: 35, rawSpeed: 1, boost: 0, holiday: 1
+    maxTemperature: 35, rawSpeed: 1, boost: 0, holiday: true, vacationDays: 1
   });
 });
 
