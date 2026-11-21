@@ -145,6 +145,31 @@ Constats recoupés avec le CSV du 10/11 :
 - Le nombre de séquences/trames de cette capture ne doit donc pas être comparé directement au total 824 : l'application ne retransmet pas nécessairement tout l'historique déjà stocké. La fin de synchronisation incrémentale et la fin d'un export exhaustif sont deux notions distinctes.
 
 **Conséquence pour Vmi2 :** conserver 824 comme compteur global annoncé (interprétation de travail fortement cohérente avec les deux dates et le CSV). Ne pas exiger de recevoir 824 lignes à chaque synchronisation. Pour une synchronisation incrémentale, la condition de fin pertinente reste la rencontre d'une ligne de référence déjà connue, après réception complète de ses cinq fragments observés. Le compteur global pourra servir de contrôle de cohérence ou d'indication de progression d'un export exhaustif, pas de borne de fin d'une synchronisation incrémentale.
+
+### 3.3 Audit de la sauvegarde et des clés de rapprochement
+
+Artefacts contrôlés : `00_A0_50_48_B4_A3-2026-11-10-16_55.csv` et `vmi-sauvegarde-2026-11-20.json` fournis dans la conversation.
+
+**Constats sur la sauvegarde JSON du 20/11 :**
+- `hist` contient 848 relevés. Les 848 horodatages `t` sont valides, strictement croissants dans le tableau et uniques ; aucun doublon d'horodatage n'a été détecté.
+- Les couples `rk|d` sont également uniques dans cette sauvegarde. Le compteur `d` est présent et numérique sur les 848 relevés.
+- 35 relevés portent `fixed: true` (dates corrigées) ; 84 portent explicitement `syncPartial: false` et aucun ne porte `syncPartial: true`. Les autres n'ont pas de marqueur `syncPartial` ; le code actuel les traite comme des relevés complets pour la borne de synchronisation.
+- Les dates brutes `rk` couvrent le 16/05/2018 au 19/11/2026. Le tableau est ordonné selon `t`, qui peut être une date corrigée et ne doit pas être confondue avec la date brute `rk`.
+
+**Constats sur le CSV du 10/11 :**
+- 804 lignes au total : quatre lignes de métadonnées/en-tête et 800 relevés datés.
+- Le compteur `d` va de 159 à 186. Le CSV contient des dates brutes allant du 12/04/2018 au 10/11/2026.
+- Après normalisation du zéro initial des jours/heures, seuls 461 couples `rk|d` sont communs aux deux exports. Ils ne constituent donc pas deux instantanés strictement identiques dont l'un serait simplement un ajout de lignes à l'autre.
+- Exemple concret de non-unicité du compteur seul : `d=172` apparaît avec des dates brutes d'avril 2018 dans le CSV et d'octobre 2026 dans la sauvegarde JSON. Le compteur de jours ne peut donc pas être utilisé seul comme identifiant d'un relevé.
+
+**Lecture du code de persistance :**
+- `mergeImportedHistory` et `mergeBackupData` regroupent les relevés par horodatage corrigé `t` ; les doublons à `t` égal sont enrichis champ par champ.
+- La borne de synchronisation BLE utilise une autre signature, `rk|d` (date brute + compteur). Cette distinction est cohérente avec la nécessité de conserver la date brute pour diagnostiquer l'horloge, mais elle mérite des tests ciblés lorsque le même relevé peut être présenté avec une date brute différente après une correction ou un redémarrage d'horloge.
+- `mergeRecordFields` conserve les champs déjà connus lorsqu'une source ne les fournit pas et permet qu'un relevé partiel soit complété par une source complète. Les imports/restaurations fusionnent les données ; ils ne remplacent pas aveuglément l'historique local.
+- La restauration sauvegarde `hist`, `live` et `energyReadings` dans une transaction IndexedDB unique. L'état mémoire n'est actualisé qu'après succès de cette transaction.
+
+**Point à poursuivre :** construire des tests de rapprochement sur des lignes identiques dont `rk` change, sur un compteur `d` réinitialisé, et sur deux relevés distincts partageant un même horodatage corrigé. Ne pas modifier la signature ou la clé de fusion avant d'avoir établi ces cas à partir des données et du comportement réel de la VMI.
+
 ## 4. Enseignements pour Vmi2
 
 1. **Fraîcheur par session :** remettre à zéro les horodatages de mesures à chaque reconnexion. Distinguer lien BLE ouvert, dernière donnée reçue, donnée fraîche et donnée admissible à un snapshot.
