@@ -177,6 +177,39 @@ Artefacts contrôlés : `00_A0_50_48_B4_A3-2026-11-10-16_55.csv` et `vmi-sauvega
 
 **Point à poursuivre :** construire des tests de rapprochement sur des lignes identiques dont `rk` change, sur un compteur `d` réinitialisé, et sur deux relevés distincts partageant un même horodatage corrigé. Ne pas modifier la signature ou la clé de fusion avant d'avoir établi ces cas à partir des données et du comportement réel de la VMI.
 
+
+### 3.5 Emplacements de sondes vides, fraîcheur BLE et séquencement des requêtes
+
+**Emplacements vides — défaut confirmé sur la capture utilisateur :**
+- La documentation de `ha-vmi-plus/PROTOCOL.md` indique que les emplacements de sondes filaires inutilisés portent la localisation `0x08`.
+- Vérification directe du fichier `btsnoop_hci.log` : une trame Purevent `0x03` utile de 31 octets contient les cinq emplacements suivants :
+  - slot 0 : `00 0d 00 60 00` (actif, localisation 0) ;
+  - slot 1 : `01 0c 00 61 00` (actif, localisation 1) ;
+  - slots 2, 3 et 4 : `08 00 00 00 00` (vides).
+- Avant correction, le décodeur exposait les températures et humidités des cinq slots, et le runtime mettait à jour les deux premières sondes sans contrôler leur localisation. Les emplacements vides pouvaient donc être présentés comme des mesures à 0 °C et 0 % HR.
+- Vmi2 ignore maintenant les mesures d'un slot dont la localisation vaut `0x08`, conserve les mesures des slots actifs et affiche un tiret pour un slot vide.
+- Un test runtime couvre le cas d'un premier slot vide et d'un second actif.
+
+**Fraîcheur de la liaison :**
+- La référence Purevent définit « connectée » comme une liaison GATT ouverte ET une trame d'état valide reçue depuis moins de 35 secondes. Elle ferme et recrée la liaison si le contrôleur reste ouvert mais ne répond plus.
+- Avant cette évolution, Vmi2 assimilait essentiellement `gatt.connected` à une connexion active. Une liaison silencieuse pouvait donc rester affichée comme connectée, même sans nouvelle trame d'état.
+- Vmi2 ajoute un watchdog de fraîcheur à 35 secondes, aligné sur la référence Purevent. Il tient compte de la date de connexion lorsqu'aucun état n'est encore arrivé, et suspend son contrôle pendant un téléchargement historique ou une commande utilisateur. En cas de silence, il demande une déconnexion GATT ; le mécanisme de reconnexion existant reprend ensuite la main.
+- Les horodatages de réception sont réinitialisés à chaque nouvelle connexion afin qu'une ancienne trame d'état ne rende pas fraîche une nouvelle session.
+- Tests dédiés : liaison déconnectée, téléchargement en cours, commande en cours, trame récente, trame ancienne et absence de première trame.
+
+**Séquencement des requêtes — différence encore à surveiller :**
+- Purevent sérialise les requêtes et attend une notification valide du type attendu. Le délai maximal de réponse est de 5 secondes. Pour une commande, il vérifie l'état métier renvoyé ; en cas de doute, il relit l'état sans renvoyer la commande, afin de ne pas inverser deux fois une bascule.
+- Le client générique `vmi-plus-ble` attend également la classe de réponse attendue pour ses lectures (`_request`). Ses écritures simples attendent seulement l'acceptation GATT.
+- Vmi2 sérialise les écritures GATT dans une file avec un délai de 350 ms, mais la boucle de lecture n'attend pas explicitement la notification correspondante avant d'envoyer le registre suivant. Les commandes manuelles ont, elles, une vérification d'état et une relecture de secours.
+- Dans la capture utilisateur, les réponses initiales aux lectures `0x03`, `0x06` et `0x07` arrivent respectivement environ 178 ms, 276 ms et 207 ms après leur écriture. Cela rend le délai actuel cohérent avec ce scénario observé, mais ne garantit pas le comportement en cas de réponse lente, retardée ou perdue.
+- Piste à traiter séparément : associer chaque lecture à sa réponse attendue et gérer un timeout explicite, sans perturber le flux historique `0x30`. Ne pas modifier ce mécanisme sans tests de séquence couvrant notifications retardées, doublons et déconnexion.
+
+**Longueurs minimales des sondes — pas de relâchement automatique :**
+- Le parseur Purevent public déclare des minima de 14 octets pour `0x02` et 12 pour `0x03`, alors que Vmi2 exige les longueurs utiles observées de 128 et 31 octets.
+- Ces minima externes ne prouvent pas que des trames Purevent plus courtes sont émises dans les scénarios réels. En outre, Vmi2 lit davantage de champs de sondes, notamment l'humidité du second emplacement à l'offset 13, que le décodeur Purevent minimal.
+- Décision : conserver les seuils actuels tant qu'aucune trame courte valide n'a été observée ou spécifiée. Une éventuelle évolution devra décoder seulement les champs réellement présents et ne jamais lire l'octet de somme comme une mesure.
+
+
 ## 4. Enseignements pour Vmi2
 
 1. **Fraîcheur par session :** remettre à zéro les horodatages de mesures à chaque reconnexion. Distinguer lien BLE ouvert, dernière donnée reçue, donnée fraîche et donnée admissible à un snapshot.
