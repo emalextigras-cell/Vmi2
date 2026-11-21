@@ -28,11 +28,13 @@ Constantes : [const.py](https://github.com/clemvillon/ha-vmi-purevent/blob/main/
 - Les sondes filaires sont décodées à partir des positions 6 (température 1), 8 (humidité 1) et 11 (température 2). La télécommande utilise les positions 11 (température) et 13 (humidité).
 - Le débit théorique est calculé à partir du renouvellement et du volume de la maison ; ce n'est pas une mesure directe de débit d'air.
 
-**Contrôle d'intégrité : divergence à ne pas gommer.**
-- Le code Purevent calcule les trames sortantes par XOR simple de tout le corps après l'en-tête.
-- Pour les trames reçues, `somme_recue()` calcule le XOR du type jusqu'à l'avant-dernier octet annoncé : le dernier octet des données annoncées n'entre pas dans le calcul.
-- L'auteur explique que cette règle entrante a été identifiée après des trames d'état que l'ancienne plage de calcul rejetait. Les notifications sont remplies de zéros au-delà de la trame utile.
-- Le décodeur Purevent vérifie l'en-tête, la longueur annoncée et la somme avant de traiter une notification.
+**Contrôle d'intégrité — distinguer les sens de transmission.**
+- Pour les trames sortantes, Purevent calcule le XOR de tout le corps après l'en-tête, jusqu'au dernier des octets annoncés.
+- Pour les trames entrantes, `somme_recue()` calcule le XOR du type jusqu'à l'avant-dernier octet de données annoncées : le dernier octet de données est exclu, puis la somme est lue juste après.
+- Cette différence de plage est explicitement documentée dans `protocol.py`. L'auteur précise que le dernier octet de données est presque toujours nul dans ses captures, ce qui masquait la différence.
+- La formule du dépôt VMI+ générique (CRC-8, polynôme 0x01, init 0, XOR final 0x13, calcul sur la trame complète sans l'octet de somme) n'est pas un algorithme distinct dans ce cas : le polynôme 0x01 ramène le calcul au XOR des octets, et `0xA5 XOR 0xB6 = 0x13`. Le XOR final annule donc le XOR de l'en-tête et donne le même résultat que le XOR Purevent du corps sortant.
+- Le parseur générique `parse_frame()` de `vmi-plus-ble` ne vérifie toutefois pas le CRC dans ce chemin de décodage.
+- Le décodeur Purevent vérifie l'en-tête, la longueur annoncée et la somme avant de traiter une notification ; les octets de padding ATT après la trame utile ne font pas partie du calcul.
 
 **Températures négatives : non résolu.**
 - Purevent utilise `octet - 256` pour les octets signés.
@@ -96,13 +98,15 @@ Client BLE : [client.py](https://github.com/srThibaultP/vmi-plus-ble/blob/main/s
 Fichier analysé : `btsnoop_hci.log` fourni dans la conversation.
 
 Constats déjà relevés lors de l'analyse de cette capture :
-- 1 892 notifications ATT, dont 1 880 notifications d'historique `0x30`.
-- 43 écritures ATT observées sur la caractéristique de commande.
-- Les commandes de lecture `0x03`, `0x06`, `0x07`, la mise à l'heure `0x1A` et les commandes d'historique `0x2C`, `0x20`, `0x22` sont présentes.
-- Une notification `0x23` a été observée dans cette capture ; cela ne suffit pas à démontrer que toutes les commandes reçoivent ou doivent attendre un ACK dans ce scénario.
+- 1 892 notifications ATT ont été reconstituées ; 1 880 portent une trame d'historique `0x30` de 116 octets utiles dans une valeur ATT de 182 octets.
+- Sur ces 1 880 trames `0x30`, 1 870 passent la somme entrante Purevent et 10 sont invalides. Le dernier octet de données annoncé (index 114 dans la trame) vaut zéro sur les 1 880 trames : la capture seule ne permet donc pas de distinguer l'ancienne plage XOR de la plage Purevent documentée.
+- Les séquences observées vont de 0 à 399. Les séquences 0 à 24 sont des blocs de métadonnées à un fragment ; les séquences 25 à 399 correspondent à 375 lignes de données attendues sur cinq fragments (indices 0, 10, 20, 30, 40). 356 lignes sont complètes et 19 incomplètes ; 20 positions de fragments sont absentes sur 17 séquences, auxquelles s'ajoutent 10 fragments reçus mais invalides par leur somme.
+- 43 requêtes ATT d'écriture ont été observées : 39 trames protocole sur le handle de commande (handle ATT 0x0013) et 4 écritures CCCD (deux sur 0x000F, deux sur 0x0015). Les 39 trames protocole comprennent 38 commandes de classe `0x10` et une mise à l'heure `0x1A`. Les commandes `0x10` observées portent les registres `0x03` (12 fois), `0x06` (12), `0x07` (11), `0x2C`, `0x20` et `0x22` (une fois chacun).
+- Les 39 trames sortantes passent le XOR Purevent. Elles passent aussi la formule CRC-8 générique, ce qui est attendu puisque les deux formules sont algébriquement équivalentes sur la trame sortante décrite ci-dessus ; la capture ne constitue pas deux validations indépendantes.
+- Une notification `0x23` a été observée ; cela ne suffit pas à démontrer que toutes les commandes reçoivent ou doivent attendre un ACK dans ce scénario.
+- Une notification `0x04` contient la valeur `824` aux positions interprétées par Vmi2 comme un total historique. Cette sémantique n'est pas confirmée par les sources Purevent publiques. La capture s'arrête à la séquence 399 et ne prouve pas que l'ensemble de l'historique a été reçu.
 - Les notifications sont remplies/paddées au niveau ATT ; les octets après la trame utile ne doivent pas être décodés comme des données métier.
-- L'analyse antérieure a relevé des fragments d'historique manquants et des fragments dont le XOR ne passe pas. L'historique incomplet ne doit pas être présenté comme une synchronisation intégrale certifiée.
-- Aucun échantillon de température négative n'a été identifié dans les données utilisateur analysées jusqu'ici ; la divergence -255 / -256 reste donc ouverte.
+- Aucun échantillon de température négative n'a été identifié dans les données utilisateur analysées jusqu'ici ; la divergence de conversion `-255` / `-256` reste donc ouverte.
 
 **À ne pas confondre :** les statistiques ci-dessus proviennent de la capture de l'utilisateur, tandis que les détails des registres génériques proviennent des dépôts publics. Les uns ne valident pas automatiquement les autres.
 
@@ -119,7 +123,7 @@ Constats déjà relevés lors de l'analyse de cette capture :
 ## 5. Points restant à vérifier
 
 - Comparer les 43 écritures de la capture aux deux algorithmes de checksum sortant, octet par octet.
-- Rejouer la validation XOR entrante sur toutes les notifications utiles, en respectant la longueur annoncée et le padding ATT.
+- Conserver un test synthétique où le dernier octet de données entrant est non nul : la somme Purevent doit l'exclure, même si la capture fournie ne permet pas de distinguer cette plage (octet toujours nul).
 - Vérifier exactement la signification et la réponse attendue du type `0x23` selon le registre et le modèle.
 - Vérifier les tests unitaires des trois dépôts et réutiliser uniquement les vecteurs adaptés à la Purevent.
 - Comparer les champs d'état génériques et Purevent octet par octet ; relever les offsets qui diffèrent.
