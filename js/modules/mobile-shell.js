@@ -173,7 +173,7 @@ if (main) {
       const active = panel.id === 'tab-' + name;
       panel.hidden = !active;
     });
-    nav.querySelectorAll('button[data-tab]').forEach(button => {
+    nav.querySelectorAll('button').forEach(button => {
       button.setAttribute('aria-selected', String(button.dataset.tab === name));
     });
     document.body.dataset.activeTab = name;
