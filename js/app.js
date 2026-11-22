@@ -715,11 +715,11 @@ function buildDiagnostic(){
   L.push(`  trous > 2 h : ${gaps.length}${gaps.length?' : '+gaps.slice(0,8).join(' ; '):''}`);
   const miss=k=>valid.filter(r=>r[k]==null).length;
   L.push(`  valeurs manquantes : salon T ${miss('st')}, ext. VMI+ T ${miss('tExt')}, salon HR ${miss('sh')}, sonde 1 T ${miss('t1')}, air entrant T ${miss('te')}, air entrant HR ${miss('he')}, régime ${miss('rpm')}`);
-  for(const [key,label] of [['st','Salon'],['t1','Sonde résistances'],['te','Air entrant']]){
+  for(const [key,label] of [['st','Salon'],['t1','Air chauffé'],['te','Air entrant']]){
    const extreme=valid.filter(r=>typeof r[key]==='number'&&Number.isFinite(r[key])&&r[key]>40);
    L.push(`  Température >40°C – ${label} : ${extreme.length}${extreme.length?' · '+extreme.slice(0,8).map(r=>fmtLocal(r.t)+' = '+r[key]+'°C').join(' ; '):''}`);
   }
-  for(const [tk,hk,label] of [['st','sh','Salon'],['t1','h1','Sonde résistances'],['te','he','Air entrant']]){
+  for(const [tk,hk,label] of [['st','sh','Salon'],['t1','h1','Air chauffé'],['te','he','Air entrant']]){
    const extreme=valid.map(r=>{const t=r[tk],h=r[hk];return {r,v:typeof t==='number'&&typeof h==='number'&&Number.isFinite(t)&&Number.isFinite(h)?absoluteHumidity(t,h):null}}).filter(x=>Number.isFinite(x.v)&&x.v>35);
    L.push(`  Humidité absolue calculée >35 g/m³ – ${label} : ${extreme.length}${extreme.length?' · '+extreme.slice(0,8).map(x=>fmtLocal(x.r.t)+' = '+x.v.toFixed(1)).join(' ; '):''}`);
   }
