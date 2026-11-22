@@ -44,7 +44,13 @@ if (main) {
   const footer = main.querySelector(':scope > footer');
 
   const append = (target, ...nodes) => nodes.filter(Boolean).forEach(node => target.append(node));
-  append(home, intro, errorBanner, live, commands, analyses, comparison);
+  const analysisDetails = document.createElement('details');
+  analysisDetails.className = 'card compact home-analysis-details';
+  analysisDetails.innerHTML = '<summary>Analyses détaillées et conseils</summary>';
+  append(analysisDetails, analyses, comparison);
+  if (commands) commands.open = false;
+  if (live) live.open = false;
+  append(home, intro, errorBanner, live, commands, analysisDetails);
   append(history, historyPanel);
   append(settings, connection);
   if (connection) connection.open = true;
