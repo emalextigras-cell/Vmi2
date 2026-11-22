@@ -249,7 +249,7 @@ export function renderCharts(data,selectedDate,$){
  const chartData=viewModel.records;
  const chartDate=viewModel.selectedDate;
  drawChart('chartRH','Humidité relative',[
-  seriesFor(chartData,'sh','Salon',COLORS[0],r=>isPlausibleHumidity(r.sh)?r.sh:null,r=>Number.isFinite(r.sh)&&!isPlausibleHumidity(r.sh)),seriesFor(chartData,'h1','Sonde résistances',COLORS[1],r=>isPlausibleHumidity(r.h1)?r.h1:null,r=>Number.isFinite(r.h1)&&!isPlausibleHumidity(r.h1)),seriesFor(chartData,'he','Air entrant',COLORS[2],r=>isPlausibleHumidity(r.he)?r.he:null,r=>Number.isFinite(r.he)&&!isPlausibleHumidity(r.he))],chartDate,$);
+  seriesFor(chartData,'sh','Salon',COLORS[0],r=>isPlausibleHumidity(r.sh)?r.sh:null,r=>Number.isFinite(r.sh)&&!isPlausibleHumidity(r.sh)),seriesFor(chartData,'h1','Air chauffé',COLORS[1],r=>isPlausibleHumidity(r.h1)?r.h1:null,r=>Number.isFinite(r.h1)&&!isPlausibleHumidity(r.h1)),seriesFor(chartData,'he','Air entrant',COLORS[2],r=>isPlausibleHumidity(r.he)?r.he:null,r=>Number.isFinite(r.he)&&!isPlausibleHumidity(r.he))],chartDate,$);
  drawChart('chartVmiAbs','Humidité absolue exportée par VMI+ (valeurs brutes, unité à confirmer)',[
   seriesFor(chartData,'vmiAbsP0','P0 sortie résistance',COLORS[1]),
   seriesFor(chartData,'vmiAbsP1','P1 entrée air',COLORS[2])],chartDate,$);
