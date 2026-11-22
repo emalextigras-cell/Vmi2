@@ -21,7 +21,7 @@ import { createReconnectHandler } from './bluetooth-runtime.js';
  *  onNotification: Function, onSessionCleanup: Function, onConnected: Function,
  *  onManualConnectRequested: Function, onManualConnectSettled: Function,
  *  getLastStateAt: Function, isDownloadActive: Function, isCommandPending: Function,
- *  onSnapshot: Function, onAutoHistory: Function, now?: Function,
+ *  onAutoHistory: Function, now?: Function,
  *  setTimeoutFn?: Function, clearTimeoutFn?: Function,
  *  setIntervalFn?: Function, clearIntervalFn?: Function
  * }} deps
@@ -49,7 +49,6 @@ export function createBluetoothService(deps) {
   let disconnectHandler = null;
   let reconnectTimer = null;
   let pollTimer = null;
-  let snapshotTimer = null;
   let freshnessTimer = null;
   let pollingToken = null;
   let autoHistoryDone = false;
@@ -174,7 +173,6 @@ export function createBluetoothService(deps) {
     connectedAt = 0;
     staleDisconnectRequested = false;
     clearIntervalFn(pollTimer);
-    clearIntervalFn(snapshotTimer);
     clearTimeoutFn(reconnectTimer);
     pollingToken = null;
     deps.onSessionCleanup();
@@ -218,7 +216,6 @@ export function createBluetoothService(deps) {
 
   function startPolling() {
     clearIntervalFn(pollTimer);
-    clearIntervalFn(snapshotTimer);
     clearIntervalFn(freshnessTimer);
     freshnessTimer = setIntervalFn(checkFreshness, 5000);
     const token = generation;
@@ -226,12 +223,6 @@ export function createBluetoothService(deps) {
     pollTimer = setIntervalFn(() => {
       if (token === generation) void poll();
     }, 12000);
-    setTimeoutFn(() => {
-      if (token === generation && connected()) deps.onSnapshot();
-    }, 15000);
-    snapshotTimer = setIntervalFn(() => {
-      if (token === generation && connected()) deps.onSnapshot();
-    }, 300000);
   }
 
   function sessionIsCurrent(token, expectedDevice = device) {
