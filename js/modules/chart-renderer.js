@@ -96,9 +96,9 @@ function accessibleDataTable(title,series){
  if(!rows.length)return '';
  return `<details class="chart-data"><summary>Consulter les valeurs du graphique en tableau (12 derniers points par courbe)</summary><div class="chart-table-scroll"><table><caption>${escapeHtml(title)} — valeurs numériques, relevés les plus récents</caption><thead><tr><th scope="col">Série</th><th scope="col">Date et heure</th><th scope="col">Valeur</th></tr></thead><tbody>${rows.join('')}</tbody></table></div></details>`;
 }
-function drawChart(id,title,series,selectedDate,$){
+function drawChart(id,title,series,selectedDate,$,comfortBand=false){
  const el=$(id),all=series.flatMap(s=>s.points.filter(p=>Number.isFinite(p.v)));
- if(!all.length){el.innerHTML='<p class="note">Pas de données disponibles pour cette période.</p>';return}
+ if(!all.length){el.innerHTML='<p class="chart-empty">Pas encore d’historique : connecte la VMI pour le récupérer ou importe un export VMI+.</p>';return}
  const W=700,H=215,L=48,R=12,T=18,B=30;
  const daily=!!selectedDate;
  let x0,x1;
@@ -108,10 +108,10 @@ function drawChart(id,title,series,selectedDate,$){
  const view=viewStates.get(id)||{factor:1,center:.5};viewStates.set(id,view);
  const viewSpan=baseSpan/view.factor;
  x0=baseX0+(baseSpan-viewSpan)*view.center;x1=x0+viewSpan;
- const vals=all.map(p=>p.v);let y0=Math.min(...vals),y1=Math.max(...vals);if(y0===y1){y0-=1;y1+=1}
+ const vals=all.map(p=>p.v);let y0=Math.min(...vals),y1=Math.max(...vals);if(comfortBand){y0=Math.min(y0,40);y1=Math.max(y1,60)}if(y0===y1){y0-=1;y1+=1}
  const margin=(y1-y0)*.1;y0-=margin;y1+=margin;
  const X=t=>L+(t-x0)/(x1-x0)*(W-L-R),Y=v=>T+(1-(v-y0)/(y1-y0))*(H-T-B);
- let svg='';
+ let svg=comfortBand?`<rect x="${L}" y="${Y(60)}" width="${W-L-R}" height="${Math.max(0,Y(40)-Y(60))}" fill="rgba(60,155,105,.13)"/>`:'';
  for(let i=0;i<=4;i++){const v=y0+(y1-y0)*i/4,y=Y(v);svg+=`<line class="gridline" x1="${L}" x2="${W-R}" y1="${y}" y2="${y}"/><text x="${L-7}" y="${y+3}" text-anchor="end">${v.toFixed(1)}</text>`}
  if(daily){for(let h=0;h<=24;h+=3){const tick=new Date(x0);tick.setHours(h,0,0,0);const x=X(tick.getTime());svg+=`<line class="gridline" x1="${x}" x2="${x}" y1="${T}" y2="${H-B}"/><text x="${x}" y="${H-10}" text-anchor="${h===0?'start':h===24?'end':'middle'}">${pad(h)}h</text>`}}
  else{const span=x1-x0,withHour=span<=3*86400000;for(let i=0;i<=4;i++){const t=x0+span*i/4,x=X(t);svg+=`<text x="${x}" y="${H-10}" text-anchor="${i===0?'start':i===4?'end':'middle'}">${fmtTick(t,withHour)}</text>`}}
@@ -137,7 +137,7 @@ function drawChart(id,title,series,selectedDate,$){
  }
  const legend=series.map(s=>`<span><i class="dot" style="background:${s.color}"></i>${s.name}</span>`).join('');
  el.innerHTML=`<div class="chart-toolbar"><div class="legend">${legend}</div><div class="zoom-controls"><button type="button" data-zoom="out" aria-label="Dézoomer" ${view.factor<=1?'disabled':''}>−</button><span>${view.factor.toFixed(1).replace('.0','')}×</span><button type="button" data-zoom="in" aria-label="Zoomer" ${view.factor>=20?'disabled':''}>+</button><button type="button" data-zoom="left" aria-label="Déplacer vers la gauche" ${view.factor<=1?'disabled':''}>◀</button><button type="button" data-zoom="right" aria-label="Déplacer vers la droite" ${view.factor<=1?'disabled':''}>▶</button><button type="button" data-zoom="reset" ${view.factor<=1?'disabled':''}>Réinitialiser</button></div></div><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${title}">${svg}<line id="${id}Cur" class="gridline" y1="${T}" y2="${H-B}" x1="0" x2="0" style="display:none"/></svg><div class="tip" aria-hidden="true"></div>${accessibleDataTable(title,series)}${continuityDiagnostics(series)}`;
- el.querySelectorAll('[data-zoom]').forEach(button=>button.addEventListener('click',()=>{const action=button.dataset.zoom;if(action==='in'){view.factor=Math.min(20,view.factor*1.6);}else if(action==='out'){view.factor=Math.max(1,view.factor/1.6);if(view.factor===1)view.center=.5;}else if(action==='left'){view.center=Math.max(0,view.center-.18/view.factor);}else if(action==='right'){view.center=Math.min(1,view.center+.18/view.factor);}else{view.factor=1;view.center=.5;}drawChart(id,title,series,selectedDate,$);}));
+ el.querySelectorAll('[data-zoom]').forEach(button=>button.addEventListener('click',()=>{const action=button.dataset.zoom;if(action==='in'){view.factor=Math.min(20,view.factor*1.6);}else if(action==='out'){view.factor=Math.max(1,view.factor/1.6);if(view.factor===1)view.center=.5;}else if(action==='left'){view.center=Math.max(0,view.center-.18/view.factor);}else if(action==='right'){view.center=Math.min(1,view.center+.18/view.factor);}else{view.factor=1;view.center=.5;}drawChart(id,title,series,selectedDate,$,comfortBand);}));
  /* Recherche dichotomique : évite de parcourir tout l'historique à chaque mouvement du doigt. */
  const nearest=(points,t)=>{let lo=0,hi=points.length;while(lo<hi){const mid=(lo+hi)>>1;if(points[mid].t<t)lo=mid+1;else hi=mid;}let best=null;for(let k=Math.max(0,lo-1);k<Math.min(points.length,lo+2);k++){const p=points[k];if(Number.isFinite(p.v)){const dd=Math.abs(p.t-t);if(!best||dd<best.dd)best={dd,t:p.t,v:p.v};}}return best;};
  const nearestPoints=series.map(s=>({series:s,points:s.points.filter(p=>Number.isFinite(p.v))}));
@@ -158,6 +158,10 @@ function drawChart(id,title,series,selectedDate,$){
   const cx=X(tShown);cursor.setAttribute('x1',cx);cursor.setAttribute('x2',cx);cursor.style.display='block';
  };
  svgEl.addEventListener('pointermove',move);svgEl.addEventListener('pointerdown',move);
+ let pinchDistance=0,pinchFactor=view.factor;
+ const touchDistance=touches=>Math.hypot(touches[0].clientX-touches[1].clientX,touches[0].clientY-touches[1].clientY);
+ svgEl.addEventListener('touchstart',event=>{if(event.touches.length===2){pinchDistance=touchDistance(event.touches);pinchFactor=view.factor;}},{passive:true});
+ svgEl.addEventListener('touchmove',event=>{if(event.touches.length!==2||!pinchDistance)return;event.preventDefault();const distance=touchDistance(event.touches);view.factor=Math.max(1,Math.min(20,pinchFactor*distance/pinchDistance));drawChart(id,title,series,selectedDate,$,comfortBand);},{passive:false});
  svgEl.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse'){tip.style.display='none';cursor.style.display='none'}});
 }
 function seriesFor(data,key,name,color,derive=null,invalid=null){
@@ -188,8 +192,57 @@ export function buildChartViewModel(data, selectedDate = null) {
  * @param {(id:string)=>HTMLElement|null} $ Fonction de résolution des éléments DOM.
  * @returns {void}
  */
+let selectedMetric='humidity';
+let selectedPeriod='7d';
+function renderSingleChart(viewModel,$){
+ const root=$('chartMain');
+ if(!root)return false;
+ const controls=root.parentElement?.querySelector('.chart-options') || document.querySelector('.chart-options');
+ if(controls&&!controls.dataset.bound){
+  controls.dataset.bound='true';
+  controls.querySelectorAll('[data-chart-metric]').forEach(button=>button.addEventListener('click',()=>{
+   selectedMetric=button.dataset.chartMetric;
+   renderCharts(viewModel.records,null,$);
+  }));
+  controls.querySelectorAll('[data-chart-period]').forEach(button=>button.addEventListener('click',()=>{
+   selectedPeriod=button.dataset.chartPeriod;
+   renderCharts(viewModel.records,null,$);
+  }));
+ }
+ controls?.querySelectorAll('[data-chart-metric]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.chartMetric===selectedMetric)));
+ controls?.querySelectorAll('[data-chart-period]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.chartPeriod===selectedPeriod)));
+ const all=viewModel.records;
+ if(!all.length){drawChart('chartMain','Évolution des mesures',[],null,$,false);return true;}
+ const latest=all[all.length-1].t;
+ const duration=selectedPeriod==='24h'?86400000:selectedPeriod==='30d'?30*86400000:7*86400000;
+ const start=latest-duration;
+ const data=all.filter(record=>record.t>=start);
+ let title='Humidité relative (%)',series=[],comfort=true;
+ if(selectedMetric==='temperature'){
+  title='Température (°C)';comfort=false;
+  series=[
+   seriesFor(data,'st','Salon',COLORS[0],r=>isPlausibleTemperature(r.st)?r.st:null,r=>Number.isFinite(r.st)&&!isPlausibleTemperature(r.st)),
+   seriesFor(data,'t1','Air chauffé',COLORS[1],r=>isPlausibleTemperature(r.t1)?r.t1:null,r=>Number.isFinite(r.t1)&&!isPlausibleTemperature(r.t1)),
+   seriesFor(data,'te','Air entrant',COLORS[2],r=>isPlausibleTemperature(r.te)?r.te:null,r=>Number.isFinite(r.te)&&!isPlausibleTemperature(r.te))
+  ];
+ }else if(selectedMetric==='rpm'){
+  title='Régime ventilateur (tr/min)';comfort=false;
+  series=[seriesFor(data,'rpm','Ventilateur',COLORS[0])];
+ }else{
+  series=[
+   seriesFor(data,'sh','Salon',COLORS[0],r=>isPlausibleHumidity(r.sh)?r.sh:null,r=>Number.isFinite(r.sh)&&!isPlausibleHumidity(r.sh)),
+   seriesFor(data,'h1','Air chauffé',COLORS[1],r=>isPlausibleHumidity(r.h1)?r.h1:null,r=>Number.isFinite(r.h1)&&!isPlausibleHumidity(r.h1)),
+   seriesFor(data,'he','Air entrant',COLORS[2],r=>isPlausibleHumidity(r.he)?r.he:null,r=>Number.isFinite(r.he)&&!isPlausibleHumidity(r.he))
+  ];
+ }
+ drawChart('chartMain',title,series,null,$,comfort);
+ const note=$('chartComfortNote');
+ if(note)note.hidden=!comfort;
+ return true;
+}
 export function renderCharts(data,selectedDate,$){
  const viewModel=buildChartViewModel(data,selectedDate);
+ if(renderSingleChart(viewModel,$))return;
  const chartData=viewModel.records;
  const chartDate=viewModel.selectedDate;
  drawChart('chartRH','Humidité relative',[
