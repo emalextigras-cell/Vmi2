@@ -161,7 +161,8 @@ function drawChart(id,title,series,selectedDate,$,comfortBand=false){
  let pinchDistance=0,pinchFactor=view.factor;
  const touchDistance=touches=>Math.hypot(touches[0].clientX-touches[1].clientX,touches[0].clientY-touches[1].clientY);
  svgEl.addEventListener('touchstart',event=>{if(event.touches.length===2){pinchDistance=touchDistance(event.touches);pinchFactor=view.factor;}},{passive:true});
- svgEl.addEventListener('touchmove',event=>{if(event.touches.length!==2||!pinchDistance)return;event.preventDefault();const distance=touchDistance(event.touches);view.factor=Math.max(1,Math.min(20,pinchFactor*distance/pinchDistance));drawChart(id,title,series,selectedDate,$,comfortBand);},{passive:false});
+ svgEl.addEventListener('touchmove',event=>{if(event.touches.length!==2||!pinchDistance)return;event.preventDefault();const distance=touchDistance(event.touches);view.factor=Math.max(1,Math.min(20,pinchFactor*distance/pinchDistance));},{passive:false});
+ svgEl.addEventListener('touchend',()=>{if(pinchDistance){pinchDistance=0;drawChart(id,title,series,selectedDate,$,comfortBand);}},{passive:true});
  svgEl.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse'){tip.style.display='none';cursor.style.display='none'}});
 }
 function seriesFor(data,key,name,color,derive=null,invalid=null){
