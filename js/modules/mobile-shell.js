@@ -97,6 +97,8 @@ if (main) {
     speedControl.append(button);
   });
   if (speedRow && !speedRow.querySelector('button')) speedRow.remove();
+  const commandToast = byId('cmdResult');
+  if (commandToast) hero.append(commandToast);
 
   // Les réglages d'analyse sont accessibles dans Réglages, sans dupliquer leurs champs.
   const legacyPeriodRow = historyPanel?.querySelector('[data-days]')?.closest('.row');
