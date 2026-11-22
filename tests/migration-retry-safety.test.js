@@ -18,6 +18,6 @@ test('une migration interrompue est retentée même si un historique existe déj
 test('la reprise fusionne les relevés et ne remplace pas l’historique local', async () => {
   const source = await readFile(new URL('../js/app.js', import.meta.url), 'utf8');
   assert.match(source, /hist=mergeImportedHistory\(hist,oldHist\)/);
-  assert.match(source, /live=mergeImportedHistory\(live,oldLive\)/);
+  assert.doesNotMatch(source, /live=mergeImportedHistory/);
   assert.match(source, /oldHist=old\.hist\.map\(fromOldRow\)\.filter\(Boolean\)/);
 });
