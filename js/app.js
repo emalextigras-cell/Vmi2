@@ -1045,6 +1045,8 @@ function analyzeSpeeds(data){
 
 
 function render(){
+ const emptyHistory=$('historyEmpty');
+ if(emptyHistory)emptyHistory.hidden=hist.length>0;
  const data=selectedData();
  const analysisData=selectedHistoricalData();
  const dashboardData=$('dashboardDataStatus');
