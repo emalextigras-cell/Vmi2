@@ -18,20 +18,19 @@ Application web progressive de **supervision, d'analyse et d'aide à la compréh
 
 ## Objectif
 
-Vmi2 rassemble les fonctions nécessaires pour consulter les données de la VMI, conserver son historique, analyser les conditions hygrométriques et thermiques, comparer des périodes de fonctionnement et suivre des index électriques saisis depuis des compteurs externes.
+Vmi2 permet de superviser la VMI, de conserver et analyser son historique, d'étudier les conditions hygrométriques et thermiques et de comparer des périodes de fonctionnement.
 
 L'application fonctionne dans le navigateur. Les analyses sont réalisées localement à partir des données disponibles ; aucune API distante n'est nécessaire pour le moteur de diagnostic.
 
 ## Fonctionnalités
 
 - **Connexion Bluetooth LE** à la VMI : lecture de l'état, des capteurs et téléchargement de l'historique.
-- **Historique et données en direct** : affichage séparé des relevés historiques et des relevés captés pendant une connexion.
+- **Historique et supervision instantanée** : consultation de l'historique et affichage des mesures reçues pendant une connexion Bluetooth. Les mesures instantanées ne sont plus enregistrées périodiquement dans un historique séparé.
 - **Import VMI+** : CSV lu par le parseur natif ; XLS et XLSX lus avec SheetJS. Le premier import Excel nécessite une connexion internet pour charger la bibliothèque depuis un CDN.
 - **Graphiques et qualité des données** : visualisation, contrôle des valeurs et de la couverture temporelle.
 - **Analyses hygrométriques** : humidité absolue, point de rosée calculé, évolution dans le temps et comparaison entre salon et air entrant.
 - **Comparaisons de fonctionnement** : profils descriptifs par mode manuel déclaré et comparaison de périodes lorsque les données sont suffisantes.
 - **Assistant intelligent local** : synthèse des analyses, explication des constats, de leur niveau de confiance et de leurs limites.
-- **Suivi électrique** : le module de saisie et de calcul des index externes en kWh est présent, mais son formulaire est actuellement masqué dans l'interface ; cette fonction n'est donc pas accessible normalement depuis l'application.
 - **Sauvegarde et restauration** : export JSON des données locales et restauration d'une sauvegarde.
 - **Application installable (PWA)** : manifeste et service worker pour l'utilisation depuis un navigateur compatible.
 
@@ -81,7 +80,8 @@ Le point d'entrée de l'application est `index.html`, qui charge les styles, le 
 | `css/style.css` | Styles, thèmes et présentation mobile |
 | `js/app.js` | Orchestration, événements, connexion, stockage et rendu de l'application |
 | `js/modules/core.js` et `date-utils.js` | Fonctions communes, dates et formatage |
-| `js/modules/ble.js` et `sync.js` | Paramètres BLE historiques et gestion des délais de téléchargement |
+| `js/modules/ble.js` | Façade de compatibilité réexportant les primitives BLE historiques |
+| `js/modules/sync.js` | Gestion des délais et du suivi du téléchargement de l'historique |
 | `js/modules/bluetooth-protocol.js` | UUID, CRC et construction des commandes/trames BLE |
 | `js/modules/bluetooth-decoder.js` | Décodage des notifications Bluetooth |
 | `js/modules/bluetooth-write-queue.js` | Sérialisation des écritures Bluetooth |
@@ -93,7 +93,7 @@ Le point d'entrée de l'application est `index.html`, qui charge les styles, le 
 | `js/modules/analysis.js` | Analyses, statistiques et comparaisons |
 | `js/modules/weekly-diagnostic.js` | Analyse des tendances sur plusieurs jours |
 | `js/modules/data-quality.js` | Plausibilité, complétude et anomalies des mesures |
-| `js/modules/diagnostic-confidence.js` et `live-freshness.js` | Confiance des constats et fraîcheur des flux en direct |
+| `js/modules/diagnostic-confidence.js` et `live-freshness.js` | Niveau de confiance des constats et fraîcheur des mesures Bluetooth instantanées |
 | `js/modules/seasonal-advice.js` | Conseils saisonniers à partir des données disponibles |
 | `js/modules/history-selection.js` | Sélection des périodes affichées sans modifier l'historique source |
 | `js/modules/assistant-summary.js` et `assistant-renderer.js` | Synthèse et affichage de l'assistant local |
@@ -102,8 +102,7 @@ Le point d'entrée de l'application est `index.html`, qui charge les styles, le 
 | `js/modules/store.js` | Persistance IndexedDB |
 | `js/modules/backup.js` | Création et fusion des sauvegardes |
 | `js/modules/chart-renderer.js` et `charts.js` | Graphiques et préparation des séries |
-| `js/modules/energy-meter.js`, `energy-estimate.js` et `energy-climate.js` | Index externes, estimation ventilateur et rapprochements énergie/climat |
-| `js/modules/energy-*.js` | Estimations indicatives, contexte climatique et suivi par compteurs |
+| `js/modules/energy-estimate.js`, `energy-climate.js` et `energy-analysis-renderer.js` | Estimation du ventilateur, contexte climatique et affichage des résultats énergétiques |
 | `js/types/` et `jsconfig.json` | Types JSDoc et vérification statique |
 | `sw.js` et `manifest.json` | Cache applicatif et installation PWA |
 | `tests/` | Tests automatisés et page de validation manuelle |
@@ -114,7 +113,7 @@ Le point d'entrée de l'application est `index.html`, qui charge les styles, le 
 
 Les données sont conservées dans IndexedDB sur l'appareil. Cette copie de test utilise volontairement la base `VMI_PUREVENT_DB_TEST`, distincte de la base historique `VMI_PUREVENT_DB`. Elle ne réalise aucune migration automatique de la base de production.
 
-Les relevés en direct et l'historique sont conservés séparément. Les analyses et comparaisons reposent sur l'historique importé ou téléchargé. Une absence de relevés en direct ne signifie donc pas que la VMI est arrêtée ou en panne.
+Les historiques importés ou téléchargés sont conservés dans IndexedDB et alimentent les analyses. Pendant une connexion, les mesures Bluetooth instantanées servent à la supervision et au diagnostic technique ; elles ne font plus l'objet d'une collecte périodique persistée. Le format des anciennes sauvegardes reste tolérant au champ `live` pour préserver la compatibilité, mais l'application actuelle ne crée plus de nouvel historique direct.
 
 ### Interprétation des données VMI+
 
@@ -132,9 +131,9 @@ Les constats sont accompagnés de leurs critères et de leurs limites. Les compa
 
 ### Suivi énergétique
 
-Le module sait calculer une énergie consommée entre deux index successifs saisis depuis un compteur externe. Cette valeur provient du compteur, pas de la VMI. **Attention : le formulaire de saisie est actuellement placé dans un conteneur HTML masqué** ; la fonction est conservée dans le code et les sauvegardes, mais n'est pas proposée dans l'interface visible.
+L'application estime la consommation du ventilateur à partir du débit historique et des points de puissance documentés par le constructeur. Le calcul par interpolation reste une estimation : il ne mesure pas la consommation électrique réelle, ne couvre pas le préchauffage électrique et ne représente pas la consommation totale de l'installation. Aucun compteur électrique externe n'est intégré dans la version actuelle.
 
-La courbe de puissance du ventilateur utilisée par le module d'estimation est une estimation par interpolation issue de la documentation référencée dans l'interface. Elle ne constitue ni une mesure électrique ni une mesure de consommation réelle. Aucun champ brut non documenté (PWM, Cons DP, compteurs internes, etc.) n'est converti arbitrairement en W, kWh ou Pa.
+Aucun champ brut non documenté (PWM, Cons DP, compteurs internes, etc.) n'est converti arbitrairement en W, kWh ou Pa.
 
 ## Sécurité et limites connues
 
@@ -150,7 +149,7 @@ La courbe de puissance du ventilateur utilisée par le module d'estimation est u
 
 ### Tests automatisés
 
-La commande `npm test` vérifie la syntaxe de certains points d'entrée puis exécute les tests Node.js.
+La commande `npm test` vérifie la syntaxe de tous les fichiers JavaScript sous `js/` et `tests/`, puis exécute les tests Node.js.
 
 La CI GitHub Actions effectue en complément :
 - la vérification syntaxique de tous les fichiers JavaScript sous `js/` et `tests/` ;
