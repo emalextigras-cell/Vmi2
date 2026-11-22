@@ -643,6 +643,7 @@ $('expHist').onclick=()=>{
  downloadText(histToCsv(rows),`vmi-historique-${localDay()}.csv`,'text/csv;charset=utf-8');
  $('backupInfo').textContent=`${rows.length} relevés exportés (séparateur « ; », virgule décimale, prêt pour Excel).`;
 };
+$('backupReminderExport').onclick=()=> $('expBackup').click();
 $('expBackup').onclick=async()=>{
  try{
   meta.lastBackupAt=Date.now();
