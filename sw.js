@@ -52,6 +52,7 @@ const APP_SHELL = [
   './js/modules/psychrometry.js',
   './js/modules/seasonal-advice.js',
   './js/modules/store.js',
+  './js/modules/storage-persistence.js',
   './js/modules/sync.js',
   './js/modules/weekly-diagnostic.js',
   './js/types/vmi-types.js'
