@@ -49,8 +49,11 @@ if (main) {
   analysisDetails.innerHTML = '<summary>Analyses détaillées et conseils</summary>';
   append(analysisDetails, analyses, comparison);
   if (commands) commands.open = false;
-  if (live) live.open = false;
-  append(home, intro, errorBanner, live, commands, analysisDetails);
+  if (live) {
+    live.open = true;
+    live.classList.add('live-metrics-card');
+  }
+  append(home, live, intro, errorBanner, commands, analysisDetails);
   append(history, historyPanel);
   append(settings, connection);
   if (connection) connection.open = true;
