@@ -4,7 +4,6 @@
  */
 const main = document.querySelector('main');
 if (main) {
-  const children = Array.from(main.children);
   main.querySelector('.main-nav')?.remove();
   const byId = id => main.querySelector('#' + id);
   const detailsBySummary = phrase => children.find(node =>
