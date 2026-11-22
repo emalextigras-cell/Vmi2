@@ -125,7 +125,7 @@ function persistMany(entries,label='Sauvegarde transactionnelle'){
 function renderLog(){const p=$('log');p.textContent=logLines.slice(-70).join('\n');p.scrollTop=p.scrollHeight}
 function log(s){logLines.push(`${new Date().toLocaleTimeString('fr-FR')} ${s}`);if(logLines.length>300)logLines.shift();if($('logDetails').open)renderLog()}
 $('logDetails').addEventListener('toggle',()=>{if($('logDetails').open)renderLog()});
-function setStatus(s,isConnected=false){$('st').textContent=s;$('bleState').textContent=isConnected?'Connecté':'Déconnecté';$('conn').disabled=isConnected;$('disc').disabled=!isConnected;const overview=$('dashboardConnectionStatus');if(overview)overview.textContent=s}
+function setStatus(s,isConnected=false){$('st').textContent=s;$('bleState').textContent=isConnected?'Connecté':'Déconnecté';$('conn').disabled=isConnected;$('disc').disabled=!isConnected;const overview=$('dashboardConnectionStatus');if(overview)overview.textContent=s;const home=$('homeConnection');if(home)home.textContent=isConnected?'VMI connectée':s;document.documentElement.dataset.connection=isConnected?'connected':'disconnected'}
 
 /* La lecture IndexedDB ancienne reste ici ; la conversion des lignes est isolée.
    Un état "unavailable" interdit de marquer la migration terminée : l'ancienne base
@@ -279,6 +279,24 @@ function refreshTechnicalDiagnostic(){
 }
 function updateLiveMetrics(){
  $('sampleAge').textContent=buildLiveFreshnessText(lastSeen);
+ const homeHumidity=$('homeHumidity'),homeSpeed=$('homeSpeed'),homeTemperature=$('homeTemperature');
+ const humidity=Number(cur.sal_h),temperature=Number(cur.sal_t),speed=Number(cur.vit);
+ if(homeHumidity)homeHumidity.textContent=Number.isFinite(humidity)&&humidity>=0&&humidity<=100?String(Math.round(humidity)):'–';
+ if(homeSpeed)homeSpeed.textContent=Number.isFinite(speed)&&speed>=1&&speed<=3?'Vitesse '+speed:'–';
+ if(homeTemperature)homeTemperature.textContent=Number.isFinite(temperature)?fmt(temperature)+' °C':'–';
+ document.querySelectorAll('#homeSpeedControl [data-r="24"]').forEach(button=>{
+  const active=Number.isFinite(speed)&&Number(button.dataset.v)===speed-1;
+  button.setAttribute('aria-pressed',String(active));
+ });
+ const humidityWrap=document.querySelector('.home-humidity-wrap');
+ const verdict=$('homeVerdict');
+ if(humidityWrap&&verdict){
+  const valid=Number.isFinite(humidity)&&humidity>=0&&humidity<=100;
+  const level=!valid?'unknown':humidity>70?'danger':humidity>60||humidity<40?'warning':'good';
+  humidityWrap.dataset.level=level;
+  verdict.textContent=!valid?'En attente de mesures':humidity>70?'Trop humide':humidity>60?'Humidité élevée':humidity<40?'Air plutôt sec':'Air sain';
+ }
+
  const r={st:cur.sal_t,sh:cur.sal_h,te:cur.s2_t,he:cur.s2_h};
  const p=psychro(r);
  $('haSalon').textContent=fmt(p.haIn);$('haExt').textContent=fmt(p.haOut);$('dew').textContent=fmt(p.dewIn);$('dewExt').textContent=fmt(p.dewOut);
