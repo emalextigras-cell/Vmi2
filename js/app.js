@@ -626,7 +626,7 @@ function histToCsv(rows){
  }
  return lines.join('\r\n');
 }
-function makeBackup(){return createBackupSnapshot({hist,live:[],meta})}
+
 /** @param {UnknownRecord} obj Sauvegarde JSON validée comme objet. */
 async function restoreBackup(obj){
  const result=mergeBackupData({backup:obj,currentHist:hist,currentMeta:meta,minValid:MIN_VALID});
