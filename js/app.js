@@ -107,6 +107,7 @@ function renderBackupReminder(){
  reminder.dataset.due=String(due);
 }
 void updateStorageProtection();
+setInterval(renderBackupReminder,60*60*1000);
 
 function showError(e){$('err').textContent=e?String(e.message||e):''}
 function persist(key,value,label='Sauvegarde IndexedDB'){
@@ -643,19 +644,22 @@ $('expHist').onclick=()=>{
  downloadText(histToCsv(rows),`vmi-historique-${localDay()}.csv`,'text/csv;charset=utf-8');
  $('backupInfo').textContent=`${rows.length} relevés exportés (séparateur « ; », virgule décimale, prêt pour Excel).`;
 };
-$('backupReminderExport').onclick=()=> $('expBackup').click();
-$('expBackup').onclick=async()=>{
+async function exportBackup(){
  try{
-  meta.lastBackupAt=Date.now();
-  await dbSet('meta',meta);
-  downloadText(JSON.stringify(makeBackup()),`vmi-sauvegarde-${localDay()}.json`,'application/json',false);
-  $('backupInfo').textContent=`Fichier JSON généré pour ${hist.length} relevés. Vérifie le téléchargement et conserve ce fichier ailleurs que dans ce navigateur.`;
+  const nextMeta={...meta,lastBackupAt:Date.now()};
+  const backup=createBackupSnapshot({hist,live:[],meta:nextMeta});
+  downloadText(JSON.stringify(backup),`vmi-sauvegarde-${localDay()}.json`,'application/json',false);
+  await dbSet('meta',nextMeta);
+  meta=nextMeta;
+  $('backupInfo').textContent=`Fichier JSON généré pour ${hist.length} relevés. Vérifie le téléchargement et conserve ce fichier hors de ce navigateur.`;
   renderBackupReminder();
  }catch(error){
   $('backupInfo').textContent='Sauvegarde impossible : '+(error?.message||error);
   recordError('Mise à jour de la date de sauvegarde impossible : '+(error?.message||error));
  }
-};
+}
+$('backupReminderExport').onclick=exportBackup;
+$('expBackup').onclick=exportBackup;
 $('restoreFile').onchange=async e=>{
  const input=e.currentTarget instanceof HTMLInputElement?e.currentTarget:null;
  if(!input)return;
