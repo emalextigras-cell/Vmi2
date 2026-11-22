@@ -289,7 +289,7 @@ function updateLiveMetrics(){
   const active=Number.isFinite(speed)&&Number(button.dataset.v)===speed-1;
   button.setAttribute('aria-pressed',String(active));
  });
- const humidityWrap=document.querySelector('.home-humidity-wrap');
+ const humidityWrap=/** @type {HTMLElement | null} */ (document.querySelector('.home-humidity-wrap'));
  const verdict=$('homeVerdict');
  if(humidityWrap&&verdict){
   const valid=Number.isFinite(humidity)&&humidity>=0&&humidity<=100;
