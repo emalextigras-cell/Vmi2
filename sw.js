@@ -1,9 +1,10 @@
-const CACHE_NAME = 'vmi-test-v14-cache-85';
+const CACHE_NAME = 'vmi-test-v14-cache-86';
 const CACHE_PREFIX = 'vmi-test-';
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.json',
+  './icons/vmi-maskable.svg',
   './css/style.css',
   './js/app.js',
   './js/modules/analysis.js',
@@ -46,6 +47,7 @@ const APP_SHELL = [
   './js/modules/history-advice-renderer.js',
   './js/modules/energy-analysis-renderer.js',
   './js/modules/legacy-migration.js',
+  './js/modules/mobile-shell.js',
   './js/modules/navigation.js',
   './js/modules/live-freshness.js',
   './js/modules/measurement-filter.js',
