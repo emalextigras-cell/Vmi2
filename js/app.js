@@ -280,7 +280,7 @@ function refreshTechnicalDiagnostic(){
 function updateLiveMetrics(){
  $('sampleAge').textContent=buildLiveFreshnessText(lastSeen);
  const homeHumidity=$('homeHumidity'),homeSpeed=$('homeSpeed'),homeTemperature=$('homeTemperature');
- const humidity=Number(cur.sal_h),temperature=Number(cur.sal_t),speed=Number(cur.vit);
+ const humidity=cur.sal_h,temperature=cur.sal_t,speed=cur.vit;
  if(homeHumidity)homeHumidity.textContent=Number.isFinite(humidity)&&humidity>=0&&humidity<=100?String(Math.round(humidity)):'–';
  if(homeSpeed)homeSpeed.textContent=Number.isFinite(speed)&&speed>=1&&speed<=3?'Vitesse '+speed:'–';
  if(homeTemperature)homeTemperature.textContent=Number.isFinite(temperature)?fmt(temperature)+' °C':'–';
@@ -1077,7 +1077,7 @@ function render(){
   : ' Aucun pic isolé répondant aux critères temporels n’a été détecté.';
  qualityBox.className=quality.hasAnomalies||quality.transientSpikes.count?'advice warn':'advice';
  qualityBox.textContent='Contrôle qualité de l’historique analysé : '+coverageText+missingText+invalidText+spikeText+' Les données manquantes réduisent la couverture ; elles ne sont pas considérées comme des anomalies.';
- renderCharts(data,selectedDate,$);
+ renderCharts(hist,null,$);
  renderRecommendation(analysisData,{container:$('recommendation'),targetRH:Number($('targetRH').value),median,absoluteHumidity,isPlausibleTemperature,isPlausibleHumidity,format:fmt});renderSeasonalAdvice(analysisData,{container:$('seasonalAdvice'),analyzeSeasonalVentilation,format:fmt,formatShort:fmtShort});renderHygrometricPeriods(analysisData);renderIntelligentDiagnosis(dashboardDiagnosis);
  renderTemporalAnalysis(analysisData);analyzeSpeeds(analysisData);renderEnergyReadiness(analysisData);renderFanEnergyEstimate(analysisData,{fanEnergyEstimate:$('fanEnergyEstimate'),fanEnergyByMode:$('fanEnergyByMode'),summarizeFanEnergyEstimate,summarizeFanEnergyByManualMode,format:fmt,formatShort:fmtShort});renderDailyEnergyClimateContext(analysisData,{dailyEnergyClimateContext:$('dailyEnergyClimateContext'),summarizeDailyEnergyClimateContext,format:fmt});renderWeeklyDiagnostic(analysisData,{weeklyDiagnostic:$('weeklyDiagnostic'),summarizeWeeklyDiagnostic,format:fmt});renderFreshness();
 }
