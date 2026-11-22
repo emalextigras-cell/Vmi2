@@ -221,6 +221,8 @@
  <summary>Avancé</summary>
   <details class="card compact"><summary>Sauvegarde et export des données</summary>
   <p class="sub">Ton historique est stocké dans ce navigateur, qui peut le vider. La VMI ne garde que ses 800 derniers relevés (environ 4 semaines) : fais régulièrement une sauvegarde.</p>
+  <div id="storageProtection" class="note" role="status">Vérification du stockage persistant…</div>
+  <div id="backupReminder" class="advice" role="status">Vérification de la date de sauvegarde…</div>
   <div class="row"><button class="outline" id="expHist">Exporter l’historique (CSV)</button><button class="outline" id="expBackup">Sauvegarde complète (JSON)</button></div>
   <div class="row"><label for="restoreFile">Restaurer une sauvegarde (.json) :</label><input type="file" id="restoreFile" accept=".json,application/json"></div>
   <div id="backupInfo" class="note"></div>
