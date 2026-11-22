@@ -284,7 +284,8 @@ function updateLiveMetrics(){
  if(homeHumidity)homeHumidity.textContent=Number.isFinite(humidity)&&humidity>=0&&humidity<=100?String(Math.round(humidity)):'–';
  if(homeSpeed)homeSpeed.textContent=Number.isFinite(speed)&&speed>=1&&speed<=3?'Vitesse '+speed:'–';
  if(homeTemperature)homeTemperature.textContent=Number.isFinite(temperature)?fmt(temperature)+' °C':'–';
- document.querySelectorAll('#homeSpeedControl [data-r="24"]').forEach(button=>{
+ document.querySelectorAll('[data-r]').forEach(button=>{
+  if(button.dataset.r!=='24'||!button.closest('#homeSpeedControl'))return;
   const active=Number.isFinite(speed)&&Number(button.dataset.v)===speed-1;
   button.setAttribute('aria-pressed',String(active));
  });
