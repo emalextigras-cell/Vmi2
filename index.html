@@ -33,16 +33,17 @@
  <div id="err" class="error"></div>
 </details>
 
-<details class="card compact"><summary>Mesures en direct</summary>
+<details class="card compact live-metrics-card"><summary>Mesures VMI en direct</summary>
  <div class="grid cols3">
+  <div class="metric absolute-humidity-metric"><b id="haSalon">–</b><span>Salon · humidité absolue g/m³</span></div>
+  <div class="metric absolute-humidity-metric"><b id="haExt">–</b><span>Air entrant · humidité absolue g/m³</span></div>
+  <div class="metric absolute-humidity-metric"><b id="liveDeltaHA">–</b><span>Écart salon − air entrant g/m³</span></div>
   <div class="metric"><b id="tp">–</b><span>Salon · température °C</span></div>
   <div class="metric"><b id="hp">–</b><span>Salon · humidité relative %</span></div>
-  <div class="metric"><b id="haSalon">–</b><span>Salon · humidité absolue g/m³</span></div>
   <div class="metric"><b id="ti">–</b><span>Air chauffé · température °C</span></div>
   <div class="metric"><b id="hi">–</b><span>Air chauffé · humidité %</span></div>
   <div class="metric"><b id="t2">–</b><span>Air entrant · température °C</span></div>
   <div class="metric"><b id="h2">–</b><span>Air entrant · humidité %</span></div>
-  <div class="metric"><b id="haExt">–</b><span>Air entrant · humidité absolue g/m³</span></div>
   <div class="metric"><b id="dew">–</b><span>Salon · point de rosée °C</span></div>
  </div>
  <div class="status" id="sampleAge">En attente des mesures.</div>
