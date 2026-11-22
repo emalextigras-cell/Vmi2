@@ -203,7 +203,7 @@
   <b>Période :</b><button class="outline" data-days="7">7 jours</button><button class="outline" data-days="30">30 jours</button><button class="outline" data-days="90">90 jours</button><button class="outline" data-days="0">Tout</button>
  </div>
  <div class="row">
-  <b>Source :</b><button class="outline" id="histBtn">Historique VMI</button><button class="outline" id="liveBtn">En direct</button><button class="outline" id="clearImport">Effacer l'import</button>
+  <button class="outline" id="clearImport">Effacer l'import</button>
  </div>
  <div id="historyStatus" class="status"></div>
  <div id="fresh" class="advice"></div>
@@ -224,11 +224,6 @@
   <div class="row"><button class="outline" id="expHist">Exporter l’historique (CSV)</button><button class="outline" id="expBackup">Sauvegarde complète (JSON)</button></div>
   <div class="row"><label for="restoreFile">Restaurer une sauvegarde (.json) :</label><input type="file" id="restoreFile" accept=".json,application/json"></div>
   <div id="backupInfo" class="note"></div>
- </details>
- 
- <details class="card compact"><summary>Enregistrement en direct</summary>
-  <p class="sub">Un relevé toutes les cinq minutes tant que la page reste ouverte et connectée.</p>
-  <div class="row"><b id="liveCount">0</b> relevés <button class="outline" id="csv">Exporter CSV</button><button class="outline" id="clearLive">Effacer les relevés</button></div>
  </details>
  
  <details class="card compact" id="logDetails">
