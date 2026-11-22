@@ -5,10 +5,8 @@
  * @returns {HTMLDetailsElement|null}
  */
 /** @overload @param {'conn'|'disc'|'dlh'} id @returns {HTMLButtonElement|null} */
-/** @overload @param {'fx'|'restoreFile'|'dayPicker'|'energyMeterAt'|'energyMeterKwh'} id @returns {HTMLInputElement|null} */
-/** @overload @param {'energyMeterType'|'targetRH'|'minSamples'} id @returns {HTMLSelectElement|null} */
-/** @overload @param {'energyMeterNote'} id @returns {HTMLInputElement|null} */
-/** @overload @param {'energyMeterForm'} id @returns {HTMLFormElement|null} */
+/** @overload @param {'fx'|'restoreFile'|'dayPicker'} id @returns {HTMLInputElement|null} */
+/** @overload @param {'targetRH'|'minSamples'} id @returns {HTMLSelectElement|null} */
 /** @overload @param {string} id @returns {HTMLElement|null} */
 /** @param {string} id Identifiant HTML.
  * @returns {HTMLElement|null} Élément trouvé ou null.
