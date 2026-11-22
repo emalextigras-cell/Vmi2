@@ -4,6 +4,7 @@ import { commitHistorySync } from './modules/history-sync-commit.js';
 import { createBackupSnapshot, mergeBackupData } from './modules/backup.js';
 import { $, sleep, APP_VERSION } from './modules/core.js';
 import { createStore, normalizeStoreSnapshot } from './modules/store.js';
+import { requestPersistentStorage } from './modules/storage-persistence.js';
 import { fromOldRow } from './modules/legacy-migration.js';
 import { median, analyzeSpeedLevels, analyzeSpeedTimeContext, analyzeHygrometricPeriods, summarizeDailyTrends, analyzeHourlyPatterns, detectRapidChanges, compareOperatingPeriods, buildHygrometricDiagnosis } from './modules/analysis.js';
 import { renderCharts, resetChartViews } from './modules/charts.js';
@@ -77,6 +78,35 @@ const DB='VMI_PUREVENT_DB_TEST',STORE='data';
 const { get: dbGet, set: dbSet, setMany: dbSetMany } = createStore({ databaseName: DB, storeName: STORE, onError: message => log(message) });
 const connected=()=>!!(bluetoothService&&bluetoothService.connected());
 const liveMeasurementFilters=createLiveMeasurementFilters();
+
+/** Demande la protection du stockage local et informe sans bloquer l'application. */
+async function updateStorageProtection(){
+ const result=await requestPersistentStorage();
+ const status=$('storageProtection');
+ if(!status)return;
+ const labels={
+  persisted:'Stockage persistant accordé par le navigateur.',
+  granted:'Stockage persistant activé pour cette application.',
+  denied:'Le navigateur a refusé le stockage persistant. Une sauvegarde externe est fortement recommandée.',
+  unsupported:'Ce navigateur ne permet pas de demander le stockage persistant.',
+  error:'Impossible de vérifier la protection du stockage : '+(result.error||'erreur inconnue')
+ };
+ status.textContent=labels[result.status]||labels.error;
+ status.dataset.state=result.status;
+ renderBackupReminder();
+}
+function renderBackupReminder(){
+ const reminder=$('backupReminder');
+ if(!reminder)return;
+ const last=Number(meta.lastBackupAt)||0;
+ const age=last?Date.now()-last:Infinity;
+ const due=age>=7*DAY;
+ reminder.textContent=due
+  ? (last?'Dernière sauvegarde générée il y a plus de 7 jours.':'Aucune sauvegarde externe enregistrée dans cette application.')+' La VMI ne conserve qu’environ 4 semaines de relevés : exporte maintenant le fichier JSON et conserve-le hors de ce navigateur.'
+  : 'Dernière sauvegarde générée le '+new Date(last).toLocaleString('fr-FR')+'. Pense à conserver le fichier JSON hors de ce navigateur.';
+ reminder.dataset.due=String(due);
+}
+void updateStorageProtection();
 
 function showError(e){$('err').textContent=e?String(e.message||e):''}
 function persist(key,value,label='Sauvegarde IndexedDB'){
@@ -612,9 +642,17 @@ $('expHist').onclick=()=>{
  downloadText(histToCsv(rows),`vmi-historique-${localDay()}.csv`,'text/csv;charset=utf-8');
  $('backupInfo').textContent=`${rows.length} relevés exportés (séparateur « ; », virgule décimale, prêt pour Excel).`;
 };
-$('expBackup').onclick=()=>{
- downloadText(JSON.stringify(makeBackup()),`vmi-sauvegarde-${localDay()}.json`,'application/json',false);
- $('backupInfo').textContent=`Sauvegarde créée : ${hist.length} relevés d’historique.`;
+$('expBackup').onclick=async()=>{
+ try{
+  meta.lastBackupAt=Date.now();
+  await dbSet('meta',meta);
+  downloadText(JSON.stringify(makeBackup()),`vmi-sauvegarde-${localDay()}.json`,'application/json',false);
+  $('backupInfo').textContent=`Fichier JSON généré pour ${hist.length} relevés. Vérifie le téléchargement et conserve ce fichier ailleurs que dans ce navigateur.`;
+  renderBackupReminder();
+ }catch(error){
+  $('backupInfo').textContent='Sauvegarde impossible : '+(error?.message||error);
+  recordError('Mise à jour de la date de sauvegarde impossible : '+(error?.message||error));
+ }
 };
 $('restoreFile').onchange=async e=>{
  const input=e.currentTarget instanceof HTMLInputElement?e.currentTarget:null;
