@@ -397,8 +397,7 @@ async function ingest(recs,label,maxTimestamp=Date.now(),options={}){
  hist=committed.history;
  if(options.metadataToCommit!==undefined)meta=options.metadataToCommit;
  if(committed.removed)log(`Historique limité à ${HIST_MAX} relevés (les plus anciens supprimés).`);
- source='hist';
- // Conserver le jour choisi : une synchronisation en arrière-plan ne doit pas réinitialiser les graphiques.
+  // Conserver le jour choisi : une synchronisation en arrière-plan ne doit pas réinitialiser les graphiques.
  const lost=recs.length-kept.length;
  $('importInfo').textContent=`${label} : ${recs.length} relevés lus${fixed?`, dont ${fixed} dont la date a été corrigée (horloge de la VMI fausse)`:''}${lost?`, ${lost} écartés (date invalide ou postérieure à la synchronisation)`:''}.`;
  log($('importInfo').textContent);
@@ -595,7 +594,7 @@ function histToCsv(rows){
  }
  return lines.join('\r\n');
 }
-function makeBackup(){return createBackupSnapshot({hist,meta})}
+function makeBackup(){return createBackupSnapshot({hist,live:[],meta})}
 /** @param {UnknownRecord} obj Sauvegarde JSON validée comme objet. */
 async function restoreBackup(obj){
  const result=mergeBackupData({backup:obj,currentHist:hist,currentMeta:meta,minValid:MIN_VALID});
@@ -655,17 +654,17 @@ function buildDiagnostic(){
   const miss=k=>valid.filter(r=>r[k]==null).length;
   L.push(`  valeurs manquantes : salon T ${miss('st')}, ext. VMI+ T ${miss('tExt')}, salon HR ${miss('sh')}, sonde 1 T ${miss('t1')}, air entrant T ${miss('te')}, air entrant HR ${miss('he')}, régime ${miss('rpm')}`);
   for(const [key,label] of [['st','Salon'],['t1','Sonde résistances'],['te','Air entrant']]){
-   const extreme=valid.filter(r=>Number.isFinite(r[key])&&r[key]>40);
+   const extreme=valid.filter(r=>typeof r[key]==='number'&&Number.isFinite(r[key])&&r[key]>40);
    L.push(`  Température >40°C – ${label} : ${extreme.length}${extreme.length?' · '+extreme.slice(0,8).map(r=>fmtLocal(r.t)+' = '+r[key]+'°C').join(' ; '):''}`);
   }
   for(const [tk,hk,label] of [['st','sh','Salon'],['t1','h1','Sonde résistances'],['te','he','Air entrant']]){
-   const extreme=valid.map(r=>({r,v:Number.isFinite(r[tk])&&Number.isFinite(r[hk])?absoluteHumidity(r[tk],r[hk]):null})).filter(x=>Number.isFinite(x.v)&&x.v>35);
+   const extreme=valid.map(r=>{const t=r[tk],h=r[hk];return {r,v:typeof t==='number'&&typeof h==='number'&&Number.isFinite(t)&&Number.isFinite(h)?absoluteHumidity(t,h):null}}).filter(x=>Number.isFinite(x.v)&&x.v>35);
    L.push(`  Humidité absolue calculée >35 g/m³ – ${label} : ${extreme.length}${extreme.length?' · '+extreme.slice(0,8).map(x=>fmtLocal(x.r.t)+' = '+x.v.toFixed(1)).join(' ; '):''}`);
   }
   L.push(`  relevés avec compteur de jours : ${valid.filter(r=>Number.isFinite(r.d)).length} · avec date brute : ${valid.filter(r=>r.rk).length}`);
  }
   L.push(`Synchro : dernière ${meta.lastSync?fmtLocal(meta.lastSync):'jamais'} · mesures reçues : salon ${ago(lastSeen.salon)}, sondes ${ago(lastSeen.probes)}, état ${ago(lastSeen.state)}`);
- L.push(`Affichage : source ${source}, jour ${selectedDate||'aucun'}, période ${daysSetting?daysSetting+' j':'tout'}`);
+ L.push(`Affichage : jour ${selectedDate||'aucun'}, période ${daysSetting?daysSetting+' j':'tout'}`);
  L.push('Graphiques : '+['chartRH','chartHA','chartTemp','chartRPM'].map(id=>`${id} ${(($(id).innerHTML.match(/<path/g))||[]).length} courbe(s)`).join(' · '));
  L.push('Téléchargement : '+(download.on?'en cours':'inactif')+` · ${$('dlp').textContent||'—'}`);
  L.push('Commandes : '+($('cmdResult').textContent||'—'));
@@ -994,7 +993,7 @@ function render(){
   const rangeLabel=selectedDate?'jour '+selectedDate:(daysSetting?daysSetting+' derniers jours':'toute la période');
  $('historyStatus').textContent=`Graphiques : ${data.length} relevés · historique importé / VMI · ${rangeLabel}.`;
  const lastRpm=[...hist].reverse().find(r=>Number.isFinite(r.rpm));
- $('rpm').textContent=lastRpm?lastRpm.rpm:'–';
+ $('rpm').textContent=lastRpm?String(lastRpm.rpm):'–';
  const quality=getDataQuality(analysisData);
  renderVmiAssistant(analysisData,{targetRH:Number($('targetRH').value),minSamples:Number($('minSamples').value),onError:log});
  const qualityBox=$('dataQuality');
