@@ -151,6 +151,7 @@ async function init(){
   history:storedHistory,meta:storedMeta
  });
  hist=/** @type {VmiRecord[]} */ (snapshot.history);meta=snapshot.meta;
+ renderBackupReminder();
  const migrated=await dbGet('migrated');
  // Le marqueur est l'unique preuve d'une migration achevée. Des données déjà présentes
  // ne doivent pas empêcher une nouvelle tentative après une migration interrompue.
