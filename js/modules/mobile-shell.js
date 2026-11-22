@@ -47,6 +47,7 @@ if (main) {
   append(home, intro, errorBanner, live, commands, analyses, comparison);
   append(history, historyPanel);
   append(settings, connection);
+  if (connection) connection.open = true;
   append(tools, diagnosis, advanced, footer);
 
   // La protection et les rappels de sauvegarde sont des outils, pas des éléments de consultation.
@@ -92,6 +93,17 @@ if (main) {
   if (speedRow && !speedRow.querySelector('button')) speedRow.remove();
 
   // Les réglages d'analyse sont accessibles dans Réglages, sans dupliquer leurs champs.
+  const legacyPeriodRow = historyPanel?.querySelector('[data-days]')?.closest('.row');
+  if (legacyPeriodRow) legacyPeriodRow.remove();
+  const selectedDayRow = historyPanel?.querySelector('#dayPicker')?.closest('.row');
+  if (selectedDayRow) {
+    const filterDetails = document.createElement('details');
+    filterDetails.className = 'history-filter';
+    filterDetails.innerHTML = '<summary>Filtrer un jour précis</summary>';
+    filterDetails.append(selectedDayRow);
+    historyPanel.insertBefore(filterDetails, historyPanel.querySelector('#historyStatus'));
+  }
+
   const preferenceRow = comparison?.querySelector('#targetRH')?.closest('.row');
   if (preferenceRow) {
     const preferences = document.createElement('section');
