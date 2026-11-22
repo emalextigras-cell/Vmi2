@@ -69,8 +69,8 @@ let manualCommandPending=false,bluetoothService=null;
 
 /** @type {UnknownRecord} */ let meta={};
 let cur={},lastSeen={};
-/** @type {VmiRecord[]} */ let live=[],hist=[];
-let source='hist',selectedDate=null,daysSetting=30;
+/** @type {VmiRecord[]} */ let hist=[];
+let selectedDate=null,daysSetting=30;
 let logLines=[],dlFrames=0;
 let download={on:false,rows:[],buf:'',sigs:new Set(),knownSigs:new Set(),seenSigs:new Set(),bootstrap:false,got:false,lastPacket:0,timeout:null,historyStream:createHistoryStreamState(),integrityGap:false,dataStarted:false,announcedTotalRows:null};
 const DB='VMI_PUREVENT_DB_TEST',STORE='data';
@@ -108,19 +108,19 @@ async function readOldDatabase(){
  let old=null;
  try{
   old=await new Promise((res,rej)=>{const r=indexedDB.open('VMI_DB');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
-  if(!old.objectStoreNames.contains('vmi_store'))return {status:'read',hist:[],live:[]};
+  if(!old.objectStoreNames.contains('vmi_store'))return {status:'read',hist:[]};
   const get=k=>new Promise((res,rej)=>{const r=old.transaction('vmi_store','readonly').objectStore('vmi_store').get(k);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
-  return {status:'read',hist:await get('vmi_hist'),live:await get('vmi_live')};
+  return {status:'read',hist:await get('vmi_hist')};
  }catch(e){return {status:'unavailable',error:e}}
  finally{if(old)old.close()}
 }
 async function init(){
- const storedLive=await dbGet('live'),storedHistory=await dbGet('hist');
+ const storedHistory=await dbGet('hist');
  const storedMeta=await dbGet('meta');
  const snapshot=normalizeStoreSnapshot({
-  history:storedHistory,live:storedLive,meta:storedMeta
+  history:storedHistory,meta:storedMeta
  });
- live=/** @type {VmiRecord[]} */ (snapshot.live);hist=/** @type {VmiRecord[]} */ (snapshot.history);meta=snapshot.meta;
+ hist=/** @type {VmiRecord[]} */ (snapshot.history);meta=snapshot.meta;
  const migrated=await dbGet('migrated');
  // Le marqueur est l'unique preuve d'une migration achevée. Des données déjà présentes
  // ne doivent pas empêcher une nouvelle tentative après une migration interrompue.
@@ -131,17 +131,14 @@ async function init(){
   if(old.status==='unavailable'){
    $('importInfo').textContent='Migration de l’ancien historique en attente : le navigateur ne permet pas de vérifier l’ancienne base. Les données actuelles sont conservées ; réessaie avec Chrome à jour ou importe une sauvegarde.';
   }else{
-   let oldHist=[],oldLive=[];
+   let oldHist=[];
    if(old.status==='read'){
     if(Array.isArray(old.hist))oldHist=old.hist.map(fromOldRow).filter(Boolean);
-    if(Array.isArray(old.live))oldLive=old.live;
    }
    if(!oldHist.length){try{const x=JSON.parse(localStorage.getItem('vmi_hist')||'[]');if(Array.isArray(x))oldHist=x.map(fromOldRow).filter(Boolean)}catch(e){const message='Récupération de l’ancien historique local impossible : '+(e?.message||e);log(message);recordError(message)}}
-   if(!oldLive.length){try{const x=JSON.parse(localStorage.getItem('vmi_live')||'[]');if(Array.isArray(x))oldLive=x}catch(e){const message='Récupération des anciens relevés en direct impossible : '+(e?.message||e);log(message);recordError(message)}}
    // Fusion par horodatage : une nouvelle tentative ne remplace jamais un historique
    // plus récent déjà enregistré dans la base de préversion.
    hist=mergeImportedHistory(hist,oldHist);
-   live=mergeImportedHistory(live,oldLive);
    migrationCompleted=true;
   }
  }
@@ -158,13 +155,15 @@ async function init(){
  }
  if(migrationPending&&migrationCompleted){
   // Les données fusionnées et le marqueur sont validés ensemble : un échec permet une nouvelle tentative.
-  await dbSetMany([['hist',hist],['live',live],['migrated',true]]);
+  await dbSetMany([['hist',hist],['migrated',true]]);
  }else{
   // Si l'ancienne base n'a pas pu être vérifiée, conserver les données courantes sans
   // marquer la migration comme terminée : elle pourra être retentée au prochain démarrage.
-  await dbSet('hist',hist);if(live.length)await dbSet('live',live);
+  await dbSet('hist',hist);
+  // Nettoyage de l’ancien stockage de l’enregistrement direct.
+  await dbSet('live',[]);
  }
- $('liveCount').textContent=String(live.length);render();
+ render();
 }
 
 /* Psychrométrie : approximation de Magnus */
@@ -221,7 +220,6 @@ bluetoothService=createBluetoothService({
  getLastStateAt:()=>lastSeen.state,
  isDownloadActive:()=>download.on,
  isCommandPending:()=>manualCommandPending,
- onSnapshot:takeSnapshot,
  onAutoHistory:()=>autoHistory(),
  onConnected:()=>{
   liveMeasurementFilters.resetAll();
@@ -260,22 +258,6 @@ function updateLiveMetrics(){
  if(delta>1){box.className='advice good';box.textContent=`L’air entrant contient environ ${fmt(delta)} g/m³ de vapeur d’eau en moins que l’air du salon. Dans ces conditions, le renouvellement d’air peut contribuer à réduire l’humidité intérieure.`}
  else if(delta< -1){box.className='advice warn';box.textContent=`L’air entrant contient environ ${fmt(Math.abs(delta))} g/m³ de vapeur d’eau de plus que l’air du salon. Une ventilation accrue ne garantit donc pas un assèchement.`}
  else{box.className='advice';box.textContent='Les humidités absolues sont proches. L’effet asséchant potentiel de l’air entrant est limité à cet instant.'}
-}
-
-/* Relevés en direct : dès que le salon est frais, avec les sondes si elles le sont aussi */
-function takeSnapshot(){
- const now=Date.now();
- if(!lastSeen.salon||now-lastSeen.salon>90000)return;
- const pf=lastSeen.probes&&now-lastSeen.probes<=90000;
- const row={t:now,st:cur.sal_t,sh:cur.sal_h,t1:pf?cur.s1_t:null,h1:pf?cur.s1_h:null,te:pf?cur.s2_t:null,he:pf?cur.s2_h:null,
-  stRaw:cur.sal_t_raw,shRaw:cur.sal_h_raw,t1Raw:pf?cur.s1_t_raw:null,h1Raw:pf?cur.s1_h_raw:null,teRaw:pf?cur.s2_t_raw:null,heRaw:pf?cur.s2_h_raw:null,
-  rpm:null,fil:Number.isFinite(cur.filtre)?cur.filtre:null,vit:Number.isFinite(cur.vit)?cur.vit:null,
-  boost:cur.boost!=null?cur.boost:null,hol:cur.hol!=null?cur.hol:null};
- if(!Number.isFinite(row.st)&&!Number.isFinite(row.sh))return;
- live.push(row);
- if(live.length>10000)live.splice(0,live.length-10000);
- void persist('live',live,'Sauvegarde des relevés en direct').catch(error=>{$('sampleAge').textContent='Échec de sauvegarde du relevé en direct : '+(error?.message||error)});$('liveCount').textContent=String(live.length);
- if(source==='live')render();
 }
 
 $('conn').onclick=()=>bluetoothService.connectBLE();
@@ -415,8 +397,7 @@ async function ingest(recs,label,maxTimestamp=Date.now(),options={}){
  hist=committed.history;
  if(options.metadataToCommit!==undefined)meta=options.metadataToCommit;
  if(committed.removed)log(`Historique limité à ${HIST_MAX} relevés (les plus anciens supprimés).`);
- source='hist';
- // Conserver le jour choisi : une synchronisation en arrière-plan ne doit pas réinitialiser les graphiques.
+  // Conserver le jour choisi : une synchronisation en arrière-plan ne doit pas réinitialiser les graphiques.
  const lost=recs.length-kept.length;
  $('importInfo').textContent=`${label} : ${recs.length} relevés lus${fixed?`, dont ${fixed} dont la date a été corrigée (horloge de la VMI fausse)`:''}${lost?`, ${lost} écartés (date invalide ou postérieure à la synchronisation)`:''}.`;
  log($('importInfo').textContent);
@@ -590,19 +571,11 @@ $('fx').onchange=async e=>{
  input.value='';
 };
 $('clearImport').onclick=async()=>{if(!confirm('Effacer tout l’historique importé ?'))return;try{await persist('hist',[],'Effacement de l’historique');hist=[];$('importInfo').textContent='';render()}catch(error){showError('Effacement de l’historique impossible : '+(error?.message||error))} };
-$('histBtn').onclick=()=>{source='hist';render()};
-$('liveBtn').onclick=()=>{source='live';render()};
 $('dayPicker').onchange=e=>{if(!(e.currentTarget instanceof HTMLInputElement))return;selectedDate=e.currentTarget.value||null;resetChartViews();render()};
 $('clearDay').onclick=()=>{selectedDate=null;$('dayPicker').value='';resetChartViews();render()};
 $('prev').onclick=()=>{selectedDate=shiftDay(selectedDate,-1);$('dayPicker').value=selectedDate;resetChartViews();render()};
 $('next').onclick=()=>{selectedDate=shiftDay(selectedDate,1);$('dayPicker').value=selectedDate;resetChartViews();render()};
 document.querySelectorAll('[data-days]').forEach(b=>b.onclick=()=>{daysSetting=Number(b.dataset.days);selectedDate=null;$('dayPicker').value='';resetChartViews();render()});
-$('clearLive').onclick=async()=>{if(!confirm('Effacer les relevés en direct ?'))return;try{await persist('live',[],'Effacement des relevés en direct');live=[];$('liveCount').textContent='0';render()}catch(error){showError('Effacement des relevés en direct impossible : '+(error?.message||error))} };
-$('csv').onclick=()=>{
- const keys=['t','st','sh','t1','h1','te','he','rpm','fil','vit','boost','hol'];
- const rows=[keys.join(';'),...live.map(r=>keys.map(k=>k==='t'?new Date(r.t).toISOString():(r[k]!=null?r[k]:'')).join(';'))];
- downloadText(rows.join('\n'),'vmi-purevent-live.csv','text/csv;charset=utf-8');
-};
 function downloadText(content,name,type,bom=true){
  const blob=new Blob(bom?['\ufeff',content]:[content],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');
  a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
@@ -621,17 +594,17 @@ function histToCsv(rows){
  }
  return lines.join('\r\n');
 }
-function makeBackup(){return createBackupSnapshot({hist,live,meta})}
+function makeBackup(){return createBackupSnapshot({hist,live:[],meta})}
 /** @param {UnknownRecord} obj Sauvegarde JSON validée comme objet. */
 async function restoreBackup(obj){
- const result=mergeBackupData({backup:obj,currentHist:hist,currentLive:live,currentMeta:meta,minValid:MIN_VALID});
+ const result=mergeBackupData({backup:obj,currentHist:hist,currentMeta:meta,minValid:MIN_VALID});
  const nextHist=pruneHistory(result.hist,HIST_MAX).records;
- const entries=/** @type {Array<[IDBValidKey, unknown]>} */ ([['hist',nextHist],['live',result.live]]);
+ const entries=/** @type {Array<[IDBValidKey, unknown]>} */ ([['hist',nextHist],['live',[]]]);
  if(result.meta.lastSync!==meta.lastSync)entries.push(['meta',result.meta]);
  // Ne modifier l'état en mémoire qu'après validation atomique du stockage local.
  await dbSetMany(entries);
- hist=nextHist;live=result.live;meta=result.meta;
- return {add:result.addedHistory,enriched:result.enrichedHistory,addL:result.addedLive};
+ hist=nextHist;meta=result.meta;
+ return {add:result.addedHistory,enriched:result.enrichedHistory};
 }
 $('expHist').onclick=()=>{
  const rows=hist.filter(r=>r.t>=MIN_VALID&&r.t<=Date.now());
@@ -641,7 +614,7 @@ $('expHist').onclick=()=>{
 };
 $('expBackup').onclick=()=>{
  downloadText(JSON.stringify(makeBackup()),`vmi-sauvegarde-${localDay()}.json`,'application/json',false);
- $('backupInfo').textContent=`Sauvegarde créée : ${hist.length} relevés d’historique, ${live.length} relevés en direct.`;
+ $('backupInfo').textContent=`Sauvegarde créée : ${hist.length} relevés d’historique.`;
 };
 $('restoreFile').onchange=async e=>{
  const input=e.currentTarget instanceof HTMLInputElement?e.currentTarget:null;
@@ -651,8 +624,8 @@ $('restoreFile').onchange=async e=>{
   const parsed=JSON.parse(await file.text());
   if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))throw new Error('Fichier de sauvegarde invalide : objet attendu.');
   const obj=/** @type {UnknownRecord} */ (parsed);
-  const {add,enriched,addL}=await restoreBackup(obj);
-  $('backupInfo').textContent='Sauvegarde restaurée : '+add+' relevés d’historique ajoutés, '+enriched+' complétés et '+addL+' relevés en direct.';
+  const {add,enriched}=await restoreBackup(obj);
+  $('backupInfo').textContent='Sauvegarde restaurée : '+add+' relevés d’historique ajoutés et '+enriched+' complétés.';
   render();
  }catch(err){$('backupInfo').textContent='Restauration impossible : '+err.message}
  input.value='';
@@ -681,18 +654,17 @@ function buildDiagnostic(){
   const miss=k=>valid.filter(r=>r[k]==null).length;
   L.push(`  valeurs manquantes : salon T ${miss('st')}, ext. VMI+ T ${miss('tExt')}, salon HR ${miss('sh')}, sonde 1 T ${miss('t1')}, air entrant T ${miss('te')}, air entrant HR ${miss('he')}, régime ${miss('rpm')}`);
   for(const [key,label] of [['st','Salon'],['t1','Sonde résistances'],['te','Air entrant']]){
-   const extreme=valid.filter(r=>Number.isFinite(r[key])&&r[key]>40);
+   const extreme=valid.filter(r=>typeof r[key]==='number'&&Number.isFinite(r[key])&&r[key]>40);
    L.push(`  Température >40°C – ${label} : ${extreme.length}${extreme.length?' · '+extreme.slice(0,8).map(r=>fmtLocal(r.t)+' = '+r[key]+'°C').join(' ; '):''}`);
   }
   for(const [tk,hk,label] of [['st','sh','Salon'],['t1','h1','Sonde résistances'],['te','he','Air entrant']]){
-   const extreme=valid.map(r=>({r,v:Number.isFinite(r[tk])&&Number.isFinite(r[hk])?absoluteHumidity(r[tk],r[hk]):null})).filter(x=>Number.isFinite(x.v)&&x.v>35);
+   const extreme=valid.map(r=>{const t=r[tk],h=r[hk];return {r,v:typeof t==='number'&&typeof h==='number'&&Number.isFinite(t)&&Number.isFinite(h)?absoluteHumidity(t,h):null}}).filter(x=>Number.isFinite(x.v)&&x.v>35);
    L.push(`  Humidité absolue calculée >35 g/m³ – ${label} : ${extreme.length}${extreme.length?' · '+extreme.slice(0,8).map(x=>fmtLocal(x.r.t)+' = '+x.v.toFixed(1)).join(' ; '):''}`);
   }
   L.push(`  relevés avec compteur de jours : ${valid.filter(r=>Number.isFinite(r.d)).length} · avec date brute : ${valid.filter(r=>r.rk).length}`);
  }
- L.push(`Direct : ${live.length} relevés${live.length?` (du ${fmtShort(live[0].t)} au ${fmtShort(live[live.length-1].t)})`:''}`);
- L.push(`Synchro : dernière ${meta.lastSync?fmtLocal(meta.lastSync):'jamais'} · mesures reçues : salon ${ago(lastSeen.salon)}, sondes ${ago(lastSeen.probes)}, état ${ago(lastSeen.state)}`);
- L.push(`Affichage : source ${source}, jour ${selectedDate||'aucun'}, période ${daysSetting?daysSetting+' j':'tout'}`);
+  L.push(`Synchro : dernière ${meta.lastSync?fmtLocal(meta.lastSync):'jamais'} · mesures reçues : salon ${ago(lastSeen.salon)}, sondes ${ago(lastSeen.probes)}, état ${ago(lastSeen.state)}`);
+ L.push(`Affichage : jour ${selectedDate||'aucun'}, période ${daysSetting?daysSetting+' j':'tout'}`);
  L.push('Graphiques : '+['chartRH','chartHA','chartTemp','chartRPM'].map(id=>`${id} ${(($(id).innerHTML.match(/<path/g))||[]).length} courbe(s)`).join(' · '));
  L.push('Téléchargement : '+(download.on?'en cours':'inactif')+` · ${$('dlp').textContent||'—'}`);
  L.push('Commandes : '+($('cmdResult').textContent||'—'));
@@ -710,7 +682,7 @@ $('diagCopy').onclick=async()=>{
 
 /* ---------- Graphiques SVG ---------- */
 /* Le direct reste une vue facultative ; toutes les analyses utilisent l’historique importé/téléchargé. */
-function selectedData(){return selectDataRange(source==='live'?live:hist,{selectedDate,daysSetting})}
+function selectedData(){return selectDataRange(hist,{selectedDate,daysSetting})}
 let historicalSelectionCache={history:null,selectedDate:null,daysSetting:null,data:null};
 function selectedHistoricalData(){
  if(historicalSelectionCache.history===hist&&historicalSelectionCache.selectedDate===selectedDate&&historicalSelectionCache.daysSetting===daysSetting){
@@ -1018,11 +990,10 @@ function render(){
  dashboardData.textContent=analysisData.length?`${analysisData.length} relevés historiques dans la période sélectionnée.`:'Aucun relevé historique exploitable dans la période sélectionnée. Importe un export VMI+.';
  const dashboardDiagnosis=getHygrometricDiagnosis(analysisData);
  dashboardAnalysis.textContent=dashboardDiagnosis.status==='analysis-available'?'Des constats hygrométriques peuvent être établis à partir de l’historique.':'Historique encore insuffisant pour établir un diagnostic fiable.';
- $('liveCount').textContent=String(live.length);
- const rangeLabel=selectedDate?'jour '+selectedDate:(daysSetting?daysSetting+' derniers jours':'toute la période');
- $('historyStatus').textContent=`Graphiques : ${data.length} relevés · ${source==='live'?'enregistrement direct facultatif':'historique importé / VMI'} · ${rangeLabel}. Analyses et diagnostics : historique importé / VMI uniquement.`;
+  const rangeLabel=selectedDate?'jour '+selectedDate:(daysSetting?daysSetting+' derniers jours':'toute la période');
+ $('historyStatus').textContent=`Graphiques : ${data.length} relevés · historique importé / VMI · ${rangeLabel}.`;
  const lastRpm=[...hist].reverse().find(r=>Number.isFinite(r.rpm));
- $('rpm').textContent=lastRpm?lastRpm.rpm:'–';
+ $('rpm').textContent=lastRpm?String(lastRpm.rpm):'–';
  const quality=getDataQuality(analysisData);
  renderVmiAssistant(analysisData,{targetRH:Number($('targetRH').value),minSamples:Number($('minSamples').value),onError:log});
  const qualityBox=$('dataQuality');

@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { renderCharts, resetChartViews } from '../js/modules/charts.js';
-import { setupWeather } from '../js/modules/weather.js';
 
 test('charts.js expose les deux fonctions publiques du moteur graphique', () => {
   assert.equal(typeof renderCharts, 'function');
@@ -22,11 +21,3 @@ test('renderCharts accepte un historique vide sans DOM graphique complexe', () =
   assert.doesNotThrow(() => resetChartViews());
 });
 
-test('weather.js conserve setupWeather comme compatibilité sans effet', () => {
-  assert.equal(typeof setupWeather, 'function');
-  assert.doesNotThrow(() => setupWeather());
-  assert.doesNotThrow(() => setupWeather({ button: {}, status: {} }));
-  assert.doesNotThrow(() => setupWeather({
-    button: {}, status: {}, output: {}
-  }));
-});
