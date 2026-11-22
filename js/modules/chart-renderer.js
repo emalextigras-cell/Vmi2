@@ -98,7 +98,7 @@ function accessibleDataTable(title,series){
 }
 function drawChart(id,title,series,selectedDate,$,comfortBand=false){
  const el=$(id),all=series.flatMap(s=>s.points.filter(p=>Number.isFinite(p.v)));
- if(!all.length){el.innerHTML='<p class="chart-empty">Pas encore d’historique : connecte la VMI pour le récupérer ou importe un export VMI+.</p>';return}
+ if(!all.length){el.innerHTML='<p class="chart-empty">Pas de données disponibles. Pas encore d’historique : connecte la VMI pour le récupérer ou importe un export VMI+.</p>';return}
  const W=700,H=215,L=48,R=12,T=18,B=30;
  const daily=!!selectedDate;
  let x0,x1;
@@ -197,8 +197,8 @@ let selectedMetric='humidity';
 let selectedPeriod='7d';
 function renderSingleChart(viewModel,$){
  const root=$('chartMain');
- if(!root)return false;
- const controls=root.parentElement?.querySelector('.chart-options') || document.querySelector('.chart-options');
+ if(!root||!root.parentElement)return false;
+ const controls=root.parentElement.querySelector('.chart-options');
  if(controls&&!controls.dataset.bound){
   controls.dataset.bound='true';
   controls.querySelectorAll('[data-chart-metric]').forEach(button=>button.addEventListener('click',()=>{
