@@ -195,15 +195,17 @@ export function buildChartViewModel(data, selectedDate = null) {
  */
 let selectedMetric='humidity';
 let selectedPeriod='7d';
+let currentChartRecords=[];
 function renderSingleChart(viewModel,$){
  const root=$('chartMain');
  if(!root||!root.parentElement)return false;
+ currentChartRecords=viewModel.records;
  const controls=root.parentElement.querySelector('.chart-options');
  if(controls&&!controls.dataset.bound){
   controls.dataset.bound='true';
   controls.querySelectorAll('[data-chart-metric]').forEach(button=>button.addEventListener('click',()=>{
    selectedMetric=button.dataset.chartMetric;
-   renderCharts(viewModel.records,null,$);
+   renderCharts(currentChartRecords,null,$);
   }));
   controls.querySelectorAll('[data-chart-period]').forEach(button=>button.addEventListener('click',()=>{
    selectedPeriod=button.dataset.chartPeriod;
