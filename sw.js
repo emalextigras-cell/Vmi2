@@ -53,7 +53,6 @@ const APP_SHELL = [
   './js/modules/seasonal-advice.js',
   './js/modules/store.js',
   './js/modules/sync.js',
-  './js/modules/weather.js',
   './js/modules/weekly-diagnostic.js',
   './js/types/vmi-types.js'
 ];
