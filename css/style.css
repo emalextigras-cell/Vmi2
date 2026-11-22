@@ -220,3 +220,6 @@ footer{margin-top:20px}
 @media(prefers-reduced-motion:reduce){
  *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
+
+.history-filter{margin:8px 0;padding:10px 12px;border:1px solid var(--line);border-radius:var(--radius-small);background:var(--card)}
+.history-filter>summary{min-height:30px;display:flex;align-items:center;color:var(--acc)}
