@@ -7,9 +7,9 @@ if (main) {
   main.querySelector('.main-nav')?.remove();
   const children = Array.from(main.children);
   const byId = id => main.querySelector('#' + id);
-  const detailsBySummary = phrase => children.find(node =>
-    node.tagName === 'DETAILS' && node.querySelector(':scope > summary')?.textContent.includes(phrase)
-  );
+  const detailsBySummary = phrase => /** @type {HTMLDetailsElement | undefined} */ (children.find(node =>
+    node instanceof HTMLDetailsElement && node.querySelector(':scope > summary')?.textContent.includes(phrase)
+  ));
 
   const home = document.createElement('section');
   home.id = 'tab-home';
@@ -35,7 +35,7 @@ if (main) {
   const errorBanner = byId('errBanner');
   const live = detailsBySummary('Mesures en direct');
   const commands = detailsBySummary('État de la VMI');
-  const connection = byId('reglages');
+  const connection = /** @type {HTMLDetailsElement | null} */ (byId('reglages'));
   const diagnosis = byId('technicalDiagnostic');
   const analyses = byId('analyses');
   const comparison = detailsBySummary('Comparaison des modes');
@@ -173,28 +173,31 @@ if (main) {
       const active = panel.id === 'tab-' + name;
       panel.hidden = !active;
     });
-    nav.querySelectorAll('[data-tab]').forEach(button => {
+    nav.querySelectorAll('button[data-tab]').forEach(button => {
       button.setAttribute('aria-selected', String(button.dataset.tab === name));
     });
     document.body.dataset.activeTab = name;
     window.scrollTo({ top: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   };
   nav.addEventListener('click', event => {
-    const button = event.target.closest('[data-tab]');
-    if (button) activate(button.dataset.tab);
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const button = target.closest('button[data-tab]');
+    if (button instanceof HTMLButtonElement) activate(button.dataset.tab);
   });
   activate('home');
 
   // Les messages de commande deviennent des toasts courts, au-dessus de la barre d'onglets.
-  const commandResult = byId('cmdResult');
+  const commandResult = /** @type {HTMLElement | null} */ (byId('cmdResult'));
+  let toastTimer = 0;
   if (commandResult && typeof MutationObserver !== 'undefined') {
     commandResult.classList.add('command-toast');
     const observer = new MutationObserver(() => {
       const message = commandResult.textContent.trim();
       if (!message) return;
       commandResult.classList.add('toast-visible');
-      clearTimeout(commandResult._toastTimer);
-      commandResult._toastTimer = setTimeout(() => commandResult.classList.remove('toast-visible'), 3200);
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => commandResult.classList.remove('toast-visible'), 3200);
     });
     observer.observe(commandResult, { childList: true, characterData: true, subtree: true });
   }
