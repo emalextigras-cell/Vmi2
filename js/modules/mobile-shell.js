@@ -84,6 +84,10 @@ if (main) {
       <div><span>Vitesse actuelle</span><strong id="homeSpeed">–</strong></div>
       <div><span>Température salon</span><strong id="homeTemperature">–</strong></div>
     </div>
+    <div class="home-absolute-humidity" aria-label="Humidité absolue en temps réel">
+      <div><span>Humidité absolue · Salon</span><strong id="homeAbsoluteHumidityIndoor">–</strong><small>g/m³</small></div>
+      <div><span>Humidité absolue · Air entrant</span><strong id="homeAbsoluteHumidityOutdoor">–</strong><small>g/m³</small></div>
+    </div>
     <div class="home-speed-control">
       <div class="home-speed-heading">Commande manuelle de vitesse</div>
       <div class="segmented-speed" id="homeSpeedControl" role="group" aria-label="Choisir la vitesse de ventilation"></div>
