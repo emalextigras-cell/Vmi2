@@ -605,7 +605,7 @@ async function restoreBackup(obj){
  // Ne modifier l'état en mémoire qu'après validation atomique du stockage local.
  await dbSetMany(entries);
  hist=nextHist;meta=result.meta;
- return {add:result.addedHistory,enriched:result.enrichedHistory,addL:result.addedLive};
+ return {add:result.addedHistory,enriched:result.enrichedHistory};
 }
 $('expHist').onclick=()=>{
  const rows=hist.filter(r=>r.t>=MIN_VALID&&r.t<=Date.now());
@@ -625,8 +625,8 @@ $('restoreFile').onchange=async e=>{
   const parsed=JSON.parse(await file.text());
   if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))throw new Error('Fichier de sauvegarde invalide : objet attendu.');
   const obj=/** @type {UnknownRecord} */ (parsed);
-  const {add,enriched,addL}=await restoreBackup(obj);
-  $('backupInfo').textContent='Sauvegarde restaurée : '+add+' relevés d’historique ajoutés, '+enriched+' complétés et '+addL+' relevés en direct.';
+  const {add,enriched}=await restoreBackup(obj);
+  $('backupInfo').textContent='Sauvegarde restaurée : '+add+' relevés d’historique ajoutés et '+enriched+' complétés.';
   render();
  }catch(err){$('backupInfo').textContent='Restauration impossible : '+err.message}
  input.value='';
