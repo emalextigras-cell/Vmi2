@@ -143,14 +143,7 @@ if (main) {
   main.querySelectorAll('span, label').forEach(node => {
     if (node.textContent.includes('Sonde résistances')) node.textContent = node.textContent.replace('Sonde résistances', 'Air chauffé');
   });
-  const emptyState = historyPanel?.querySelector('#historyStatus');
-  if (emptyState && !historyPanel.querySelector('#historyEmpty')) {
-    const note = document.createElement('p');
-    note.id = 'historyEmpty';
-    note.className = 'history-empty';
-    note.textContent = 'Pas encore d’historique : connecte la VMI pour le récupérer ou importe un export VMI+.';
-    historyPanel.insertBefore(note, historyPanel.querySelector('#chartRH')?.parentElement || historyPanel.firstChild);
-  }
+
 
   // Réorganise le DOM principal en quatre panneaux persistants.
   [home, history, settings, tools].forEach(panel => main.insertBefore(panel, main.querySelector(':scope > footer')));
