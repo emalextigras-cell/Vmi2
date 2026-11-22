@@ -300,6 +300,9 @@ function updateLiveMetrics(){
 
  const r={st:cur.sal_t,sh:cur.sal_h,te:cur.s2_t,he:cur.s2_h};
  const p=psychro(r);
+ const homeAbsoluteIndoor=$('homeAbsoluteHumidityIndoor'),homeAbsoluteOutdoor=$('homeAbsoluteHumidityOutdoor');
+ if(homeAbsoluteIndoor)homeAbsoluteIndoor.textContent=p.haIn!=null?fmt(p.haIn):'–';
+ if(homeAbsoluteOutdoor)homeAbsoluteOutdoor.textContent=p.haOut!=null?fmt(p.haOut):'–';
  $('haSalon').textContent=fmt(p.haIn);$('haExt').textContent=fmt(p.haOut);$('dew').textContent=fmt(p.dewIn);$('dewExt').textContent=fmt(p.dewOut);
  $('deltaHA').textContent=p.haIn!=null&&p.haOut!=null?fmt(p.haIn-p.haOut):'–';
  $('liveDeltaHA').textContent=p.haIn!=null&&p.haOut!=null?fmt(p.haIn-p.haOut):'–';
