@@ -5,6 +5,7 @@
 const main = document.querySelector('main');
 if (main) {
   main.querySelector('.main-nav')?.remove();
+  const children = Array.from(main.children);
   const byId = id => main.querySelector('#' + id);
   const detailsBySummary = phrase => children.find(node =>
     node.tagName === 'DETAILS' && node.querySelector(':scope > summary')?.textContent.includes(phrase)
