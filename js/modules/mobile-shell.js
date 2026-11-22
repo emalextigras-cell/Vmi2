@@ -145,10 +145,6 @@ if (main) {
     chartContainer.parentElement.insertBefore(chartCard, chartContainer);
   }
 
-  // Le vocabulaire de l'interface décrit l'air, pas le matériel interne de la sonde.
-  main.querySelectorAll('span, label').forEach(node => {
-    if (node.textContent.includes('Sonde résistances')) node.textContent = node.textContent.replace('Sonde résistances', 'Air chauffé');
-  });
 
 
   // Réorganise le DOM principal en quatre panneaux persistants.
