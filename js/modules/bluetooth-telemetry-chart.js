@@ -155,7 +155,7 @@ function renderMetricChart(container, records, key, label, unit, digits) {
 /** Met à jour les deux courbes et les indicateurs de couverture des transitions. */
 export function renderStateTelemetryChart({
   renewalContainer, airflowContainer, summaryContainer, transitionTableContainer,
-  records, rangeDays = 30, now = Date.now()
+  records, rangeDays = 30, now = Date.now(), selectedDate = null
 }) {
   const summary = summarizeStateTelemetry(records, rangeDays, now, selectedDate);
   renderMetricChart(renewalContainer, summary.records, 'airChangesPerHour', 'Renouvellement', 'vol/h', 3);
