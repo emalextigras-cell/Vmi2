@@ -46,3 +46,20 @@ test('les commandes avancées non validées restent masquées et bloquées à l�
   assert.match(app, /const ADVANCED_COMMANDS_ENABLED = false;/);
   assert.match(app, /if\(!ADVANCED_COMMANDS_ENABLED\)[\s\S]*Commande avancée bloquée/);
 });
+
+
+test('la navigation expose les données et les aides au réglage sans déplacer le bloc de supervision', async () => {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const nav = html.slice(html.indexOf('<nav class="main-nav"'), html.indexOf('</nav>'));
+  assert.match(nav, /href="#donnees">Données/);
+  assert.match(nav, /href="#reglages">Réglages Bluetooth/);
+  const liveMeasurements = html.indexOf('<details class="card compact"><summary>Mesures en direct</summary>');
+  const dataSection = html.indexOf('id="donnees"');
+  assert.ok(liveMeasurements > -1 && dataSection > liveMeasurements, 'Le bloc de mesures existant reste avant les nouvelles rubriques');
+  assert.match(html, /id="energyEstimateCard"/);
+  assert.match(html, /<summary>Aide hygrométrique<\/summary>/);
+  assert.match(html, /<summary>Aide thermique et saisonnière<\/summary>/);
+  for (const id of ['fanEnergyEstimate','fanEnergyByMode','dailyEnergyClimateContext','weeklyDiagnostic','targetRH','minSamples','seasonalAdvice','speedAnalysis','energyReadiness']) {
+    assert.match(html, new RegExp('id="' + id + '"'), 'Identifiant fonctionnel conservé : ' + id);
+  }
+});
