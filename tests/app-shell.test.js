@@ -52,7 +52,8 @@ test('la navigation expose les données et les aides au réglage sans déplacer 
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const nav = html.slice(html.indexOf('<nav class="main-nav"'), html.indexOf('</nav>'));
   assert.match(nav, /href="#donnees">Données/);
-  assert.match(nav, /href="#reglages">Réglages Bluetooth/);
+  assert.match(nav, /href="#reglageAides">Réglages/);
+  assert.match(nav, /href="#reglages">Bluetooth/);
   const liveMeasurements = html.indexOf('<details class="card compact"><summary>Mesures en direct</summary>');
   const dataSection = html.indexOf('id="donnees"');
   assert.ok(liveMeasurements > -1 && dataSection > liveMeasurements, 'Le bloc de mesures existant reste avant les nouvelles rubriques');
