@@ -336,7 +336,7 @@ $('conn').onclick=()=>bluetoothService.connectBLE();
 $('disc').onclick=()=>bluetoothService.disconnect();
 
 /* Boutons de commande : une commande à la fois, avec vérification de l'état renvoyé par la VMI */
-const EXPECT={24:v=>['vit',v+1,'Vitesse '+(v+1)],25:v=>['boost',v,'Boost '+(v?'activé':'arrêté')],26:v=>['hol',v>0,'Mode vacances '+(v?`${v} jour(s)`:'arrêté')]};
+const EXPECT={24:v=>['vit',v+1,'Mode manuel '+(v+1)],25:v=>['boost',v,'Boost '+(v?'activé':'arrêté')],26:v=>['hol',v>0,'Mode vacances '+(v?`${v} jour(s)`:'arrêté')]};
 document.querySelectorAll('[data-r]').forEach(b=>b.addEventListener('click',async()=>{
  if(manualCommandPending||download.on)return;
  if(!connected()){showError('VMI non connectée.');$('cmdResult').textContent='';return}
