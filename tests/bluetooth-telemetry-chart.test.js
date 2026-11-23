@@ -66,6 +66,7 @@ test('sépare les trois modes manuels des cinq codes de vitesse VMI+', () => {
   assert.deepEqual(result.speedCounts, { 0: 1, 1: 1, 2: 1, 3: 2, 4: 1, 5: 1 });
   assert.deepEqual(result.matrix.map(row => row.total), [2, 3, 1]);
   assert.equal(result.matrix[0].speeds[3], 1);
+  assert.equal(result.matrix[1].speeds[0], 1);
   assert.equal(result.matrix[1].speeds[5], 1);
   assert.equal(result.matrix[2].speeds[1], 1);
 });
