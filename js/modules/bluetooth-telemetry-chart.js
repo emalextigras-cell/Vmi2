@@ -1,8 +1,9 @@
 /**
  * Rendu de l'historique des états reçus par Bluetooth.
- * Les points représentent des trames réellement reçues. Les segments en escalier
- * ne sont tracés que lorsque deux transitions sont espacées de 2 h maximum ;
- * les interruptions plus longues restent visuellement interrompues.
+ * Les points représentent les premières trames des états nouveaux ; les répétitions
+ * d'un état identique sont dédupliquées. Un intervalle long entre deux points indique
+ * un délai entre transitions enregistrées, pas nécessairement une perte Bluetooth.
+ * Les segments sont interrompus au-delà de 2 h car l'état intermédiaire est inconnu.
  */
 const MAX_GAP_MS = 2 * 60 * 60 * 1000;
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -16,7 +17,7 @@ function validRecords(records) {
     .sort((a, b) => a.t - b.t);
 }
 
-/** Résume les transitions sans extrapoler les périodes sans trame. */
+/** Résume les transitions sans prétendre connaître l'état pendant les longs intervalles. */
 export function summarizeStateTelemetry(records, rangeDays = 30, now = Date.now(), selectedDate = null) {
   const all = validRecords(records);
   const cutoff = rangeDays > 0 ? now - rangeDays * 86400000 : -Infinity;
@@ -164,9 +165,9 @@ export function renderStateTelemetryChart({
   summaryContainer.replaceChildren();
   const items = [
     ['États reçus', String(summary.count)],
-    ['Interruptions > 2 h', String(summary.gapCount)],
-    ['Plus longue interruption', summary.longestGapMs ? formatDuration(summary.longestGapMs) : 'Aucune détectée'],
-    ['Dernière trame', summary.lastTimestamp ? formatDate(summary.lastTimestamp) : 'Aucune']
+    ['Écarts entre transitions > 2 h', String(summary.gapCount)],
+    ['Plus long écart', summary.longestGapMs ? formatDuration(summary.longestGapMs) : 'Aucun détecté'],
+    ['Dernière transition', summary.lastTimestamp ? formatDate(summary.lastTimestamp) : 'Aucune']
   ];
   items.forEach(([label, value]) => {
     const item = document.createElement('div');
@@ -185,7 +186,7 @@ export function renderStateTelemetryChart({
       const table = document.createElement('table');
       const head = document.createElement('thead');
       const headerRow = document.createElement('tr');
-      ['Date de réception', 'Temps depuis la trame précédente', 'Renouvellement', 'Débit théorique', 'Vitesse brute']
+      ['Date de réception', 'Temps depuis la transition précédente', 'Renouvellement', 'Débit théorique', 'Vitesse brute']
         .forEach(label => {
           const cell = document.createElement('th');
           cell.textContent = label;
