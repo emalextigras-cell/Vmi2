@@ -150,7 +150,8 @@ function renderMetricChart(container, records, key, label, unit, digits) {
 
 /** Met à jour les deux courbes et les indicateurs de couverture des transitions. */
 export function renderStateTelemetryChart({
-  renewalContainer, airflowContainer, summaryContainer, records, rangeDays = 30, now = Date.now()
+  renewalContainer, airflowContainer, summaryContainer, transitionTableContainer,
+  records, rangeDays = 30, now = Date.now()
 }) {
   const summary = summarizeStateTelemetry(records, rangeDays, now);
   renderMetricChart(renewalContainer, summary.records, 'airChangesPerHour', 'Renouvellement', 'vol/h', 3);
@@ -173,6 +174,49 @@ export function renderStateTelemetryChart({
     item.append(strong, caption);
     summaryContainer.append(item);
   });
+
+  if (transitionTableContainer) {
+    transitionTableContainer.replaceChildren();
+    if (summary.records.length) {
+      const table = document.createElement('table');
+      const head = document.createElement('thead');
+      const headerRow = document.createElement('tr');
+      ['Date de réception', 'Temps depuis la trame précédente', 'Renouvellement', 'Débit théorique', 'Vitesse brute']
+        .forEach(label => {
+          const cell = document.createElement('th');
+          cell.textContent = label;
+          headerRow.append(cell);
+        });
+      head.append(headerRow);
+      const body = document.createElement('tbody');
+      summary.records.slice(-30).forEach((record, index, visibleRecords) => {
+        const globalIndex = summary.records.length - visibleRecords.length + index;
+        const previous = summary.records[globalIndex - 1];
+        const elapsed = previous ? formatDuration(record.t - previous.t) : 'Première trame de la période';
+        const values = [
+          formatDate(record.t),
+          elapsed,
+          record.airChangesPerHour.toFixed(3) + ' vol/h',
+          record.airflowM3h.toFixed(0) + ' m³/h',
+          String(record.rawSpeed)
+        ];
+        const row = document.createElement('tr');
+        values.forEach(value => {
+          const cell = document.createElement('td');
+          cell.textContent = value;
+          row.append(cell);
+        });
+        body.append(row);
+      });
+      table.append(head, body);
+      transitionTableContainer.append(table);
+    } else {
+      const empty = document.createElement('p');
+      empty.className = 'status';
+      empty.textContent = 'Aucune transition à détailler pour cette période.';
+      transitionTableContainer.append(empty);
+    }
+  }
   return summary;
 }
 
