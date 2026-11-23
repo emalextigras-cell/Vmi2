@@ -24,7 +24,7 @@ import { summarizeWeeklyDiagnostic } from './modules/weekly-diagnostic.js';
 import { createLiveMeasurementFilters } from './modules/measurement-filter.js';
 import { applyAdvancedCommand } from './modules/bluetooth-advanced-commands.js';
 import { createStateTelemetryRecord, appendStateTelemetry, normalizeStateTelemetry } from './modules/bluetooth-state-telemetry.js';
-import { renderStateTelemetryChart } from './modules/bluetooth-telemetry-chart.js';
+import { renderStateTelemetryChart, renderOperatingProfile } from './modules/bluetooth-telemetry-chart.js';
 
 // Garde volontairement fermée jusqu'à validation des registres sur capture VMI+.
 const ADVANCED_COMMANDS_ENABLED = false;
@@ -254,11 +254,16 @@ function renderStateTelemetryPanel(){
  const airflowContainer=$('telemetryAirflowChart');
  const summaryContainer=$('telemetrySummary');
  const transitionTableContainer=$('telemetryTransitionTable');
- if(!renewalContainer||!airflowContainer||!summaryContainer)return;
- renderStateTelemetryChart({
-  renewalContainer,airflowContainer,summaryContainer,transitionTableContainer,
-  records:stateTelemetry,rangeDays:stateTelemetryRangeDays,selectedDate
- });
+ const operatingProfileContainer=$('operatingProfileSummary');
+ if(renewalContainer&&airflowContainer&&summaryContainer){
+  renderStateTelemetryChart({
+   renewalContainer,airflowContainer,summaryContainer,transitionTableContainer,
+   records:stateTelemetry,rangeDays:stateTelemetryRangeDays,selectedDate
+  });
+ }
+ if(operatingProfileContainer){
+  renderOperatingProfile(operatingProfileContainer,hist,stateTelemetryRangeDays,Date.now(),selectedDate);
+ }
 }
 
 const handleNotification = createPureventNotificationHandler({
