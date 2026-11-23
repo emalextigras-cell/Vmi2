@@ -164,6 +164,17 @@ export interface DataQualitySummary {
   hasAnomalies: boolean;
   transientSpikes: TransientSpikeSummary;
 }
+/** Transition d'état reçue sur une trame Bluetooth 0x01. Le mode manuel n'est pas fourni par cette trame. */
+export interface VmiStateTelemetryRecord {
+  t: number;
+  volumeM3: number;
+  rawSpeed: number;
+  renewalRaw: number;
+  airChangesPerHour: number;
+  airflowM3h: number;
+  fixedAirflow: boolean;
+}
+
 export interface VmiBluetoothDevice {
   id: string;
   name?: string | null;
