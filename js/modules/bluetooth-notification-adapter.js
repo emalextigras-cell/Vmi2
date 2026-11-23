@@ -29,6 +29,7 @@ export function createPureventNotificationHandler(deps) {
     hex,
     $: deps.$,
     onDecodedFrame: deps.notifyResponse,
+    onStateTelemetry: deps.onStateTelemetry,
     filterMeasurement: deps.filterMeasurement,
     resetMeasurementFilter: deps.resetMeasurementFilter
   });
