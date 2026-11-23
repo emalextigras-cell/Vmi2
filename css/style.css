@@ -31,7 +31,7 @@
 :root[data-theme="dark"]{
   color-scheme:dark;
   --bg:#101a15;--surface:#19251e;--surface-soft:#202e25;--surface-raised:#1c2a22;
-  --ink:#e8f0eb;--muted:#a4b4a9;--accent:#79c69a;--accent-strong:#9ad9b3;--on-accent:#10251a;
+  --ink:#e8f0eb;--muted:#a4b4a9;--accent:#79c69a;--accent-strong:#9ad9b3;--on-accent:#10251a;--on-accent:#10251a;
   --accent-soft:#233d2e;--line:#304238;--line-strong:#40574a;
   --good:#8bd3a6;--warn:#efb17e;--danger:#f09b9b;--blue:#91bce3;
   --shadow-sm:none;--shadow-md:0 12px 30px rgba(0,0,0,.18);--focus:0 0 0 3px rgba(145,188,227,.25);
