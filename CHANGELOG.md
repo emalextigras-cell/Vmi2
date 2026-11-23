@@ -2,7 +2,7 @@
 - Enregistrement local des transitions observées dans les trames d'état Bluetooth : volume, code vitesse brut, renouvellement reçu, vol/h, débit théorique calculé et indicateur de débit fixe.
 - Les répétitions d'un état identique sont ignorées et l'historique est plafonné à 2 000 transitions.
 - Les transitions sont conservées dans IndexedDB et incluses dans les nouvelles sauvegardes JSON ; les anciennes sauvegardes restent compatibles.
-- Le mode manuel n'est pas déduit des trames d'état Bluetooth : il reste distinct et aucun mode 3 n'est ajouté aux analyses.
+- La trame d'état Bluetooth ne fournit pas le mode manuel : aucune association entre télémétrie Bluetooth et modes manuels 1, 2 ou 3 n'est donc déduite. L'absence actuelle de données du mode 3 reflète uniquement le fait qu'il n'a pas encore été utilisé.
 - Le diagnostic technique indique le nombre de transitions conservées et la dernière valeur reçue.
 - Cache du service worker porté à `vmi-test-v14-cache-87`.
 
