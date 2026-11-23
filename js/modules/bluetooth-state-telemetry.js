@@ -7,7 +7,7 @@ export const STATE_TELEMETRY_MAX = 2000;
 
 /**
  * Construit un relevé à partir d'une trame d'état décodée.
- * @param {{timestamp:number,decoded:object}} input État reçu et horodatage local.
+ * @param {{timestamp?:number,decoded?:object}} [input] État reçu et horodatage local.
  * @returns {object|null} Relevé exploitable, ou null si les champs requis manquent.
  */
 export function createStateTelemetryRecord({ timestamp, decoded } = {}) {
