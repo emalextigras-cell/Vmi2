@@ -17,10 +17,14 @@ function validRecords(records) {
 }
 
 /** Résume les transitions sans extrapoler les périodes sans trame. */
-export function summarizeStateTelemetry(records, rangeDays = 30, now = Date.now()) {
+export function summarizeStateTelemetry(records, rangeDays = 30, now = Date.now(), selectedDate = null) {
   const all = validRecords(records);
   const cutoff = rangeDays > 0 ? now - rangeDays * 86400000 : -Infinity;
-  const selected = all.filter(record => record.t >= cutoff && record.t <= now);
+  const dayStart = selectedDate ? new Date(selectedDate + 'T00:00:00').getTime() : null;
+  const dayEnd = dayStart === null ? null : dayStart + 86400000;
+  const selected = all.filter(record => dayStart !== null
+    ? record.t >= dayStart && record.t < dayEnd
+    : record.t >= cutoff && record.t <= now);
   const gaps = [];
   for (let index = 1; index < selected.length; index += 1) {
     const duration = selected[index].t - selected[index - 1].t;
@@ -153,7 +157,7 @@ export function renderStateTelemetryChart({
   renewalContainer, airflowContainer, summaryContainer, transitionTableContainer,
   records, rangeDays = 30, now = Date.now()
 }) {
-  const summary = summarizeStateTelemetry(records, rangeDays, now);
+  const summary = summarizeStateTelemetry(records, rangeDays, now, selectedDate);
   renderMetricChart(renewalContainer, summary.records, 'airChangesPerHour', 'Renouvellement', 'vol/h', 3);
   renderMetricChart(airflowContainer, summary.records, 'airflowM3h', 'Débit théorique calculé', 'm³/h', 0);
 
