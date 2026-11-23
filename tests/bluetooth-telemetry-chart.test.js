@@ -16,7 +16,7 @@ test('résume les valeurs reçues et les statistiques sans fabriquer de points',
   assert.equal(result.gapCount, 0);
 });
 
-test('signale les interruptions supérieures à deux heures sans les combler', () => {
+test('signale les longs intervalles entre transitions sans les présenter comme des pertes Bluetooth', () => {
   const result = summarizeStateTelemetry([
     sample(1000, .36), sample(1000 + 3 * 3600000, .45), sample(1000 + 4 * 3600000, .4)
   ], 0, 1000 + 4 * 3600000);
@@ -32,6 +32,17 @@ test('filtre la période demandée et exclut les horodatages futurs', () => {
     sample(now - 2 * 86400000, .36),
     sample(now + 1000, .5)
   ], 30, now);
+  assert.equal(result.count, 1);
+  assert.equal(result.records[0].airChangesPerHour, .36);
+});
+
+test('filtre précisément le jour sélectionné', () => {
+  const start = new Date('2026-11-10T00:00:00').getTime();
+  const result = summarizeStateTelemetry([
+    sample(start - 1, .2),
+    sample(start + 12 * 3600000, .36),
+    sample(start + 86400000, .5)
+  ], 30, start + 2 * 86400000, '2026-11-10');
   assert.equal(result.count, 1);
   assert.equal(result.records[0].airChangesPerHour, .36);
 });
