@@ -6,6 +6,7 @@
 - Le diagnostic technique indique le nombre de transitions conservées et la dernière valeur reçue.
 - Ajout de deux graphiques filtrables (7, 30, 90 jours ou toute la période) : renouvellement transmis en vol/h et débit théorique calculé en m³/h.
 - Les graphiques affichent les états réellement reçus, leurs statistiques min./moyenne/max. et les interruptions supérieures à 2 h ; aucune donnée n'est interpolée à travers ces interruptions.
+- Un tableau des 30 dernières transitions détaille leur date de réception et le temps écoulé depuis la transition précédente.
 - Cache du service worker porté à `vmi-test-v14-cache-87`.
 
 ## Interface — réorganisation des données et aides au réglage
