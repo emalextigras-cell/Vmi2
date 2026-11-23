@@ -23,6 +23,7 @@ import { summarizeDailyEnergyClimateContext } from './modules/energy-climate.js'
 import { summarizeWeeklyDiagnostic } from './modules/weekly-diagnostic.js';
 import { createLiveMeasurementFilters } from './modules/measurement-filter.js';
 import { applyAdvancedCommand } from './modules/bluetooth-advanced-commands.js';
+import { createStateTelemetryRecord, appendStateTelemetry, normalizeStateTelemetry } from './modules/bluetooth-state-telemetry.js';
 
 // Garde volontairement fermée jusqu'à validation des registres sur capture VMI+.
 const ADVANCED_COMMANDS_ENABLED = false;
@@ -70,6 +71,8 @@ let manualCommandPending=false,bluetoothService=null;
 
 /** @type {UnknownRecord} */ let meta={};
 let cur={},lastSeen={};
+let stateTelemetry=[];
+let stateTelemetryWrite=Promise.resolve();
 /** @type {VmiRecord[]} */ let hist=[];
 let selectedDate=null,daysSetting=30;
 let logLines=[],dlFrames=0;
@@ -148,6 +151,8 @@ async function readOldDatabase(){
 async function init(){
  const storedHistory=await dbGet('hist');
  const storedMeta=await dbGet('meta');
+ const storedStateTelemetry=await dbGet('stateTelemetry');
+ stateTelemetry=normalizeStateTelemetry(storedStateTelemetry);
  const snapshot=normalizeStoreSnapshot({
   history:storedHistory,meta:storedMeta
  });
@@ -227,10 +232,23 @@ async function setClock(allowDuringDownload=false){
  return ok;
 }
 
+function recordStateTelemetry({timestamp,decoded}){
+ const record=createStateTelemetryRecord({timestamp,decoded});
+ if(!record)return;
+ const next=appendStateTelemetry(stateTelemetry,record);
+ if(next.at(-1)?.t===stateTelemetry.at(-1)?.t)return;
+ stateTelemetry=next;
+ const snapshot=stateTelemetry;
+ stateTelemetryWrite=stateTelemetryWrite.then(()=>persist('stateTelemetry',snapshot,'Enregistrement du renouvellement Bluetooth')).catch(error=>{
+  log('Historique du renouvellement Bluetooth non sauvegardé : '+(error?.message||error));
+ });
+}
+
 const handleNotification = createPureventNotificationHandler({
  getDownload:()=>download,
  getCur:()=>cur,
  getLastSeen:()=>lastSeen,
+ onStateTelemetry:recordStateTelemetry,
  parseDownloadLine,
  incrementDlFrames:()=>++dlFrames,
  armTimer,
@@ -631,11 +649,12 @@ function histToCsv(rows){
 async function restoreBackup(obj){
  const result=mergeBackupData({backup:obj,currentHist:hist,currentMeta:meta,minValid:MIN_VALID});
  const nextHist=pruneHistory(result.hist,HIST_MAX).records;
- const entries=/** @type {Array<[IDBValidKey, unknown]>} */ ([['hist',nextHist],['live',[]]]);
+ const nextStateTelemetry=Array.isArray(result.stateTelemetry)?result.stateTelemetry:stateTelemetry;
+ const entries=/** @type {Array<[IDBValidKey, unknown]>} */ ([['hist',nextHist],['live',[]],['stateTelemetry',nextStateTelemetry]]);
  if(result.meta.lastSync!==meta.lastSync)entries.push(['meta',result.meta]);
  // Ne modifier l'état en mémoire qu'après validation atomique du stockage local.
  await dbSetMany(entries);
- hist=nextHist;meta=result.meta;
+ hist=nextHist;meta=result.meta;stateTelemetry=nextStateTelemetry;
  return {add:result.addedHistory,enriched:result.enrichedHistory};
 }
 $('expHist').onclick=()=>{
@@ -647,7 +666,7 @@ $('expHist').onclick=()=>{
 async function exportBackup(){
  try{
   const nextMeta={...meta,lastBackupAt:Date.now()};
-  const backup=createBackupSnapshot({hist,live:[],meta:nextMeta});
+  const backup=createBackupSnapshot({hist,live:[],meta:nextMeta,stateTelemetry});
   downloadText(JSON.stringify(backup),`vmi-sauvegarde-${localDay()}.json`,'application/json',false);
   await dbSet('meta',nextMeta);
   meta=nextMeta;
@@ -708,6 +727,7 @@ function buildDiagnostic(){
   L.push(`  relevés avec compteur de jours : ${valid.filter(r=>Number.isFinite(r.d)).length} · avec date brute : ${valid.filter(r=>r.rk).length}`);
  }
   L.push(`Synchro : dernière ${meta.lastSync?fmtLocal(meta.lastSync):'jamais'} · mesures reçues : salon ${ago(lastSeen.salon)}, sondes ${ago(lastSeen.probes)}, état ${ago(lastSeen.state)}`);
+ L.push(`Renouvellement Bluetooth : ${stateTelemetry.length} transitions enregistrées${stateTelemetry.length?' · dernière : '+fmtLocal(stateTelemetry.at(-1).t)+' · '+stateTelemetry.at(-1).airChangesPerHour.toFixed(3)+' vol/h · code vitesse brut '+stateTelemetry.at(-1).rawSpeed:''}`);
  L.push(`Affichage : jour ${selectedDate||'aucun'}, période ${daysSetting?daysSetting+' j':'tout'}`);
  L.push('Graphiques : '+['chartRH','chartHA','chartTemp','chartRPM'].map(id=>`${id} ${(($(id).innerHTML.match(/<path/g))||[]).length} courbe(s)`).join(' · '));
  L.push('Téléchargement : '+(download.on?'en cours':'inactif')+` · ${$('dlp').textContent||'—'}`);
