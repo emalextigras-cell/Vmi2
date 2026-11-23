@@ -251,7 +251,9 @@ export function summarizeOperatingProfile(records, rangeDays = 30, now = Date.no
   const matrix = Array.from({ length: 3 }, (_, index) => ({
     mode: index + 1,
     total: 0,
-    speeds: Object.fromEntries([0, 1, 2, 3, 4, 5].map(speed => [speed, 0]))
+    speeds: Object.fromEntries([0, 1, 2, 3, 4, 5].map(speed => [speed, 0])),
+    debitCounts: Object.fromEntries([0, 1, 2, 3, 4, 5].map(speed => [speed, {}])),
+    missingDebitCounts: Object.fromEntries([0, 1, 2, 3, 4, 5].map(speed => [speed, 0]))
   }));
   const speedCounts = Object.fromEntries([0, 1, 2, 3, 4, 5].map(speed => [speed, 0]));
   const modeCounts = { 1: 0, 2: 0, 3: 0 };
@@ -270,6 +272,12 @@ export function summarizeOperatingProfile(records, rangeDays = 30, now = Date.no
       const group = matrix[mode - 1];
       group.total += 1;
       group.speeds[speed] += 1;
+      if (Number.isFinite(record.debit) && record.debit >= 0) {
+        const debitKey = String(record.debit);
+        group.debitCounts[speed][debitKey] = (group.debitCounts[speed][debitKey] || 0) + 1;
+      } else {
+        group.missingDebitCounts[speed] += 1;
+      }
     } else {
       unclassifiedCount += 1;
     }
@@ -294,7 +302,7 @@ export function renderOperatingProfile(container, records, rangeDays = 30, now =
   const table = document.createElement('table');
   const head = document.createElement('thead');
   const header = document.createElement('tr');
-  ['Mode manuel', 'Code 0', 'Vitesse 1', 'Vitesse 2', 'Vitesse 3', 'Vitesse 4', 'Vitesse 5', 'Total'].forEach(label => {
+  ['Mode manuel', 'Code 0 · débit', 'Vitesse 1 · débit', 'Vitesse 2 · débit', 'Vitesse 3 · débit', 'Vitesse 4 · débit', 'Vitesse 5 · débit', 'Total'].forEach(label => {
     const cell = document.createElement('th');
     cell.textContent = label;
     header.append(cell);
@@ -303,7 +311,17 @@ export function renderOperatingProfile(container, records, rangeDays = 30, now =
   const body = document.createElement('tbody');
   summary.matrix.forEach(group => {
     const row = document.createElement('tr');
-    [`Mode ${group.mode}`, ...[0, 1, 2, 3, 4, 5].map(speed => String(group.speeds[speed])), String(group.total)]
+    const formatCell = speed => {
+      const count = group.speeds[speed];
+      if (!count) return '—';
+      const distributions = Object.entries(group.debitCounts[speed])
+        .sort((a, b) => Number(b[1]) - Number(a[1]) || Number(a[0]) - Number(b[0]))
+        .map(([debit, occurrences]) => `${debit} m³/h × ${occurrences}`);
+      const missing = group.missingDebitCounts[speed];
+      if (missing) distributions.push(`débit absent × ${missing}`);
+      return `n=${count} · ${distributions.join(' ; ')}`;
+    };
+    [`Mode ${group.mode}`, ...[0, 1, 2, 3, 4, 5].map(formatCell), String(group.total)]
       .forEach(value => {
         const cell = document.createElement('td');
         cell.textContent = value;
@@ -316,12 +334,12 @@ export function renderOperatingProfile(container, records, rangeDays = 30, now =
 
   const counts = document.createElement('p');
   counts.className = 'note';
-  counts.textContent = `Relevés avec mode et vitesse identifiables : ${summary.pairedCount} / ${summary.sampleCount}. Modes manuels observés : ${summary.modeCounts[1]} / ${summary.modeCounts[2]} / ${summary.modeCounts[3]} (modes 1 / 2 / 3). Codes vitesse observés : ${[1, 2, 3, 4, 5].map(speed => `${speed}: ${summary.speedCounts[speed]}`).join(' · ')}. Code 0 : ${summary.speedCounts[0]} relevé(s), conservé séparément. Lignes sans les deux champs valides : ${summary.unclassifiedCount}.`;
+  counts.textContent = `Relevés avec mode et vitesse identifiables : ${summary.pairedCount} / ${summary.sampleCount}. Modes manuels observés : ${summary.modeCounts[1]} / ${summary.modeCounts[2]} / ${summary.modeCounts[3]} (modes 1 / 2 / 3). Codes vitesse observés : ${[1, 2, 3, 4, 5].map(speed => `${speed}: ${summary.speedCounts[speed]}`).join(' · ')}. Code 0 : ${summary.speedCounts[0]} relevé(s), conservé séparément. Lignes sans les deux champs valides : ${summary.unclassifiedCount}. Dans chaque cellule : n = nombre de relevés du couple mode/vitesse ; les débits sont les valeurs VMI+ réellement exportées, suivies de leur effectif. Les débits absents restent explicitement signalés.`;
   container.append(counts);
 
   const note = document.createElement('p');
   note.className = 'note';
-  note.textContent = 'Source : historique VMI+ (colonnes Mode et Vitesse distinctes). Le mode manuel est le réglage sélectionné par l’utilisateur ; le code vitesse décrit le niveau de vitesse rapporté par la VMI. La trame Bluetooth 0x01 ne transmet pas le mode manuel : cette matrice ne mélange donc pas les transitions Bluetooth avec les lignes VMI+.';
+  note.textContent = 'Source : historique VMI+ (colonnes Mode, Vitesse et Debit distinctes). Le débit affiché est la valeur Debit du CSV, pas un débit recalculé depuis le Bluetooth. Une même vitesse peut présenter plusieurs débits dans les relevés ; la table conserve leur distribution et leurs effectifs. Le mode manuel est le réglage sélectionné par l’utilisateur ; le code vitesse décrit le niveau rapporté par la VMI. La trame Bluetooth 0x01 ne transmet pas le mode manuel.';
   container.append(note);
   return summary;
 }
