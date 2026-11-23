@@ -137,6 +137,10 @@
  <h3>Débit théorique calculé (m³/h)</h3>
  <div id="telemetryAirflowChart" class="chart telemetry-chart"></div>
  <p class="note">Chaque point correspond à une trame reçue. Les segments relient uniquement deux états espacés de 2 h maximum ; au-delà, la courbe est interrompue et la durée est comptabilisée comme une interruption. Le débit en m³/h est calculé depuis le volume et le renouvellement transmis : ce n’est pas une mesure directe du débit d’air. Le code vitesse affiché dans les infobulles est brut et n’est pas assimilé aux modes manuels 1, 2 ou 3.</p>
+ <details class="telemetry-transitions">
+  <summary>Détail des 30 dernières transitions et du temps écoulé entre elles</summary>
+  <div id="telemetryTransitionTable" class="telemetry-table-wrap"></div>
+ </details>
 </section>
 
 <section class="card" id="analyses">
