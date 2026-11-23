@@ -1,6 +1,6 @@
 /** @typedef {import('../types/vmi-types.js').VmiRecord} VmiRecord */
 /** @typedef {import('../types/vmi-types.js').UnknownRecord} UnknownRecord */
-/** @typedef {{hist:VmiRecord[],live:VmiRecord[],meta:UnknownRecord,addedHistory:number,enrichedHistory:number,addedLive:number}} BackupMergeResult */
+/** @typedef {{hist:VmiRecord[],live:VmiRecord[],stateTelemetry:object[],meta:UnknownRecord,addedHistory:number,enrichedHistory:number,addedLive:number}} BackupMergeResult */
 
 import { mergeRecordFields, isRawDateEligible } from './history.js';
 import { mergeStateTelemetry } from './bluetooth-state-telemetry.js';
