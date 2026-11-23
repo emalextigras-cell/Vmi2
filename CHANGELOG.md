@@ -1,3 +1,11 @@
+## Télémétrie — historique des transitions de renouvellement Bluetooth
+- Enregistrement local des transitions observées dans les trames d'état Bluetooth : volume, code vitesse brut, renouvellement reçu, vol/h, débit théorique calculé et indicateur de débit fixe.
+- Les répétitions d'un état identique sont ignorées et l'historique est plafonné à 2 000 transitions.
+- Les transitions sont conservées dans IndexedDB et incluses dans les nouvelles sauvegardes JSON ; les anciennes sauvegardes restent compatibles.
+- Le mode manuel n'est pas déduit des trames d'état Bluetooth : il reste distinct et aucun mode 3 n'est ajouté aux analyses.
+- Le diagnostic technique indique le nombre de transitions conservées et la dernière valeur reçue.
+- Cache du service worker porté à `vmi-test-v14-cache-87`.
+
 ## Interface — réorganisation des données et aides au réglage
 - Conservation à l’identique du bloc supérieur de supervision et des identifiants de mesures.
 - Déplacement de l’estimation électrique et de l’inventaire des champs énergétiques dans une rubrique « Données » dédiée.
