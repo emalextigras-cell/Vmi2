@@ -3,27 +3,30 @@
 /** @typedef {{hist:VmiRecord[],live:VmiRecord[],meta:UnknownRecord,addedHistory:number,enrichedHistory:number,addedLive:number}} BackupMergeResult */
 
 import { mergeRecordFields, isRawDateEligible } from './history.js';
+import { mergeStateTelemetry } from './bluetooth-state-telemetry.js';
 
 /** Construit une sauvegarde versionnée sans modifier les données sources.
- * @param {{hist: VmiRecord[], live: VmiRecord[], meta: UnknownRecord, exportedAt?: string}} options Données à sauvegarder et horodatage d'export.
+ * @param {{hist: VmiRecord[], live: VmiRecord[], meta: UnknownRecord, stateTelemetry?: object[], exportedAt?: string}} options Données à sauvegarder et horodatage d'export.
  * @returns {UnknownRecord} Instantané de sauvegarde compatible avec le format VMI.
  */
-export function createBackupSnapshot({ hist, live, meta, exportedAt = new Date().toISOString() }) {
-  return {
+export function createBackupSnapshot({ hist, live, meta, stateTelemetry, exportedAt = new Date().toISOString() }) {
+  const snapshot = {
     app: 'vmi-purevent', version: 1, exportedAt,
     hist: Array.isArray(hist) ? hist : [],
     live: Array.isArray(live) ? live : [],
     meta: meta && typeof meta === 'object' && !Array.isArray(meta) ? meta : {}
   };
+  if (Array.isArray(stateTelemetry) && stateTelemetry.length) snapshot.stateTelemetry = stateTelemetry;
+  return snapshot;
 }
 
 /** Fusionne une sauvegarde dans les données locales en préservant les champs existants.
- * @param {{backup: UnknownRecord, currentHist?: VmiRecord[], currentLive?: VmiRecord[], currentMeta?: UnknownRecord, minValid: number, maxLive?: number, maxTimestamp?: number}} options Sauvegarde et état local à fusionner.
+ * @param {{backup: UnknownRecord, currentHist?: VmiRecord[], currentLive?: VmiRecord[], currentStateTelemetry?: object[], currentMeta?: UnknownRecord, minValid: number, maxLive?: number, maxStateTelemetry?: number, maxTimestamp?: number}} options Sauvegarde et état local à fusionner.
  * @returns {BackupMergeResult} Données fusionnées et compteurs d'import.
  */
 export function mergeBackupData({
-  backup, currentHist = [], currentLive = [], currentMeta = {},
-  minValid, maxLive = 10000, maxTimestamp = Date.now()
+  backup, currentHist = [], currentLive = [], currentStateTelemetry = [], currentMeta = {},
+  minValid, maxLive = 10000, maxStateTelemetry = 2000, maxTimestamp = Date.now()
 }) {
   if (!backup || backup.app !== 'vmi-purevent' || !Array.isArray(backup.hist)) {
     throw new Error('Fichier de sauvegarde non reconnu.');
@@ -77,7 +80,10 @@ export function mergeBackupData({
     if(maxLive===0) live=[];
     else if(live.length>maxLive) live=live.slice(-maxLive);
   }
+  const stateTelemetry = Array.isArray(source.stateTelemetry)
+    ? mergeStateTelemetry(currentStateTelemetry, source.stateTelemetry, maxTimestamp, maxStateTelemetry)
+    : currentStateTelemetry;
   const meta={...(currentMeta && typeof currentMeta === 'object' && !Array.isArray(currentMeta) ? currentMeta : {})};
   if(source.meta?.lastSync&&(!meta.lastSync||source.meta.lastSync>String(meta.lastSync))) meta.lastSync=source.meta.lastSync;
-  return { hist, live, meta, addedHistory, enrichedHistory, addedLive };
+  return { hist, live, stateTelemetry, meta, addedHistory, enrichedHistory, addedLive };
 }
