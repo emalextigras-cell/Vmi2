@@ -247,6 +247,8 @@
  <div id="telemetryRenewalChart" class="chart telemetry-chart"></div>
  <h3>Débit théorique calculé depuis la trame (m³/h)</h3>
  <div id="telemetryAirflowChart" class="chart telemetry-chart"></div>
+ <h3>Modes manuels et vitesses rapportées par l’historique VMI+</h3>
+ <div id="operatingProfileSummary" class="telemetry-table-wrap"></div>
  <p class="note">Ces courbes affichent les transitions d’état reçues par Bluetooth, pas une mesure continue. Les états identiques successifs sont dédupliqués : un écart supérieur à 2 h indique un délai entre transitions enregistrées, pas nécessairement une perte de liaison Bluetooth. Le segment est interrompu car l’état intermédiaire est inconnu. Le débit est calculé depuis le volume et le renouvellement transmis : ce n’est pas une mesure directe du débit d’air. Le code vitesse reste brut et n’est pas assimilé aux modes manuels 1, 2 ou 3.</p>
  <details class="telemetry-transitions">
   <summary>Détail des 30 dernières transitions et du temps écoulé entre elles</summary>
