@@ -148,7 +148,7 @@ function renderMetricChart(container, records, key, label, unit, digits) {
   if (stats) {
     const caption = document.createElement('p');
     caption.className = 'note telemetry-range';
-    caption.textContent = `Min. ${stats.min.toFixed(digits)} · moyenne ${stats.mean.toFixed(digits)} · max. ${stats.max.toFixed(digits)} ${unit} (sur les ${values.length} états reçus)`;
+    caption.textContent = `Min. ${stats.min.toFixed(digits)} · moyenne ${stats.mean.toFixed(digits)} · max. ${stats.max.toFixed(digits)} ${unit} (sur les ${values.length} transitions enregistrées)`;
     container.append(caption);
   }
 }
@@ -164,7 +164,7 @@ export function renderStateTelemetryChart({
 
   summaryContainer.replaceChildren();
   const items = [
-    ['États reçus', String(summary.count)],
+    ['Transitions enregistrées', String(summary.count)],
     ['Écarts entre transitions > 2 h', String(summary.gapCount)],
     ['Plus long écart', summary.longestGapMs ? formatDuration(summary.longestGapMs) : 'Aucun détecté'],
     ['Dernière transition', summary.lastTimestamp ? formatDate(summary.lastTimestamp) : 'Aucune']
@@ -197,7 +197,7 @@ export function renderStateTelemetryChart({
       summary.records.slice(-30).forEach((record, index, visibleRecords) => {
         const globalIndex = summary.records.length - visibleRecords.length + index;
         const previous = summary.records[globalIndex - 1];
-        const elapsed = previous ? formatDuration(record.t - previous.t) : 'Première trame de la période';
+        const elapsed = previous ? formatDuration(record.t - previous.t) : 'Première transition de la période';
         const values = [
           formatDate(record.t),
           elapsed,
