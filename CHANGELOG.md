@@ -1,3 +1,10 @@
+## Interface — réorganisation des données et aides au réglage
+- Conservation à l’identique du bloc supérieur de supervision et des identifiants de mesures.
+- Déplacement de l’estimation électrique et de l’inventaire des champs énergétiques dans une rubrique « Données » dédiée.
+- Regroupement des aides en sous-menus hygrométriques, thermiques/saisonniers et de comparaison des vitesses ; aucune commande automatique ajoutée.
+- Amélioration de la hiérarchie visuelle des menus, sans modification des calculs ni du protocole Bluetooth.
+- Cache du service worker porté à `vmi-test-v14-cache-86`.
+
 ## Maintenance — sécurité du chargement et qualité du code
 - SheetJS 0.18.5 reste chargé à la demande depuis cdnjs, mais son chargement dynamique vérifie désormais une empreinte SRI SHA-384 et utilise CORS anonyme ; le CDN de secours non vérifié est retiré.
 - La CSP conserve `default-src 'self'` et n'autorise plus le CDN jsDelivr inutilisé.

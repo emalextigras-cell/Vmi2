@@ -20,7 +20,7 @@
  <div class="row"><span class="pill" id="ver">v14</span><button class="outline" id="themeBtn" title="Changer le thème">Thème</button></div>
 </header>
 
-<nav class="main-nav" aria-label="Navigation principale"><a href="#accueil">Accueil</a><a href="#analyses">Analyses</a><a href="#technicalDiagnostic">Diagnostic technique</a><a href="#historique">Historique</a><a href="#reglages">Connexion Bluetooth</a></nav>
+<nav class="main-nav" aria-label="Navigation principale"><a href="#accueil">Accueil</a><a href="#analyses">Analyses</a><a href="#technicalDiagnostic">Diagnostic technique</a><a href="#reglageAides">Réglages</a><a href="#donnees">Données</a><a href="#historique">Historique</a><a href="#reglages">Bluetooth</a></nav>
 <section class="card dashboard-intro" id="accueil"><h2>Vue d'ensemble</h2><p class="sub">Pas besoin de Bluetooth pour consulter les analyses : elles utilisent l'historique VMI+.</p><div class="dashboard-status"><div><b>Connexion VMI</b><p id="dashboardConnectionStatus">Recherche d’une VMI déjà autorisée…</p></div><div><b>Données disponibles</b><p id="dashboardDataStatus">Chargement de l'historique…</p></div><div><b>Analyse</b><p id="dashboardAnalysisStatus">Préparation du diagnostic…</p></div></div></section>
 <div id="errBanner" class="advice warn" style="display:none"></div>
 
@@ -140,17 +140,7 @@
   <p id="coverageDescription">La couverture sera calculée à partir des horodatages de l’historique.</p>
   <details><summary>Comment est calculé ce pourcentage ?</summary><p id="coverageMethod">Il compare les intervalles exploitables à la durée entre le premier et le dernier relevé. Les interruptions supérieures à la durée maximale autorisée sont exclues. Ce n’est pas une mesure continue.</p></details>
  </div>
- <section class="card" id="energyEstimateCard">
-  <h3>Consommation électrique estimée</h3>
-  <p class="note">Estimation du ventilateur PUREVENT à partir du débit exporté en m³/h et des points de puissance de la notice constructeur. Ce n’est pas une mesure électrique directe.</p>
-  <div id="fanEnergyEstimate" class="advice">Importe ou télécharge un historique VMI+ pour calculer une première estimation.</div>
-  <h4>Estimation selon les vitesses manuelles</h4>
-  <div id="fanEnergyByMode" class="status">La comparaison apparaîtra si le CSV contient le champ Mode manuel.</div>
-  <h4>Contexte journalier : énergie estimée et hygrométrie</h4>
-  <div id="dailyEnergyClimateContext" class="advice">Le rapprochement apparaîtra lorsque plusieurs journées auront une couverture suffisante en débit et en mesures hygrométriques.</div>
-  <h4>Bilan hygrométrique hebdomadaire</h4>
-  <div id="weeklyDiagnostic" class="advice">Le bilan comparera deux fenêtres de sept jours lorsque chacune contiendra suffisamment de journées avec des mesures intérieures et entrantes valides.</div>
- </section>
+
  <div class="grid cols3">
   <div class="metric"><b id="deltaHA">–</b><span>Écart absolu salon − air entrant g/m³</span></div>
   <div class="metric"><b id="deltaT">–</b><span>Écart température salon − air entrant °C</span></div>
@@ -175,22 +165,53 @@
  </details>
 </section>
 
-<details class="card compact"><summary>Comparaison des modes et aide au réglage</summary>
- <div id="recommendation" class="advice">Connecte la VMI ou importe un historique pour obtenir une première analyse.</div>
- <h3>Conseils saisonniers et surventilation</h3>
- <div id="seasonalAdvice" class="advice">Les conseils apparaîtront après import d’un historique contenant les températures intérieure et extérieure.</div>
- <div class="row">
-  <label for="targetRH">Objectif d'humidité relative :</label>
-  <select id="targetRH"><option value="45">45 %</option><option value="50" selected>50 %</option><option value="55">55 %</option><option value="60">60 %</option>
-  </select>
-  <label for="minSamples">Minimum de relevés par vitesse :</label>
-  <select id="minSamples"><option value="5">5</option><option value="10" selected>10</option><option value="20">20</option><option value="30">30</option></select>
- </div>
- <h3>Comparaison observée selon la vitesse</h3>
- <div id="speedAnalysis" class="status">Pas encore assez de données.</div>
- <div id="energyReadiness" class="status">Inventaire des champs bruts de fonctionnement exportés par VMI+.</div>
+<details class="card compact settings-menu" id="reglageAides">
+ <summary>Aides au réglage</summary>
+ <p class="note">Ces aides interprètent les données disponibles. Elles ne modifient aucun paramètre de la VMI automatiquement.</p>
+ <details class="settings-group">
+  <summary>Comparaison des vitesses et fonctionnement</summary>
+  <div id="recommendation" class="advice">Connecte la VMI ou importe un historique pour obtenir une première analyse.</div>
+  <h3>Comparaison observée selon la vitesse</h3>
+  <div id="speedAnalysis" class="status">Pas encore assez de données.</div>
+  
+ </details>
+ <details class="settings-group">
+  <summary>Aide hygrométrique</summary>
+  <p class="note">L’objectif d’humidité sert de repère pour la comparaison descriptive ; il ne constitue pas une consigne automatique envoyée à la VMI.</p>
+  <div class="row">
+   <label for="targetRH">Objectif d'humidité relative :</label>
+   <select id="targetRH"><option value="45">45 %</option><option value="50" selected>50 %</option><option value="55">55 %</option><option value="60">60 %</option></select>
+   <label for="minSamples">Minimum de relevés par vitesse :</label>
+   <select id="minSamples"><option value="5">5</option><option value="10" selected>10</option><option value="20">20</option><option value="30">30</option></select>
+  </div>
+ </details>
+ <details class="settings-group">
+  <summary>Aide thermique et saisonnière</summary>
+  <h3>Conseils saisonniers et surventilation</h3>
+  <div id="seasonalAdvice" class="advice">Les conseils apparaîtront après import d’un historique contenant les températures intérieure et extérieure.</div>
+ </details>
 </details>
 
+
+<section class="card data-section" id="donnees" aria-labelledby="dataSectionTitle">
+ <div class="section-heading"><div><h2 id="dataSectionTitle">Données énergétiques</h2><p class="note">Les estimations électriques sont séparées du diagnostic hygrométrique pour garder les analyses climatiques lisibles.</p></div><span class="pill">Estimation</span></div>
+ <details class="settings-group energy-details">
+  <summary>Consommation électrique estimée</summary>
+     <div class="energy-panel" id="energyEstimateCard">
+    <h3>Consommation électrique estimée</h3>
+    <p class="note">Estimation du ventilateur PUREVENT à partir du débit exporté en m³/h et des points de puissance de la notice constructeur. Ce n’est pas une mesure électrique directe.</p>
+    <div id="fanEnergyEstimate" class="advice">Importe ou télécharge un historique VMI+ pour calculer une première estimation.</div>
+    <h4>Estimation selon les vitesses manuelles</h4>
+    <div id="fanEnergyByMode" class="status">La comparaison apparaîtra si le CSV contient le champ Mode manuel.</div>
+    <h4>Contexte journalier : énergie estimée et hygrométrie</h4>
+    <div id="dailyEnergyClimateContext" class="advice">Le rapprochement apparaîtra lorsque plusieurs journées auront une couverture suffisante en débit et en mesures hygrométriques.</div>
+    <h4>Bilan hygrométrique hebdomadaire</h4>
+    <div id="weeklyDiagnostic" class="advice">Le bilan comparera deux fenêtres de sept jours lorsque chacune contiendra suffisamment de journées avec des mesures intérieures et entrantes valides.</div>
+  <h4>Champs énergétiques et données brutes disponibles</h4>
+  <div id="energyReadiness" class="status">Inventaire des champs bruts de fonctionnement exportés par VMI+.</div>
+   </div>
+ </details>
+</section>
 <section class="card" id="historique">
  <h2>Historique et graphiques</h2>
  <div class="row">
