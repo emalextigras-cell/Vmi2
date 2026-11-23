@@ -83,3 +83,41 @@ test('ne déduit jamais le mode manuel à partir du code vitesse et respecte le 
   assert.equal(result.matrix[0].speeds[2], 1);
   assert.equal(result.matrix[2].total, 0);
 });
+
+
+test('associe les débits VMI+ observés à chaque couple mode/vitesse sans les recalculer', () => {
+  const records = [
+    { t: 1000, vmiModeRaw: 1, vmiSpeedRaw: 1, debit: 50 },
+    { t: 2000, vmiModeRaw: 1, vmiSpeedRaw: 1, debit: 50 },
+    { t: 3000, vmiModeRaw: 1, vmiSpeedRaw: 1, debit: 50 },
+    { t: 4000, vmiModeRaw: 1, vmiSpeedRaw: 2, debit: 74 },
+    { t: 5000, vmiModeRaw: 1, vmiSpeedRaw: 2, debit: 74 },
+    { t: 6000, vmiModeRaw: 1, vmiSpeedRaw: 2, debit: 50 },
+    { t: 7000, vmiModeRaw: 2, vmiSpeedRaw: 3, debit: 151 },
+    { t: 8000, vmiModeRaw: 2, vmiSpeedRaw: 3, debit: 151 },
+    { t: 9000, vmiModeRaw: 2, vmiSpeedRaw: 3, debit: 121 },
+    { t: 10000, vmiModeRaw: 3, vmiSpeedRaw: 1, debit: null },
+    { t: 11000, vmiModeRaw: 1, vmiSpeedRaw: 5, debit: 193 }
+  ];
+  const result = summarizeOperatingProfile(records, 0, 11000);
+  assert.equal(result.matrix[0].speeds[1], 3);
+  assert.deepEqual(result.matrix[0].debitCounts[1], { 50: 3 });
+  assert.equal(result.matrix[0].speeds[2], 3);
+  assert.deepEqual(result.matrix[0].debitCounts[2], { 74: 2, 50: 1 });
+  assert.equal(result.matrix[1].speeds[3], 3);
+  assert.deepEqual(result.matrix[1].debitCounts[3], { 151: 2, 121: 1 });
+  assert.equal(result.matrix[2].missingDebitCounts[1], 1);
+  assert.deepEqual(result.matrix[0].debitCounts[5], { 193: 1 });
+});
+
+test('la distribution des débits respecte les filtres de période et de jour', () => {
+  const start = new Date('2026-11-10T00:00:00').getTime();
+  const result = summarizeOperatingProfile([
+    { t: start - 1, vmiModeRaw: 1, vmiSpeedRaw: 3, debit: 121 },
+    { t: start + 1000, vmiModeRaw: 1, vmiSpeedRaw: 3, debit: 121 },
+    { t: start + 2000, vmiModeRaw: 1, vmiSpeedRaw: 3, debit: 151 },
+    { t: start + 86400000, vmiModeRaw: 1, vmiSpeedRaw: 3, debit: 151 }
+  ], 30, start + 2 * 86400000, '2026-11-10');
+  assert.equal(result.matrix[0].speeds[3], 2);
+  assert.deepEqual(result.matrix[0].debitCounts[3], { 121: 1, 151: 1 });
+});

@@ -1,3 +1,9 @@
+## Analyse des débits VMI+ par mode manuel et vitesse
+- Enrichissement de la matrice existante dans « Historique et graphiques » : chaque couple mode/vitesse affiche les débits réellement présents dans la colonne `Debit` de l’export VMI+, avec leur effectif.
+- Les valeurs multiples et les débits absents sont conservés explicitement ; aucun débit n’est déduit du code vitesse ou de la télémétrie Bluetooth.
+- Les filtres de période et de jour existants s’appliquent à la distribution des débits.
+- Tests ajoutés pour les correspondances simples, les distributions multiples, les données absentes et le filtrage temporel.
+
 ## Télémétrie — historique des transitions de renouvellement Bluetooth
 - Enregistrement local des transitions observées dans les trames d'état Bluetooth : volume, code vitesse brut, renouvellement reçu, vol/h, débit théorique calculé et indicateur de débit fixe.
 - Les répétitions d'un état identique sont ignorées et l'historique est plafonné à 2 000 transitions.
