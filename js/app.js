@@ -24,7 +24,7 @@ import { summarizeWeeklyDiagnostic } from './modules/weekly-diagnostic.js';
 import { createLiveMeasurementFilters } from './modules/measurement-filter.js';
 import { applyAdvancedCommand } from './modules/bluetooth-advanced-commands.js';
 import { createStateTelemetryRecord, appendStateTelemetry, normalizeStateTelemetry } from './modules/bluetooth-state-telemetry.js';
-import { renderStateTelemetryChart } from './modules/bluetooth-telemetry-chart.js';
+import { renderStateTelemetryChart, renderOperatingProfile } from './modules/bluetooth-telemetry-chart.js';
 
 // Garde volontairement fermée jusqu'à validation des registres sur capture VMI+.
 const ADVANCED_COMMANDS_ENABLED = false;
@@ -254,11 +254,16 @@ function renderStateTelemetryPanel(){
  const airflowContainer=$('telemetryAirflowChart');
  const summaryContainer=$('telemetrySummary');
  const transitionTableContainer=$('telemetryTransitionTable');
- if(!renewalContainer||!airflowContainer||!summaryContainer)return;
- renderStateTelemetryChart({
-  renewalContainer,airflowContainer,summaryContainer,transitionTableContainer,
-  records:stateTelemetry,rangeDays:stateTelemetryRangeDays,selectedDate
- });
+ const operatingProfileContainer=$('operatingProfileSummary');
+ if(renewalContainer&&airflowContainer&&summaryContainer){
+  renderStateTelemetryChart({
+   renewalContainer,airflowContainer,summaryContainer,transitionTableContainer,
+   records:stateTelemetry,rangeDays:stateTelemetryRangeDays,selectedDate
+  });
+ }
+ if(operatingProfileContainer){
+  renderOperatingProfile(operatingProfileContainer,hist,stateTelemetryRangeDays,Date.now(),selectedDate);
+ }
 }
 
 const handleNotification = createPureventNotificationHandler({
@@ -331,7 +336,7 @@ $('conn').onclick=()=>bluetoothService.connectBLE();
 $('disc').onclick=()=>bluetoothService.disconnect();
 
 /* Boutons de commande : une commande à la fois, avec vérification de l'état renvoyé par la VMI */
-const EXPECT={24:v=>['vit',v+1,'Vitesse '+(v+1)],25:v=>['boost',v,'Boost '+(v?'activé':'arrêté')],26:v=>['hol',v>0,'Mode vacances '+(v?`${v} jour(s)`:'arrêté')]};
+const EXPECT={24:v=>['vit',v+1,'Mode manuel '+(v+1)],25:v=>['boost',v,'Boost '+(v?'activé':'arrêté')],26:v=>['hol',v>0,'Mode vacances '+(v?`${v} jour(s)`:'arrêté')]};
 document.querySelectorAll('[data-r]').forEach(b=>b.addEventListener('click',async()=>{
  if(manualCommandPending||download.on)return;
  if(!connected()){showError('VMI non connectée.');$('cmdResult').textContent='';return}

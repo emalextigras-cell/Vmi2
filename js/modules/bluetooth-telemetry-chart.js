@@ -233,3 +233,95 @@ function formatDuration(milliseconds) {
   if (hours) return `${hours} h ${minutes % 60} min`;
   return `${minutes} min`;
 }
+
+
+/**
+ * Résume séparément le mode manuel sélectionné et le code de vitesse rapporté
+ * par l'historique VMI+. Ces champs proviennent de colonnes distinctes.
+ * Les lignes Bluetooth 0x01 ne fournissent pas le mode manuel.
+ */
+export function summarizeOperatingProfile(records, rangeDays = 30, now = Date.now(), selectedDate = null) {
+  const cutoff = rangeDays > 0 ? now - rangeDays * 86400000 : -Infinity;
+  const dayStart = selectedDate ? new Date(selectedDate + 'T00:00:00').getTime() : null;
+  const dayEnd = dayStart === null ? null : dayStart + 86400000;
+  const selected = (Array.isArray(records) ? records : []).filter(record =>
+    record && Number.isFinite(record.t) &&
+    (dayStart !== null ? record.t >= dayStart && record.t < dayEnd : record.t >= cutoff && record.t <= now)
+  );
+  const matrix = Array.from({ length: 3 }, (_, index) => ({
+    mode: index + 1,
+    total: 0,
+    speeds: Object.fromEntries([0, 1, 2, 3, 4, 5].map(speed => [speed, 0]))
+  }));
+  const speedCounts = Object.fromEntries([0, 1, 2, 3, 4, 5].map(speed => [speed, 0]));
+  const modeCounts = { 1: 0, 2: 0, 3: 0 };
+  let pairedCount = 0;
+  let unclassifiedCount = 0;
+
+  selected.forEach(record => {
+    const mode = record.vmiModeRaw;
+    const speed = record.vmiSpeedRaw;
+    const validMode = Number.isInteger(mode) && mode >= 1 && mode <= 3;
+    const validSpeed = Number.isInteger(speed) && speed >= 0 && speed <= 5;
+    if (validMode) modeCounts[mode] += 1;
+    if (validSpeed) speedCounts[speed] += 1;
+    if (validMode && validSpeed) {
+      pairedCount += 1;
+      const group = matrix[mode - 1];
+      group.total += 1;
+      group.speeds[speed] += 1;
+    } else {
+      unclassifiedCount += 1;
+    }
+  });
+
+  return {
+    sampleCount: selected.length,
+    pairedCount,
+    unclassifiedCount,
+    modeCounts,
+    speedCounts,
+    matrix
+  };
+}
+
+/** Affiche la matrice Mode manuel × Vitesse issue de l'historique VMI+. */
+export function renderOperatingProfile(container, records, rangeDays = 30, now = Date.now(), selectedDate = null) {
+  if (!container) return null;
+  const summary = summarizeOperatingProfile(records, rangeDays, now, selectedDate);
+  container.replaceChildren();
+
+  const table = document.createElement('table');
+  const head = document.createElement('thead');
+  const header = document.createElement('tr');
+  ['Mode manuel', 'Code 0', 'Vitesse 1', 'Vitesse 2', 'Vitesse 3', 'Vitesse 4', 'Vitesse 5', 'Total'].forEach(label => {
+    const cell = document.createElement('th');
+    cell.textContent = label;
+    header.append(cell);
+  });
+  head.append(header);
+  const body = document.createElement('tbody');
+  summary.matrix.forEach(group => {
+    const row = document.createElement('tr');
+    [`Mode ${group.mode}`, ...[0, 1, 2, 3, 4, 5].map(speed => String(group.speeds[speed])), String(group.total)]
+      .forEach(value => {
+        const cell = document.createElement('td');
+        cell.textContent = value;
+        row.append(cell);
+      });
+    body.append(row);
+  });
+  table.append(head, body);
+  container.append(table);
+
+  const counts = document.createElement('p');
+  counts.className = 'note';
+  counts.textContent = `Relevés avec mode et vitesse identifiables : ${summary.pairedCount} / ${summary.sampleCount}. Modes manuels observés : ${summary.modeCounts[1]} / ${summary.modeCounts[2]} / ${summary.modeCounts[3]} (modes 1 / 2 / 3). Codes vitesse observés : ${[1, 2, 3, 4, 5].map(speed => `${speed}: ${summary.speedCounts[speed]}`).join(' · ')}. Code 0 : ${summary.speedCounts[0]} relevé(s), conservé séparément. Lignes sans les deux champs valides : ${summary.unclassifiedCount}.`;
+  container.append(counts);
+
+  const note = document.createElement('p');
+  note.className = 'note';
+  note.textContent = 'Source : historique VMI+ (colonnes Mode et Vitesse distinctes). Le mode manuel est le réglage sélectionné par l’utilisateur ; le code vitesse décrit le niveau de vitesse rapporté par la VMI. La trame Bluetooth 0x01 ne transmet pas le mode manuel : cette matrice ne mélange donc pas les transitions Bluetooth avec les lignes VMI+.';
+  container.append(note);
+  return summary;
+}

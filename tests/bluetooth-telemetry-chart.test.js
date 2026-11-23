@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { summarizeStateTelemetry } from '../js/modules/bluetooth-telemetry-chart.js';
+import { summarizeStateTelemetry, summarizeOperatingProfile } from '../js/modules/bluetooth-telemetry-chart.js';
 
 const sample = (t, renewal, airflow = Math.round(renewal * 337)) => ({
   t, volumeM3: 337, rawSpeed: 2, renewalRaw: renewal * 1000,
@@ -45,4 +45,41 @@ test('filtre précisément le jour sélectionné', () => {
   ], 30, start + 2 * 86400000, '2026-11-10');
   assert.equal(result.count, 1);
   assert.equal(result.records[0].airChangesPerHour, .36);
+});
+
+
+test('sépare les trois modes manuels des cinq codes de vitesse VMI+', () => {
+  const records = [
+    { t: 1000, vmiModeRaw: 1, vmiSpeedRaw: 3 },
+    { t: 2000, vmiModeRaw: 1, vmiSpeedRaw: 4 },
+    { t: 3000, vmiModeRaw: 2, vmiSpeedRaw: 3 },
+    { t: 4000, vmiModeRaw: 2, vmiSpeedRaw: 5 },
+    { t: 5000, vmiModeRaw: 3, vmiSpeedRaw: 1 },
+    { t: 6000, vmiModeRaw: 2, vmiSpeedRaw: 0 },
+    { t: 7000, vmiModeRaw: null, vmiSpeedRaw: 2 }
+  ];
+  const result = summarizeOperatingProfile(records, 0, 7000);
+  assert.equal(result.sampleCount, 7);
+  assert.equal(result.pairedCount, 6);
+  assert.equal(result.unclassifiedCount, 1);
+  assert.deepEqual(result.modeCounts, { 1: 2, 2: 3, 3: 1 });
+  assert.deepEqual(result.speedCounts, { 0: 1, 1: 1, 2: 1, 3: 2, 4: 1, 5: 1 });
+  assert.deepEqual(result.matrix.map(row => row.total), [2, 3, 1]);
+  assert.equal(result.matrix[0].speeds[3], 1);
+  assert.equal(result.matrix[1].speeds[0], 1);
+  assert.equal(result.matrix[1].speeds[5], 1);
+  assert.equal(result.matrix[2].speeds[1], 1);
+});
+
+test('ne déduit jamais le mode manuel à partir du code vitesse et respecte le filtre temporel', () => {
+  const start = new Date('2026-11-10T00:00:00').getTime();
+  const result = summarizeOperatingProfile([
+    { t: start - 1, vmiModeRaw: 3, vmiSpeedRaw: 5 },
+    { t: start + 1000, vmiModeRaw: 1, vmiSpeedRaw: 2 },
+    { t: start + 86400000, vmiModeRaw: 3, vmiSpeedRaw: 4 }
+  ], 30, start + 2 * 86400000, '2026-11-10');
+  assert.equal(result.sampleCount, 1);
+  assert.deepEqual(result.modeCounts, { 1: 1, 2: 0, 3: 0 });
+  assert.equal(result.matrix[0].speeds[2], 1);
+  assert.equal(result.matrix[2].total, 0);
 });

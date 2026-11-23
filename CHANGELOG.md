@@ -2,9 +2,10 @@
 - Enregistrement local des transitions observées dans les trames d'état Bluetooth : volume, code vitesse brut, renouvellement reçu, vol/h, débit théorique calculé et indicateur de débit fixe.
 - Les répétitions d'un état identique sont ignorées et l'historique est plafonné à 2 000 transitions.
 - Les transitions sont conservées dans IndexedDB et incluses dans les nouvelles sauvegardes JSON ; les anciennes sauvegardes restent compatibles.
-- La trame d'état Bluetooth ne fournit pas le mode manuel : aucune association entre télémétrie Bluetooth et modes manuels 1, 2 ou 3 n'est donc déduite. L'absence actuelle de données du mode 3 reflète uniquement le fait qu'il n'a pas encore été utilisé.
+- Le mode manuel (1 à 3, sélectionné par l'utilisateur) et la vitesse (codes 1 à 5 rapportés par la VMI) sont deux champs distincts de l'historique VMI+. La trame Bluetooth d'état 0x01 ne fournit pas le mode manuel ; aucune association n'est donc inventée entre les transitions Bluetooth et les modes.
 - Le diagnostic technique indique le nombre de transitions conservées et la dernière valeur reçue.
 - Intégration de deux graphiques Bluetooth dans la rubrique existante « Historique et graphiques » : renouvellement transmis en vol/h et débit théorique calculé en m³/h. Ils réutilisent les filtres de période et de jour déjà présents.
+- Ajout dans cette même rubrique d'une matrice Mode manuel × Vitesse issue des colonnes distinctes de l'historique VMI+, avec les trois modes et les cinq vitesses, ainsi que le décompte séparé du code vitesse 0. Les valeurs absentes restent à zéro/absentes, sans extrapolation.
 - Les graphiques affichent les transitions réellement observées et leurs statistiques min./moyenne/max. Les états identiques sont dédupliqués : un écart supérieur à 2 h désigne un délai entre transitions enregistrées, pas une preuve de perte Bluetooth ; le segment reste interrompu car l'état intermédiaire est inconnu.
 - Un tableau des 30 dernières transitions détaille leur date de réception et le temps écoulé depuis la transition précédente.
 - Cache du service worker porté à `vmi-test-v14-cache-88`.
