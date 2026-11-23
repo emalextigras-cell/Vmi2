@@ -117,7 +117,29 @@
  <details class="assistant-details"><summary>Trame d’état brute validée</summary><pre id="technicalDiagnosticRawFrame">Aucune trame d’état brute disponible.</pre></details>
  <details class="assistant-details"><summary>Comment lire ce diagnostic ?</summary><p>« À jour » signifie qu’une trame d’état valide a été reçue depuis moins de 35 secondes pendant une connexion active. « Périmée » signifie que la donnée ne peut plus être considérée comme actuelle. Une donnée absente n’est pas assimilée à zéro. Le débit en m³/h est une estimation calculée à partir du volume et du taux de renouvellement, pas une mesure directe.</p></details>
 </section>
-\n<section class="card" id="analyses">
+
+<section class="card telemetry-panel" id="bluetoothTelemetry" aria-labelledby="bluetoothTelemetryTitle">
+ <div class="section-heading">
+  <div><h2 id="bluetoothTelemetryTitle">Historique du renouvellement Bluetooth</h2>
+   <p class="note">Valeurs réellement reçues dans les trames d’état Bluetooth. Les graphiques montrent les états observés, pas une mesure continue.</p></div>
+  <span class="pill">Données locales</span>
+ </div>
+ <div class="row telemetry-periods" role="group" aria-label="Période de télémétrie">
+  <b>Période :</b>
+  <button class="outline" type="button" data-telemetry-days="7">7 jours</button>
+  <button class="outline" type="button" data-telemetry-days="30" aria-pressed="true">30 jours</button>
+  <button class="outline" type="button" data-telemetry-days="90">90 jours</button>
+  <button class="outline" type="button" data-telemetry-days="0">Tout</button>
+ </div>
+ <div id="telemetrySummary" class="grid cols4 telemetry-summary" aria-live="polite"></div>
+ <h3>Renouvellement transmis (vol/h)</h3>
+ <div id="telemetryRenewalChart" class="chart telemetry-chart"></div>
+ <h3>Débit théorique calculé (m³/h)</h3>
+ <div id="telemetryAirflowChart" class="chart telemetry-chart"></div>
+ <p class="note">Chaque point correspond à une trame reçue. Les segments relient uniquement deux états espacés de 2 h maximum ; au-delà, la courbe est interrompue et la durée est comptabilisée comme une interruption. Le débit en m³/h est calculé depuis le volume et le renouvellement transmis : ce n’est pas une mesure directe du débit d’air. Le code vitesse affiché dans les infobulles est brut et n’est pas assimilé aux modes manuels 1, 2 ou 3.</p>
+</section>
+
+<section class="card" id="analyses">
  <h2>Analyses et diagnostic</h2>
  <section class="assistant-card" id="assistantVmi" aria-labelledby="assistantTitle">
   <div class="assistant-heading"><div><h3 id="assistantTitle">Assistant intelligent VMI</h3><p class="note">Synthèse pédagogique de l’historique et des calculs de l’application. Analyse locale, sans envoi de données.</p></div><span class="pill">Conseils expliqués</span></div>
