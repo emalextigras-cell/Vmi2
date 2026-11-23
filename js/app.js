@@ -647,7 +647,8 @@ function histToCsv(rows){
 
 /** @param {UnknownRecord} obj Sauvegarde JSON validée comme objet. */
 async function restoreBackup(obj){
- const result=mergeBackupData({backup:obj,currentHist:hist,currentMeta:meta,minValid:MIN_VALID});
+ await stateTelemetryWrite;
+ const result=mergeBackupData({backup:obj,currentHist:hist,currentStateTelemetry:stateTelemetry,currentMeta:meta,minValid:MIN_VALID});
  const nextHist=pruneHistory(result.hist,HIST_MAX).records;
  const nextStateTelemetry=Array.isArray(result.stateTelemetry)?result.stateTelemetry:stateTelemetry;
  const entries=/** @type {Array<[IDBValidKey, unknown]>} */ ([['hist',nextHist],['live',[]],['stateTelemetry',nextStateTelemetry]]);
