@@ -63,3 +63,18 @@ test('la navigation expose les données et les aides au réglage sans déplacer 
     assert.match(html, new RegExp('id="' + id + '"'), 'Identifiant fonctionnel conservé : ' + id);
   }
 });
+
+
+test('les informations énergétiques sont regroupées dans Données', async () => {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const dataStart = html.indexOf('id="donnees"');
+  const dataEnd = html.indexOf('id="historique"');
+  const settingsStart = html.indexOf('id="reglageAides"');
+  const settingsEnd = html.indexOf('id="donnees"');
+  assert.ok(dataStart > -1 && dataEnd > dataStart);
+  const dataMarkup = html.slice(dataStart, dataEnd);
+  const settingsMarkup = html.slice(settingsStart, settingsEnd);
+  assert.match(dataMarkup, /id="energyEstimateCard"/);
+  assert.match(dataMarkup, /id="energyReadiness"/);
+  assert.doesNotMatch(settingsMarkup, /id="energyReadiness"/);
+});
