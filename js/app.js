@@ -258,7 +258,7 @@ function renderStateTelemetryPanel(){
   renewalContainer,airflowContainer,summaryContainer,transitionTableContainer,
   records:stateTelemetry,rangeDays:stateTelemetryRangeDays
  });
- document.querySelectorAll('[data-telemetry-days]').forEach(button=>{
+ document.querySelectorAll<HTMLButtonElement>('[data-telemetry-days]').forEach(button=>{
   button.setAttribute('aria-pressed',String(Number(button.dataset.telemetryDays)===stateTelemetryRangeDays));
  });
 }
@@ -1105,7 +1105,7 @@ function render(){
  renderTemporalAnalysis(analysisData);analyzeSpeeds(analysisData);renderEnergyReadiness(analysisData);renderFanEnergyEstimate(analysisData,{fanEnergyEstimate:$('fanEnergyEstimate'),fanEnergyByMode:$('fanEnergyByMode'),summarizeFanEnergyEstimate,summarizeFanEnergyByManualMode,format:fmt,formatShort:fmtShort});renderDailyEnergyClimateContext(analysisData,{dailyEnergyClimateContext:$('dailyEnergyClimateContext'),summarizeDailyEnergyClimateContext,format:fmt});renderWeeklyDiagnostic(analysisData,{weeklyDiagnostic:$('weeklyDiagnostic'),summarizeWeeklyDiagnostic,format:fmt});renderFreshness();
 }
 $('targetRH').onchange=render;$('minSamples').onchange=render;
-document.querySelectorAll('[data-telemetry-days]').forEach(button=>{
+document.querySelectorAll<HTMLButtonElement>('[data-telemetry-days]').forEach(button=>{
  button.addEventListener('click',()=>{
   stateTelemetryRangeDays=Number(button.dataset.telemetryDays)||0;
   renderStateTelemetryPanel();
