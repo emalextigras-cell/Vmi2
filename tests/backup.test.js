@@ -213,3 +213,33 @@ test('la restauration normalise les métadonnées locales non objet', () => {
 
   assert.deepEqual(result.meta, {});
 });
+
+test('les nouvelles sauvegardes incluent les transitions Bluetooth sans modifier les anciennes', () => {
+  const stateTelemetry=[{
+    t:MIN_VALID,volumeM3:337,rawSpeed:2,renewalRaw:360,
+    airChangesPerHour:0.36,airflowM3h:121,fixedAirflow:false
+  }];
+  const snapshot=createBackupSnapshot({hist:[],live:[],meta:{},stateTelemetry});
+  assert.deepEqual(snapshot.stateTelemetry,stateTelemetry);
+  const legacy=createBackupSnapshot({hist:[],live:[],meta:{}});
+  assert.equal(Object.hasOwn(legacy,'stateTelemetry'),false);
+});
+
+test('la restauration fusionne la télémétrie Bluetooth sans perdre les données locales', () => {
+  const local={t:MIN_VALID,volumeM3:337,rawSpeed:2,renewalRaw:360,airChangesPerHour:0.36,airflowM3h:121,fixedAirflow:false};
+  const imported={...local,t:MIN_VALID+1000,rawSpeed:3,renewalRaw:450,airChangesPerHour:0.45,airflowM3h:152};
+  const result=mergeBackupData({
+    backup:{app:'vmi-purevent',hist:[],stateTelemetry:[imported]},
+    currentStateTelemetry:[local],minValid:MIN_VALID,maxTimestamp:MIN_VALID+1000
+  });
+  assert.deepEqual(result.stateTelemetry.map(record=>record.t),[MIN_VALID,MIN_VALID+1000]);
+  assert.equal(result.stateTelemetry[1].renewalRaw,450);
+});
+
+test('une ancienne sauvegarde sans télémétrie préserve les transitions locales', () => {
+  const currentStateTelemetry=[{t:MIN_VALID,volumeM3:337,rawSpeed:2,renewalRaw:360,airChangesPerHour:0.36,airflowM3h:121,fixedAirflow:false}];
+  const result=mergeBackupData({
+    backup:{app:'vmi-purevent',hist:[]},currentStateTelemetry,minValid:MIN_VALID
+  });
+  assert.deepEqual(result.stateTelemetry,currentStateTelemetry);
+});
