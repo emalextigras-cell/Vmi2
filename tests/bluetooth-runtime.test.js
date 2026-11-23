@@ -73,7 +73,7 @@ test('transmet un accusé protocolaire valide au coordinateur', () => {
   assert.deepEqual(received, { kind: 'ack', frame: { kind: 'ack', length: 6 } });
 });
 
-test('transmet chaque trame état à l'archivage de télémétrie', () => {
+test("transmet chaque trame état à l’archivage de télémétrie", () => {
   const decoded = {
     kind:'state', rawFrame:[0xA5,0xB6,0x01], filter:1, days:2, volume:337,
     maxTemperature:28, rawSpeed:2, boost:false, holiday:false, fixedAirflow:false,
