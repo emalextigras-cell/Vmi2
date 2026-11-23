@@ -258,8 +258,8 @@ function renderStateTelemetryPanel(){
   renewalContainer,airflowContainer,summaryContainer,transitionTableContainer,
   records:stateTelemetry,rangeDays:stateTelemetryRangeDays
  });
- document.querySelectorAll<HTMLButtonElement>('[data-telemetry-days]').forEach(button=>{
-  button.setAttribute('aria-pressed',String(Number(button.dataset.telemetryDays)===stateTelemetryRangeDays));
+ [['telemetryDays7',7],['telemetryDays30',30],['telemetryDays90',90],['telemetryDaysAll',0]].forEach(([id,days])=>{
+  $(id).setAttribute('aria-pressed',String(days===stateTelemetryRangeDays));
  });
 }
 
@@ -1105,12 +1105,10 @@ function render(){
  renderTemporalAnalysis(analysisData);analyzeSpeeds(analysisData);renderEnergyReadiness(analysisData);renderFanEnergyEstimate(analysisData,{fanEnergyEstimate:$('fanEnergyEstimate'),fanEnergyByMode:$('fanEnergyByMode'),summarizeFanEnergyEstimate,summarizeFanEnergyByManualMode,format:fmt,formatShort:fmtShort});renderDailyEnergyClimateContext(analysisData,{dailyEnergyClimateContext:$('dailyEnergyClimateContext'),summarizeDailyEnergyClimateContext,format:fmt});renderWeeklyDiagnostic(analysisData,{weeklyDiagnostic:$('weeklyDiagnostic'),summarizeWeeklyDiagnostic,format:fmt});renderFreshness();
 }
 $('targetRH').onchange=render;$('minSamples').onchange=render;
-document.querySelectorAll<HTMLButtonElement>('[data-telemetry-days]').forEach(button=>{
- button.addEventListener('click',()=>{
-  stateTelemetryRangeDays=Number(button.dataset.telemetryDays)||0;
-  renderStateTelemetryPanel();
- });
-});
+$('telemetryDays7').onclick=()=>{stateTelemetryRangeDays=7;renderStateTelemetryPanel()};
+$('telemetryDays30').onclick=()=>{stateTelemetryRangeDays=30;renderStateTelemetryPanel()};
+$('telemetryDays90').onclick=()=>{stateTelemetryRangeDays=90;renderStateTelemetryPanel()};
+$('telemetryDaysAll').onclick=()=>{stateTelemetryRangeDays=0;renderStateTelemetryPanel()};
 
 setInterval(()=>{if(cur.sal_t!==undefined)updateLiveMetrics();else $('sampleAge').textContent=buildLiveFreshnessText(lastSeen);refreshTechnicalDiagnostic()},5000);
 refreshTechnicalDiagnostic();
