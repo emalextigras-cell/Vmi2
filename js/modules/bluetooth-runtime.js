@@ -28,6 +28,7 @@ export function createBluetoothNotificationHandler(deps) {
     $,
     now = Date.now,
     onDecodedFrame = () => {},
+    onStateTelemetry = () => {},
     filterMeasurement = (_key, value) => ({ value, status: 'accepted' }),
     resetMeasurementFilter = () => {}
   } = deps;
@@ -139,6 +140,7 @@ export function createBluetoothNotificationHandler(deps) {
     const lastSeen = getLastSeen();
 
     if (decoded.kind === 'state') {
+      onStateTelemetry({ timestamp, decoded });
       cur.stateFrame = decoded.rawFrame;
       cur.filtre = decoded.filter;
       cur.jours = decoded.days;

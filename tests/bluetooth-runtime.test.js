@@ -73,6 +73,23 @@ test('transmet un accusé protocolaire valide au coordinateur', () => {
   assert.deepEqual(received, { kind: 'ack', frame: { kind: 'ack', length: 6 } });
 });
 
+test("transmet chaque trame état à l’archivage de télémétrie", () => {
+  const decoded = {
+    kind:'state', rawFrame:[0xA5,0xB6,0x01], filter:1, days:2, volume:337,
+    maxTemperature:28, rawSpeed:2, boost:false, holiday:false, fixedAirflow:false,
+    renewal:360, airChangesPerHour:0.36, airflowM3h:121
+  };
+  let telemetry = null;
+  const h = makeNotificationHandler({
+    decodeVmiNotification:() => decoded,
+    onStateTelemetry:sample => { telemetry = sample; }
+  });
+
+  h.handler({ target:{ value:new DataView(new Uint8Array([1,2]).buffer) } });
+
+  assert.deepEqual(telemetry, { timestamp:123456, decoded });
+});
+
 test('notification état met à jour les valeurs VMI et l’horodatage', () => {
   const decoded = {
     kind: 'state', rawFrame: [0xA5, 0xB6, 0x01], filter: 12, days: 34, volume: 210, maxTemperature: 27,

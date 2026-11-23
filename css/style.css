@@ -169,3 +169,21 @@ section[id],details[id]{scroll-margin-top:62px}
  .main-nav a{padding:7px 10px;font-size:.8rem}
  .settings-group{padding:10px}
 }
+
+/* Graphiques de télémétrie : points réels et segments interrompus lors des longues absences. */
+.telemetry-panel{border-top:3px solid var(--acc)}
+.telemetry-summary{margin:10px 0 16px}
+.telemetry-summary .metric b{font-size:1.15rem;overflow-wrap:anywhere}
+.telemetry-chart{min-height:90px;margin:5px 0 14px}
+.telemetry-chart svg{width:100%;height:auto;display:block;overflow:visible}
+.telemetry-step{fill:none;stroke:var(--acc);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round}
+.telemetry-point{fill:var(--blue);stroke:var(--card);stroke-width:1.5}
+.telemetry-range{margin:2px 0 0}
+.telemetry-periods button[aria-pressed="true"]{background:var(--acc);color:var(--bg)}
+@media(max-width:420px){.telemetry-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.telemetry-transitions{margin-top:12px;padding-top:9px;border-top:1px solid var(--line)}
+.telemetry-transitions>summary{color:var(--acc);font-size:.86rem}
+.telemetry-table-wrap{overflow-x:auto;margin-top:8px}
+.telemetry-table-wrap table{min-width:620px;font-size:.78rem}
+.telemetry-table-wrap td,.telemetry-table-wrap th{white-space:nowrap}
