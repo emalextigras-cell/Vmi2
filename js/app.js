@@ -24,6 +24,7 @@ import { summarizeWeeklyDiagnostic } from './modules/weekly-diagnostic.js';
 import { createLiveMeasurementFilters } from './modules/measurement-filter.js';
 import { applyAdvancedCommand } from './modules/bluetooth-advanced-commands.js';
 import { createStateTelemetryRecord, appendStateTelemetry, normalizeStateTelemetry } from './modules/bluetooth-state-telemetry.js';
+import { renderStateTelemetryChart } from './modules/bluetooth-telemetry-chart.js';
 
 // Garde volontairement fermée jusqu'à validation des registres sur capture VMI+.
 const ADVANCED_COMMANDS_ENABLED = false;
@@ -72,6 +73,7 @@ let manualCommandPending=false,bluetoothService=null;
 /** @type {UnknownRecord} */ let meta={};
 let cur={},lastSeen={};
 let stateTelemetry=[];
+let stateTelemetryRangeDays=30;
 let stateTelemetryWrite=Promise.resolve();
 /** @type {VmiRecord[]} */ let hist=[];
 let selectedDate=null,daysSetting=30;
@@ -153,6 +155,7 @@ async function init(){
  const storedMeta=await dbGet('meta');
  const storedStateTelemetry=await dbGet('stateTelemetry');
  stateTelemetry=normalizeStateTelemetry(storedStateTelemetry);
+ renderStateTelemetryPanel();
  const snapshot=normalizeStoreSnapshot({
   history:storedHistory,meta:storedMeta
  });
@@ -238,9 +241,24 @@ function recordStateTelemetry({timestamp,decoded}){
  const next=appendStateTelemetry(stateTelemetry,record);
  if(next.at(-1)?.t===stateTelemetry.at(-1)?.t)return;
  stateTelemetry=next;
+ renderStateTelemetryPanel();
  const snapshot=stateTelemetry;
  stateTelemetryWrite=stateTelemetryWrite.then(()=>persist('stateTelemetry',snapshot,'Enregistrement du renouvellement Bluetooth')).catch(error=>{
   log('Historique du renouvellement Bluetooth non sauvegardé : '+(error?.message||error));
+ });
+}
+
+function renderStateTelemetryPanel(){
+ const renewalContainer=$('telemetryRenewalChart');
+ const airflowContainer=$('telemetryAirflowChart');
+ const summaryContainer=$('telemetrySummary');
+ if(!renewalContainer||!airflowContainer||!summaryContainer)return;
+ renderStateTelemetryChart({
+  renewalContainer,airflowContainer,summaryContainer,
+  records:stateTelemetry,rangeDays:stateTelemetryRangeDays
+ });
+ document.querySelectorAll('[data-telemetry-days]').forEach(button=>{
+  button.setAttribute('aria-pressed',String(Number(button.dataset.telemetryDays)===stateTelemetryRangeDays));
  });
 }
 
@@ -1081,10 +1099,17 @@ function render(){
  qualityBox.className=quality.hasAnomalies||quality.transientSpikes.count?'advice warn':'advice';
  qualityBox.textContent='Contrôle qualité de l’historique analysé : '+coverageText+missingText+invalidText+spikeText+' Les données manquantes réduisent la couverture ; elles ne sont pas considérées comme des anomalies.';
  renderCharts(data,selectedDate,$);
+ renderStateTelemetryPanel();
  renderRecommendation(analysisData,{container:$('recommendation'),targetRH:Number($('targetRH').value),median,absoluteHumidity,isPlausibleTemperature,isPlausibleHumidity,format:fmt});renderSeasonalAdvice(analysisData,{container:$('seasonalAdvice'),analyzeSeasonalVentilation,format:fmt,formatShort:fmtShort});renderHygrometricPeriods(analysisData);renderIntelligentDiagnosis(dashboardDiagnosis);
  renderTemporalAnalysis(analysisData);analyzeSpeeds(analysisData);renderEnergyReadiness(analysisData);renderFanEnergyEstimate(analysisData,{fanEnergyEstimate:$('fanEnergyEstimate'),fanEnergyByMode:$('fanEnergyByMode'),summarizeFanEnergyEstimate,summarizeFanEnergyByManualMode,format:fmt,formatShort:fmtShort});renderDailyEnergyClimateContext(analysisData,{dailyEnergyClimateContext:$('dailyEnergyClimateContext'),summarizeDailyEnergyClimateContext,format:fmt});renderWeeklyDiagnostic(analysisData,{weeklyDiagnostic:$('weeklyDiagnostic'),summarizeWeeklyDiagnostic,format:fmt});renderFreshness();
 }
 $('targetRH').onchange=render;$('minSamples').onchange=render;
+document.querySelectorAll('[data-telemetry-days]').forEach(button=>{
+ button.addEventListener('click',()=>{
+  stateTelemetryRangeDays=Number(button.dataset.telemetryDays)||0;
+  renderStateTelemetryPanel();
+ });
+});
 
 setInterval(()=>{if(cur.sal_t!==undefined)updateLiveMetrics();else $('sampleAge').textContent=buildLiveFreshnessText(lastSeen);refreshTechnicalDiagnostic()},5000);
 refreshTechnicalDiagnostic();
