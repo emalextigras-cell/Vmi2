@@ -252,9 +252,10 @@ function renderStateTelemetryPanel(){
  const renewalContainer=$('telemetryRenewalChart');
  const airflowContainer=$('telemetryAirflowChart');
  const summaryContainer=$('telemetrySummary');
+ const transitionTableContainer=$('telemetryTransitionTable');
  if(!renewalContainer||!airflowContainer||!summaryContainer)return;
  renderStateTelemetryChart({
-  renewalContainer,airflowContainer,summaryContainer,
+  renewalContainer,airflowContainer,summaryContainer,transitionTableContainer,
   records:stateTelemetry,rangeDays:stateTelemetryRangeDays
  });
  document.querySelectorAll('[data-telemetry-days]').forEach(button=>{
