@@ -137,3 +137,35 @@ section[id],details[id]{scroll-margin-top:62px}
 .technical-diagnostic-grid dd small{display:block;color:var(--mut);font-size:.7rem;font-weight:400}
 .technical-diagnostic[data-freshness="stale"]{border-left-color:var(--warn)}
 .technical-diagnostic[data-freshness="missing"]{border-left-color:var(--line)}
+
+
+/* Navigation et menus de réglage : hiérarchie visuelle sans toucher au bloc des mesures. */
+.main-nav{padding:9px 0 11px;gap:7px}
+.main-nav a{transition:background-color .16s ease,border-color .16s ease,transform .16s ease}
+.main-nav a:active{transform:scale(.98)}
+.section-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.section-heading h2{margin-bottom:3px}
+.section-heading .note{margin:0;max-width:58ch}
+.settings-menu>summary,.settings-group>summary{display:flex;align-items:center;gap:10px;list-style:none}
+.settings-menu>summary::-webkit-details-marker,.settings-group>summary::-webkit-details-marker{display:none}
+.settings-menu>summary::after,.settings-group>summary::after{content:"+";margin-left:auto;display:grid;place-items:center;width:25px;height:25px;flex:0 0 25px;border:1px solid var(--line);border-radius:50%;font-size:1.05rem;font-weight:500;color:var(--acc)}
+.settings-menu[open]>summary::after,.settings-group[open]>summary::after{content:"−"}
+.settings-menu>summary{font-size:1rem}
+.settings-group{margin:10px 0;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.settings-group>summary{font-size:.9rem;color:var(--acc);min-height:28px}
+.settings-group[open]>summary{margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.settings-group .row{align-items:center}
+.settings-group label{font-size:.85rem;color:var(--mut)}
+.energy-details{margin-top:12px}
+.energy-panel{padding:2px 0}
+.energy-panel h3{font-size:.95rem;margin:3px 0 7px}
+.energy-panel h4{font-size:.86rem;margin:14px 0 5px}
+.data-section{border-top:3px solid var(--acc)}
+@media(min-width:650px){
+ .settings-group .row{gap:10px 14px}
+ .data-section{padding:18px}
+}
+@media(max-width:420px){
+ .main-nav a{padding:7px 10px;font-size:.8rem}
+ .settings-group{padding:10px}
+}
