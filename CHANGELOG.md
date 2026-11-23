@@ -4,7 +4,7 @@
 - Les transitions sont conservées dans IndexedDB et incluses dans les nouvelles sauvegardes JSON ; les anciennes sauvegardes restent compatibles.
 - La trame d'état Bluetooth ne fournit pas le mode manuel : aucune association entre télémétrie Bluetooth et modes manuels 1, 2 ou 3 n'est donc déduite. L'absence actuelle de données du mode 3 reflète uniquement le fait qu'il n'a pas encore été utilisé.
 - Le diagnostic technique indique le nombre de transitions conservées et la dernière valeur reçue.
-- Ajout de deux graphiques filtrables (7, 30, 90 jours ou toute la période) : renouvellement transmis en vol/h et débit théorique calculé en m³/h.
+- Intégration de deux graphiques Bluetooth dans la rubrique existante « Historique et graphiques » : renouvellement transmis en vol/h et débit théorique calculé en m³/h. Ils réutilisent les filtres de période et de jour déjà présents.
 - Les graphiques affichent les états réellement reçus, leurs statistiques min./moyenne/max. et les interruptions supérieures à 2 h ; aucune donnée n'est interpolée à travers ces interruptions.
 - Un tableau des 30 dernières transitions détaille leur date de réception et le temps écoulé depuis la transition précédente.
 - Cache du service worker porté à `vmi-test-v14-cache-87`.
