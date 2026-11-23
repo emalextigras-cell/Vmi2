@@ -251,7 +251,7 @@ export function summarizeOperatingProfile(records, rangeDays = 30, now = Date.no
   const matrix = Array.from({ length: 3 }, (_, index) => ({
     mode: index + 1,
     total: 0,
-    speeds: Object.fromEntries([1, 2, 3, 4, 5].map(speed => [speed, 0]))
+    speeds: Object.fromEntries([0, 1, 2, 3, 4, 5].map(speed => [speed, 0]))
   }));
   const speedCounts = Object.fromEntries([0, 1, 2, 3, 4, 5].map(speed => [speed, 0]));
   const modeCounts = { 1: 0, 2: 0, 3: 0 };
@@ -269,7 +269,7 @@ export function summarizeOperatingProfile(records, rangeDays = 30, now = Date.no
       pairedCount += 1;
       const group = matrix[mode - 1];
       group.total += 1;
-      if (speed >= 1 && speed <= 5) group.speeds[speed] += 1;
+      group.speeds[speed] += 1;
     } else {
       unclassifiedCount += 1;
     }
@@ -294,7 +294,7 @@ export function renderOperatingProfile(container, records, rangeDays = 30, now =
   const table = document.createElement('table');
   const head = document.createElement('thead');
   const header = document.createElement('tr');
-  ['Mode manuel', 'Vitesse 1', 'Vitesse 2', 'Vitesse 3', 'Vitesse 4', 'Vitesse 5', 'Total'].forEach(label => {
+  ['Mode manuel', 'Code 0', 'Vitesse 1', 'Vitesse 2', 'Vitesse 3', 'Vitesse 4', 'Vitesse 5', 'Total'].forEach(label => {
     const cell = document.createElement('th');
     cell.textContent = label;
     header.append(cell);
@@ -303,7 +303,7 @@ export function renderOperatingProfile(container, records, rangeDays = 30, now =
   const body = document.createElement('tbody');
   summary.matrix.forEach(group => {
     const row = document.createElement('tr');
-    [`Mode ${group.mode}`, ...[1, 2, 3, 4, 5].map(speed => String(group.speeds[speed])), String(group.total)]
+    [`Mode ${group.mode}`, ...[0, 1, 2, 3, 4, 5].map(speed => String(group.speeds[speed])), String(group.total)]
       .forEach(value => {
         const cell = document.createElement('td');
         cell.textContent = value;
