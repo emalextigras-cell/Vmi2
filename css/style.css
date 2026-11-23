@@ -181,3 +181,9 @@ section[id],details[id]{scroll-margin-top:62px}
 .telemetry-range{margin:2px 0 0}
 .telemetry-periods button[aria-pressed="true"]{background:var(--acc);color:var(--bg)}
 @media(max-width:420px){.telemetry-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.telemetry-transitions{margin-top:12px;padding-top:9px;border-top:1px solid var(--line)}
+.telemetry-transitions>summary{color:var(--acc);font-size:.86rem}
+.telemetry-table-wrap{overflow-x:auto;margin-top:8px}
+.telemetry-table-wrap table{min-width:620px;font-size:.78rem}
+.telemetry-table-wrap td,.telemetry-table-wrap th{white-space:nowrap}
