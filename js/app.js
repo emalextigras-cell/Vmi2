@@ -258,9 +258,10 @@ function renderStateTelemetryPanel(){
   renewalContainer,airflowContainer,summaryContainer,transitionTableContainer,
   records:stateTelemetry,rangeDays:stateTelemetryRangeDays
  });
- [['telemetryDays7',7],['telemetryDays30',30],['telemetryDays90',90],['telemetryDaysAll',0]].forEach(([id,days])=>{
-  $(id).setAttribute('aria-pressed',String(days===stateTelemetryRangeDays));
- });
+ $('telemetryDays7').setAttribute('aria-pressed',String(stateTelemetryRangeDays===7));
+ $('telemetryDays30').setAttribute('aria-pressed',String(stateTelemetryRangeDays===30));
+ $('telemetryDays90').setAttribute('aria-pressed',String(stateTelemetryRangeDays===90));
+ $('telemetryDaysAll').setAttribute('aria-pressed',String(stateTelemetryRangeDays===0));
 }
 
 const handleNotification = createPureventNotificationHandler({
